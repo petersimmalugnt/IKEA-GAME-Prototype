@@ -64,7 +64,7 @@ palette: {
 | `lines` | `enabled`, `thickness`, `creaseAngle` |
 | `camera` | `zoom` (300), `position` ([5,5,5]), `followLerp` |
 | `light` | `position`, `shadowMapSize` (4096), `shadowBias` |
-| `material` | `highlightStep` (0.6), `midtoneStep` (0.1) |
+| `material` | `highlightStep` (0.6), `midtoneStep` (0.1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
 | `player` | `impulseStrength`, `jumpStrength`, `linearDamping`, `mass` |
 
 ---
@@ -74,8 +74,9 @@ palette: {
 ### 1. Toon Shader (`Materials.tsx`)
 
 Custom GLSL shader med tre zoner:
-- **Highlight** (NdotL × shadow > 0.6) → `base` color
-- **Midtone** (> 0.1) → `mid` color
+- **Direct Highlight** (`NdotL > highlightStep`) → `base` color
+- **Direct Midtone** (`NdotL > midtoneStep`) → `mid` color
+- **Cast Shadow Bands** styrs separat via `castMidtoneStep` och `castShadowStep` (från `getShadowMask`), och kan bara mörka ner resultatet
 - **Shadow** (resten) → `shadow` color från `SETTINGS.colors.shadow`
 
 Material cachas per unik färgkombination. Alla meshes med samma palette-token delar samma material-instans.
@@ -197,14 +198,13 @@ Tokens sätts i **objektnamnet** i Cinema 4D:
 | `_fricX` | Sätter friktion | `Ramp_dynamic_fric3` |
 | `_lockRot` | Låser rotation | `Block_dynamic_lockRot` |
 | `_sensor` | Sensor (trigger, ej solid) | `Zone_dynamic_sensor` |
-| `_collider` | Markerar collider-geo (proxy eller egen geo beroende på inställning) | `Box_collider` |
+| `_collider` | Markerar collider-geo (barn-proxy eller egen geo på samma objekt) | `Box_collider` |
 
 ### Kollisions-hantering
 
 - Barn med `_collider` i namnet → `ConvexHullCollider` (ej synlig)
 - Position/rotation från collider-geon bevaras
 - `colliders={false}` sätts automatiskt på `RigidBody` när explicita colliders genereras
-- Inställning: **Use Own Geo For `_collider`**
 - Om physics-objektet självt har `_collider` och är en mesh, används dess egen geo som `ConvexHullCollider`
 - Om physics-objektet självt har `_collider` men saknar egen geo (t.ex. grupp/null), skapas en omslutande `CuboidCollider` från barnens bounds
 - Om inget `_collider` används på physics-objektet behålls Rapier auto-colliders (default-beteende)

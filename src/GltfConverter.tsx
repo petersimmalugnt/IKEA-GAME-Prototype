@@ -21,7 +21,6 @@ type GenerateSettings = {
   useSourceImport: boolean
   modelPath: string
   componentPath: string
-  useOwnGeoColliders: boolean
   animations?: Array<{ name: string }>
   splines?: ParsedSpline[]
 }
@@ -48,7 +47,6 @@ export function GltfConverter() {
     const [useSourceImport, setUseSourceImport] = useState(true)
     const [modelPath, setModelPath] = useState('/models/')
     const [componentPath, setComponentPath] = useState('../../SceneComponents')
-    const [useOwnGeoColliders, setUseOwnGeoColliders] = useState(true)
 
     // Modal State
     const [showModal, setShowModal] = useState(false)
@@ -80,7 +78,6 @@ export function GltfConverter() {
                     const glbFileName = originalFileName.replace(/\.(glb|gltf)$/, '.glb')
                     const generatedJsx = generateJsxFromScene(gltf.scene, glbFileName, {
                         useSourceImport, modelPath, componentPath,
-                        useOwnGeoColliders,
                         animations: gltf.animations || [],
                         splines: [],
                     })
@@ -199,7 +196,6 @@ export function GltfConverter() {
                 try {
                     const generatedJsx = generateJsxFromScene(gltf.scene, glbFileName, {
                         useSourceImport, modelPath, componentPath,
-                        useOwnGeoColliders,
                         animations: gltf.animations || [],
                         splines,
                     })
@@ -352,7 +348,6 @@ export function GltfConverter() {
 
         const newJsx = generateJsxFromScene(parsedScene, finalGlbName, {
             useSourceImport, modelPath, componentPath,
-            useOwnGeoColliders,
             animations: parsedAnimations,
             splines: parsedSplines,
         })
@@ -419,23 +414,6 @@ export function GltfConverter() {
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontWeight: 'bold' }}>Target: Source Folder (src/)</span>
                             <span style={{ fontSize: 11, opacity: 0.6 }}>Best for <code>src/assets/models/</code>. Generates <code>import</code>.</span>
-                        </div>
-                    </label>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <label style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <input
-                            type="checkbox"
-                            checked={useOwnGeoColliders}
-                            onChange={(e) => setUseOwnGeoColliders(e.target.checked)}
-                            style={{ width: 18, height: 18 }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ fontWeight: 'bold' }}>Use Own Geo For `_collider`</span>
-                            <span style={{ fontSize: 11, opacity: 0.6 }}>
-                                Om ett physics-objekt har <code>_collider</code>: använd dess egen mesh som collider. För grupper utan geo används en enkel omslutande <code>CuboidCollider</code>.
-                            </span>
                         </div>
                     </label>
                 </div>
@@ -601,7 +579,7 @@ function getLocalBoundsForObject(obj: THREE.Object3D): { center: THREE.Vector3; 
 }
 
 function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, settings: GenerateSettings): string {
-    const { useSourceImport, modelPath, componentPath, useOwnGeoColliders, animations = [], splines = [] } = settings
+    const { useSourceImport, modelPath, componentPath, animations = [], splines = [] } = settings
     const baseName = originalFileName.replace(/\.(glb|gltf)$/, '')
     const componentName = toPascalCase(baseName || 'Model')
     scene.updateMatrixWorld(true)
@@ -745,14 +723,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         if (physicsType) {
             usesRigidBody = true
 
-            const useSelfMeshCollider = useOwnGeoColliders
-                && isSelfCollider
+            const useSelfMeshCollider = isSelfCollider
                 && obj.isMesh
                 && Boolean(obj.geometry)
                 && explicitColliderMeshes.length === 0
 
-            const useFallbackCuboidCollider = useOwnGeoColliders
-                && isSelfCollider
+            const useFallbackCuboidCollider = isSelfCollider
                 && !useSelfMeshCollider
                 && explicitColliderMeshes.length === 0
 

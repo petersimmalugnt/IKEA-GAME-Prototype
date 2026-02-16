@@ -14,6 +14,8 @@ const ToonShaderMaterial = shaderMaterial(
     uLightDir: new THREE.Vector3(1, 1, 1),
     uHighlightStep: 0.6,
     uMidtoneStep: 0.2,
+    uCastMidtoneStep: 0.2,
+    uCastShadowStep: 0.6,
   } as any,
   // --- VERTEX SHADER ---
   `
@@ -47,6 +49,8 @@ const ToonShaderMaterial = shaderMaterial(
     uniform vec3 uLightDir;
     uniform float uHighlightStep;
     uniform float uMidtoneStep;
+    uniform float uCastMidtoneStep;
+    uniform float uCastShadowStep;
 
     varying vec3 vWorldNormal;
 
@@ -59,14 +63,30 @@ const ToonShaderMaterial = shaderMaterial(
 
     void main() {
       float NdotL = dot(vWorldNormal, uLightDir);
-      float shadow = getShadowMask();
-      float intensity = NdotL * shadow;
+      float shadowMask = getShadowMask();
+      float castOcclusion = 1.0 - shadowMask;
+
+      float directBand = 2.0;
+      if (NdotL > uHighlightStep) {
+        directBand = 0.0;
+      } else if (NdotL > uMidtoneStep) {
+        directBand = 1.0;
+      }
+
+      float castBand = 0.0;
+      if (castOcclusion > uCastShadowStep) {
+        castBand = 2.0;
+      } else if (castOcclusion > uCastMidtoneStep) {
+        castBand = 1.0;
+      }
+
+      float finalBand = max(directBand, castBand);
 
       vec3 color;
 
-      if (intensity > uHighlightStep) {
+      if (finalBand < 0.5) {
         color = uBaseColor;
-      } else if (intensity > uMidtoneStep) {
+      } else if (finalBand < 1.5) {
         color = uMidColor;
       } else {
         color = uShadowColor;
@@ -90,6 +110,8 @@ type ToonMaterialInstance = THREE.ShaderMaterial & {
     uLightDir: { value: THREE.Vector3 }
     uHighlightStep: { value: number }
     uMidtoneStep: { value: number }
+    uCastMidtoneStep: { value: number }
+    uCastShadowStep: { value: number }
   }
 }
 
@@ -103,9 +125,11 @@ function getOrCreateMaterial(
   shadowHex: string,
   highlightStep: number,
   midtoneStep: number,
+  castMidtoneStep: number,
+  castShadowStep: number,
   lightDir: THREE.Vector3,
 ): ToonMaterialInstance {
-  const key = `${baseHex}-${midHex}-${shadowHex}-${highlightStep}-${midtoneStep}`
+  const key = `${baseHex}-${midHex}-${shadowHex}-${highlightStep}-${midtoneStep}-${castMidtoneStep}-${castShadowStep}`
   const cached = materialCache.get(key)
   if (cached) return cached
 
@@ -117,6 +141,8 @@ function getOrCreateMaterial(
   mat.uniforms.uLightDir.value = lightDir
   mat.uniforms.uHighlightStep.value = highlightStep
   mat.uniforms.uMidtoneStep.value = midtoneStep
+  mat.uniforms.uCastMidtoneStep.value = castMidtoneStep
+  mat.uniforms.uCastShadowStep.value = castShadowStep
   materialCache.set(key, mat)
   return mat
 }
@@ -129,6 +155,8 @@ type C4DMaterialProps = {
   shadowColor?: string
   highlightStep?: number
   midtoneStep?: number
+  castMidtoneStep?: number
+  castShadowStep?: number
   lightDir?: THREE.Vector3 | null
   [key: string]: unknown
 }
@@ -141,6 +169,8 @@ export function C4DMaterial({
   shadowColor = SETTINGS.colors.shadow,
   highlightStep = SETTINGS.material.highlightStep,
   midtoneStep = SETTINGS.material.midtoneStep,
+  castMidtoneStep = SETTINGS.material.castMidtoneStep,
+  castShadowStep = SETTINGS.material.castShadowStep,
   lightDir = null,
   ...props
 }: C4DMaterialProps) {
@@ -168,6 +198,8 @@ export function C4DMaterial({
     shadowColor,
     highlightStep,
     midtoneStep,
+    castMidtoneStep,
+    castShadowStep,
     finalLightDir,
   )
 

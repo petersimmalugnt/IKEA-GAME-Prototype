@@ -53,6 +53,8 @@ type Settings = {
   material: {
     highlightStep: number
     midtoneStep: number
+    castMidtoneStep: number
+    castShadowStep: number
   }
   player: {
     impulseStrength: number
@@ -67,7 +69,7 @@ type Settings = {
 export const SETTINGS: Settings = {
   // --- DEBUG ---
   debug: {
-    enabled: true,        // Master-toggle för allt debug
+    enabled: false,        // Master-toggle för allt debug
     showColliders: true,  // Visa fysik-kollisions-proxys (wireframe)
     showStats: true,      // Visa FPS / MS / MB
   },
@@ -112,7 +114,9 @@ export const SETTINGS: Settings = {
   // --- MATERIAL (Toon Shading) ---
   material: {
     highlightStep: 0.6, // Gräns för ljusaste zonen
-    midtoneStep: 0.1,   // Gräns för mellantonen
+    midtoneStep: -1,   // Gräns för mellantonen
+    castMidtoneStep: 0.2, // Start för cast-shadow midtone (0 = ingen skugga, 1 = full skugga)
+    castShadowStep: 0.6,  // Start för cast-shadow mörkaste zon
   },
 
   // --- SPELARFYSIK ---

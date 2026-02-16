@@ -19,10 +19,7 @@ type SplineAndAnimTestProps = ThreeElements['group'] & {
 
 export function SplineAndAnimTest({ animation = null, fadeDuration = 0.3, ...props }: SplineAndAnimTestProps) {
   const group = useRef<THREE.Group | null>(null)
-  const { nodes, animations } = useGLTF(modelUrl) as unknown as {
-    nodes: Record<string, THREE.Mesh>
-    animations: THREE.AnimationClip[]
-  }
+  const { nodes, animations } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh>; animations: THREE.AnimationClip[] }
   const { actions } = useAnimations(animations, group)
 
   // Crossfade mellan animationer
@@ -57,8 +54,8 @@ export function SplineAndAnimTest({ animation = null, fadeDuration = 0.3, ...pro
           <C4DMaterial color={colors.four} />
         </C4DMesh>
       </RigidBody>
-      <C4DMesh name={nodes['Sphere'].name} geometry={nodes['Sphere'].geometry} castShadow receiveShadow position={[-27.8868, 0, 0]}>
-        <C4DMaterial color={colors.three} />
+      <C4DMesh name={nodes['Sphere_singleTone'].name} geometry={nodes['Sphere_singleTone'].geometry} castShadow receiveShadow position={[-27.8868, 0, 0]}>
+        <C4DMaterial color={colors.three} singleTone />
       </C4DMesh>
       <C4DMesh name={nodes['Cube_colorTwo'].name} geometry={nodes['Cube_colorTwo'].geometry} castShadow receiveShadow>
         <C4DMaterial color={colors.two} />
