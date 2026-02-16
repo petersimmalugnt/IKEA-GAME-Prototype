@@ -1,7 +1,8 @@
 # IKEA Game — Projektdokumentation
 
 > **Tech:** Vite + React 19 + Three.js r182 + React Three Fiber 9 + Rapier Physics
-> **Dev:** `npm run dev` → `http://localhost:5173` (spel) / `http://localhost:5173/converter` (konverterare)
+> **Repo:** [IKEA-GAME-Prototype](https://github.com/petersimmalugnt/IKEA-GAME-Prototype)
+> **Dev:** `npm run dev` → `http://localhost:5173` (spel) / `http://localhost:5173/converter` (konverterare) / `http://localhost:5173/docs` (dokumentation)
 
 ---
 
@@ -12,6 +13,7 @@ graph TD
     A[main.jsx] --> B[App.jsx]
     B -->|"/"| C[Scene.jsx]
     B -->|"/converter"| D[GltfConverter.jsx]
+    B -->|"/docs"| L[DocsPage.jsx]
     C --> E[Player.jsx]
     C --> F[SceneComponents]
     C --> G[CameraFollow.jsx]
@@ -23,7 +25,7 @@ graph TD
 
 | Fil | Ansvar |
 |-----|--------|
-| `App.jsx` | Routing (`/` = spel, `/converter` = C4D-konverterare), Canvas-setup, kamera, ljus |
+| `App.jsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
 | `GameSettings.jsx` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `Scene.jsx` | Spelscenen med Physics-wrapper, alla element, keyboard controls |
 | `Player.jsx` | Spelarbol med physics, keyboard input, hopp (raycast) |
@@ -34,6 +36,7 @@ graph TD
 | `Effects.jsx` | Post-processing pipeline (EffectComposer + SMAA) |
 | `SurfaceIdEffect.jsx` | Custom outline-effekt: surface-ID + normal-baserade kanter |
 | `GltfConverter.jsx` | FBX/GLB → JSX konverterare (drag & drop) |
+| `DocsPage.jsx` | Visar `DOCS.md` i browser med sidebar + Mermaid-diagram |
 | `PhysicsStepper.jsx` | Manuell physics-stepping (oanvänd för tillfället) |
 
 ---
@@ -230,6 +233,31 @@ Filer sparas via **File System Access API** (kräver användarens permission).
 
 ---
 
+## Browser Testning & Console
+
+### Öppna appen i browser
+```bash
+npm run dev
+# öppna sedan:
+# http://127.0.0.1:5173/
+```
+
+### Läs browser-console automatiskt (headless Chrome)
+```bash
+npm run console:check
+```
+
+Valfri URL:
+```bash
+npm run console:check -- http://127.0.0.1:5173/docs
+```
+
+Miljövariabler:
+- `CDP_PORT` (default `9222`)
+- `CONSOLE_LISTEN_MS` (default `5000`)
+
+---
+
 ## Projektstruktur
 
 ```
@@ -247,9 +275,11 @@ src/
 ├── SurfaceIdEffect.jsx     # Custom outline-effekt
 ├── PhysicsStepper.jsx      # Manuell physics step (oanvänd)
 ├── GltfConverter.jsx       # FBX/GLB → JSX konverterare
+├── DocsPage.jsx            # Browser-renderad dokumentation
+├── DocsPage.css            # Stil för docs-sidan
 └── assets/
     ├── models/             # Genererade GLB + JSX filer
-    └── splineAndAnimTest.fbx
+    └── splineAndAnimTest.glb
 ```
 
 ---

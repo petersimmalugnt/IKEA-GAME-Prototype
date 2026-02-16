@@ -1,9 +1,8 @@
-import React, { useRef, useState } from 'react'
+import React, { useRef } from 'react'
 import { Physics } from '@react-three/rapier'
 import { KeyboardControls, Stats } from '@react-three/drei'
 import { CubeElement, CylinderElement, SplineElement, InvisibleFloor } from './SceneComponents'
 import { Player } from './Player'
-import { Testgeo } from './assets/models/testgeo'
 import { SplineAndAnimTest } from './assets/models/SplineAndAnimTest'
 import { GameEffects } from './Effects'
 import { CameraFollow } from './CameraFollow'
@@ -21,7 +20,6 @@ const isDebug = SETTINGS.debug.enabled
 
 export function Scene() {
   const playerRef = useRef()
-  const [testAnim, setTestAnim] = useState(null)
 
   return (
     <KeyboardControls map={keyboardMap}>
@@ -86,11 +84,8 @@ export function Scene() {
           friction={1}
         />
 
-        {/* C4D EXPORT TEST */}
-        <Testgeo position={[0.5, 1, 0]} />
-
         {/* FBX PIPELINE TEST */}
-        <SplineAndAnimTest position={[0, 2, -3]} scale={0.01} animation={testAnim} />
+        <SplineAndAnimTest position={[0, 2, -3]} scale={0.01} animation={null} />
 
         <InvisibleFloor />
       </Physics>

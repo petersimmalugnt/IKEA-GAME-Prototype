@@ -1,9 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter'
-import * as THREE from 'three'
 
 export function GltfConverter() {
     // State
@@ -88,7 +87,6 @@ export function GltfConverter() {
 
             // --- Extrahera splines (THREE.Line med NurbsCurve-geometri) ---
             const splines = []
-            const meshScene = new THREE.Scene() // Scene utan splines (för GLB-export)
 
             fbxScene.traverse((child) => {
                 // FBXLoader skapar Line-objekt från NurbsCurve
@@ -194,7 +192,7 @@ export function GltfConverter() {
         }
     }
 
-    const onFileDrop = useCallback((e) => {
+    const onFileDrop = (e) => {
         e.preventDefault()
         const file = e.dataTransfer.files[0]
         if (!file) return
@@ -226,7 +224,7 @@ export function GltfConverter() {
             }
         }
         reader.readAsArrayBuffer(file)
-    }, [useSourceImport, modelPath, componentPath])
+    }
 
     // --- SAVE LOGIC ---
 
@@ -262,11 +260,7 @@ export function GltfConverter() {
             const glbName = baseName + '.glb'
             const jsxName = toPascalCase(baseName) + '.jsx'
 
-            let conflict = false
-            try { await handle.getFileHandle(jsxName); conflict = true } catch (e) { }
-            if (!conflict) {
-                try { await handle.getFileHandle(glbName); conflict = true } catch (e) { }
-            }
+            const conflict = (await fileExists(handle, jsxName)) || (await fileExists(handle, glbName))
 
             if (conflict) {
                 setConflictName(baseName)
@@ -281,7 +275,6 @@ export function GltfConverter() {
     }
 
     const performSave = async (handle, baseName, increment) => {
-        let finalBaseName = baseName
         let finalGlbName = baseName + '.glb'
         let finalJsxName = toPascalCase(baseName) + '.jsx'
 
@@ -293,15 +286,12 @@ export function GltfConverter() {
                 const testGlb = `${testBase}.glb`
                 const testJsx = `${toPascalCase(testBase)}.jsx`
 
-                try {
-                    await handle.getFileHandle(testGlb)
-                } catch (e) {
-                    try { await handle.getFileHandle(testJsx) } catch (e2) {
-                        found = false
-                        finalBaseName = testBase
-                        finalGlbName = testGlb
-                        finalJsxName = testJsx
-                    }
+                const testGlbExists = await fileExists(handle, testGlb)
+                const testJsxExists = await fileExists(handle, testJsx)
+                if (!testGlbExists && !testJsxExists) {
+                    found = false
+                    finalGlbName = testGlb
+                    finalJsxName = testJsx
                 }
                 if (found) counter++
             }
@@ -551,7 +541,7 @@ function generateJsxFromScene(scene, originalFileName, settings) {
     // Refs och hooks
     if (hasAnimations) {
         output += `  const group = useRef()\n`
-        output += `  const { nodes, materials, animations } = useGLTF(${loadPathStr})\n`
+        output += `  const { nodes, animations } = useGLTF(${loadPathStr})\n`
         output += `  const { actions } = useAnimations(animations, group)\n\n`
 
         // Crossfade-logik
@@ -567,7 +557,7 @@ function generateJsxFromScene(scene, originalFileName, settings) {
         // Kommentar med tillgängliga animationer
         output += `  // Tillgängliga animationer: ${selectableAnims.map(a => `"${a.name}"`).join(', ')}\n\n`
     } else {
-        output += `  const { nodes, materials } = useGLTF(${loadPathStr})\n`
+        output += `  const { nodes } = useGLTF(${loadPathStr})\n`
     }
 
     // Colors-objekt
@@ -604,9 +594,9 @@ function generateJsxFromScene(scene, originalFileName, settings) {
         if (rawName.includes('_dynamic')) physicsType = 'dynamic'
         if (rawName.includes('_static') || rawName.includes('_fixed')) physicsType = 'fixed'
         if (rawName.includes('_kinematic')) physicsType = 'kinematicPosition'
-        const massMatch = rawName.match(/_mass([\d\.]+)/)
+        const massMatch = rawName.match(/_mass([\d.]+)/)
         if (massMatch) physicsProps += ` mass={${massMatch[1]}}`
-        const fricMatch = rawName.match(/_fric([\d\.]+)/)
+        const fricMatch = rawName.match(/_fric([\d.]+)/)
         if (fricMatch) physicsProps += ` friction={${fricMatch[1]}}`
         if (rawName.includes('_lockRot')) physicsProps += ` lockRotations`
         if (rawName.includes('_sensor')) physicsProps += ` sensor`
@@ -663,7 +653,7 @@ function generateJsxFromScene(scene, originalFileName, settings) {
     if (hasSplines) {
         output += `\n      {/* Splines */}\n`
         splines.forEach(spline => {
-            const cleanName = spline.name.replace(/\x00.*$/, '').trim() // Ta bort FBX null-suffix
+            const cleanName = spline.name.split('\u0000')[0].trim() // Ta bort FBX null-suffix
             const tp = spline.transform
             let splineProps = ''
 
@@ -699,6 +689,15 @@ function generateJsxFromScene(scene, originalFileName, settings) {
 
 const DB_NAME = 'GltfConverterDB'
 const STORE_NAME = 'handles'
+
+async function fileExists(handle, fileName) {
+    try {
+        await handle.getFileHandle(fileName)
+        return true
+    } catch {
+        return false
+    }
+}
 
 function openDB() {
     return new Promise((resolve, reject) => {

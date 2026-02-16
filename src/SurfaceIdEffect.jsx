@@ -79,7 +79,7 @@ class SurfaceIdEffectImpl extends Effect {
       ])
     })
   }
-  update(renderer, inputBuffer, deltaTime) {
+  update(_renderer, inputBuffer) {
     this.uniforms.get('resolution').value.set(inputBuffer.width, inputBuffer.height)
   }
 }
@@ -129,8 +129,6 @@ export const SurfaceIdEffect = ({ thickness = 1.5, color = '#2e212f', debug = fa
 
   useFrame(() => {
     camera.updateMatrixWorld()
-    const oldBg = scene.background
-    scene.background = null
 
     // Dölj objekt som inte ska delta i outline-detektionen (t.ex. splines + debug lines)
     const hiddenObjects = []
@@ -187,7 +185,6 @@ export const SurfaceIdEffect = ({ thickness = 1.5, color = '#2e212f', debug = fa
     hiddenObjects.forEach(obj => { obj.visible = true })
 
     gl.setRenderTarget(null)
-    scene.background = oldBg
 
     effect.uniforms.get('surfaceBuffer').value = idFbo.texture
     effect.uniforms.get('normalBuffer').value = normalFbo.texture
@@ -204,7 +201,7 @@ export const SurfaceIdEffect = ({ thickness = 1.5, color = '#2e212f', debug = fa
     effect.uniforms.get('outlineColor').value.set(color)
     effect.uniforms.get('debug').value = debug
     effect.uniforms.get('normalThreshold').value = threshold
-  }, [thickness, color, debug, threshold, viewport.dpr])
+  }, [effect, thickness, color, debug, threshold, viewport.dpr])
 
   return <primitive object={effect} dispose={null} />
 }

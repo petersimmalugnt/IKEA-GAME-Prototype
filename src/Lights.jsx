@@ -1,6 +1,4 @@
-import * as THREE from 'three'
-import { useRef, useEffect } from 'react' // Lägg till useEffect
-import { useThree } from '@react-three/fiber' // Lägg till useThree
+import { useRef } from 'react'
 import { SETTINGS } from './GameSettings'
 
 export function GameLights() {

@@ -11,7 +11,7 @@ import modelUrl from './splineAndAnimTest.glb?url'
 
 export function SplineAndAnimTest({ animation = null, fadeDuration = 0.3, ...props }) {
   const group = useRef()
-  const { nodes, materials, animations } = useGLTF(modelUrl)
+  const { nodes, animations } = useGLTF(modelUrl)
   const { actions } = useAnimations(animations, group)
 
   // Crossfade mellan animationer

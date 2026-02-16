@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { useMemo, useRef, forwardRef } from 'react'
+import { useMemo, useId, forwardRef } from 'react'
 import { useThree, useFrame } from '@react-three/fiber'
 import { RigidBody, CuboidCollider, CylinderCollider, BallCollider, ConvexHullCollider } from '@react-three/rapier'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
@@ -8,9 +8,24 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { C4DMaterial } from './Materials'
 import { SETTINGS } from './GameSettings'
 
+function hashToSurfaceHex(input) {
+  let hash = 0
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) - hash) + input.charCodeAt(i)
+    hash |= 0
+  }
+  const hex = (hash >>> 0) & 0xffffff
+  return hex === 0 ? 0x000001 : hex
+}
+
+function useSurfaceId() {
+  const reactId = useId()
+  return useMemo(() => new THREE.Color().setHex(hashToSurfaceHex(reactId)), [reactId])
+}
+
 // Wrapper för C4D-mesh som genererar unikt surfaceId för outline-effekten
 export const C4DMesh = forwardRef(({ children, ...props }, ref) => {
-  const surfaceId = useMemo(() => new THREE.Color().setHex(Math.random() * 0xffffff), [])
+  const surfaceId = useSurfaceId()
   return (
     <mesh ref={ref} userData={{ surfaceId }} {...props}>
       {children}
@@ -74,7 +89,7 @@ export const CubeElement = forwardRef(({
   rotation = [0, 0, 0],
   ...props
 }, ref) => {
-  const surfaceId = useMemo(() => new THREE.Color().setHex(Math.random() * 0xffffff), [])
+  const surfaceId = useSurfaceId()
   const rotationRadians = useMemo(() => rotation.map(r => r * (Math.PI / 180)), [rotation])
   const colliderArgs = useMemo(() => [size[0] / 2, size[1] / 2, size[2] / 2], [size])
 
@@ -125,7 +140,7 @@ export const SphereElement = forwardRef(({
   rotation = [0, 0, 0],
   ...props
 }, ref) => {
-  const surfaceId = useMemo(() => new THREE.Color().setHex(Math.random() * 0xffffff), [])
+  const surfaceId = useSurfaceId()
   const rotationRadians = useMemo(() => rotation.map(r => r * (Math.PI / 180)), [rotation])
   const colliderArgs = useMemo(() => [radius], [radius])
 
@@ -177,7 +192,7 @@ export const CylinderElement = forwardRef(({
   rotation = [0, 0, 0],
   ...props
 }, ref) => {
-  const surfaceId = useMemo(() => new THREE.Color().setHex(Math.random() * 0xffffff), [])
+  const surfaceId = useSurfaceId()
   const rotationRadians = useMemo(() => rotation.map(r => r * (Math.PI / 180)), [rotation])
 
   // Generera cylinderformad konvex hull: topp- och bottenring med N sidor
@@ -266,10 +281,8 @@ export const SplineElement = forwardRef(({
   // Transform – applied to group
   position,
   rotation = [0, 0, 0],
-  ...props
 }, ref) => {
   const { size, camera, gl } = useThree()
-  const lineRef = useRef()
   const rotationRadians = useMemo(() => rotation.map(r => r * (Math.PI / 180)), [rotation])
 
   const finalColor = color || SETTINGS.colors.outline
@@ -277,10 +290,10 @@ export const SplineElement = forwardRef(({
   const finalLineWidth = lineWidth ?? (SETTINGS.lines.thickness * gl.getPixelRatio())
 
   // Skapa kurvan och samplade punkter
-  const { curve, curvePoints } = useMemo(() => {
+  const curvePoints = useMemo(() => {
     const vectors = points.map(p => new THREE.Vector3(...p))
     const c = new THREE.CatmullRomCurve3(vectors, closed, curveType, tension)
-    return { curve: c, curvePoints: c.getPoints(segments) }
+    return c.getPoints(segments)
   }, [points, segments, closed, curveType, tension])
 
   // Bygg Line2 – konstant pixelbredd i screen-space
