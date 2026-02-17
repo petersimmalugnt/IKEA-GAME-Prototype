@@ -22,6 +22,8 @@ graph TD
     CS --> G[CameraFollow.tsx]
     CS --> CTX[CameraSystemContext.ts]
     C --> H[GameEffects]
+    H --> R[RetroPixelatedEffects.tsx]
+    R --> PP[postprocessing/ConfigurableRenderPixelatedPass.ts]
     C --> N[debug/BenchmarkDebugContent.tsx]
     N --> O[streaming/ChunkStreamingSystem.ts]
     N --> P[debug/StreamingDebugOverlay.tsx]
@@ -47,7 +49,9 @@ graph TD
 | `Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
 | `Lights.tsx` | DirectionalLight med shadow-konfiguration |
 | `CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow |
-| `Effects.tsx` | Post-processing pipeline (EffectComposer + SMAA) |
+| `Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
+| `RetroPixelatedEffects.tsx` | Egen three.js composer-kedja för retro-läget (pixelpass + outputpass) |
+| `postprocessing/ConfigurableRenderPixelatedPass.ts` | Anpassad pixelpass med styrbar depth-edge-threshold |
 | `SurfaceIdEffect.tsx` | Custom outline-effekt: surface-ID + normal-baserade kanter |
 | `GltfConverter.tsx` | FBX/GLB → TSX-konverterare (drag & drop) |
 | `DocsPage.tsx` | Visar `DOCS.md` i browser med sidebar + Mermaid-diagram |
@@ -85,15 +89,26 @@ palette: {
 ### Viktiga inställningar
 | Sektion | Nyckelparametrar |
 |---------|-----------------|
+| `render` | `style: 'toon' | 'pixel' | 'retroPixelPass'` |
 | `debug` | `enabled`, `showColliders`, `showStats`, `benchmark`, `streaming` |
 | `streaming` | `enabled`, `cellSize`, `preload/render/physics`-radier, `updateIntervalMs`, `center(source,targetId)` |
 | `colors` | `shadow`, `outline` |
 | `palette` | `active`, `variants`, `autoMid(lightnessDelta/chromaDelta/hueShift)` |
 | `lines` | `enabled`, `thickness`, `creaseAngle`, `threshold`, `composerMultisampling`, `smaaEnabled`, `smaaPreset` |
+| `pixelation` | `enabled`, `granularity` (används i `render.style = 'pixel'`) |
+| `retroPixelPass` | `pixelSize`, `normalEdgeStrength`, `depthEdgeStrength`, `depthEdgeThresholdMin/Max` |
 | `camera` | `mode`, `base`, `static(position/lookAt)`, `follow(targetId, offset, lerp, axis/rotation lock)` |
 | `light` | `position`, `shadowMapSize` (4096), `shadowBias` |
-| `material` | `highlightStep` (0.6), `midtoneStep` (-1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
+| `material` | `highlightStep` (0.6), `midtoneStep` (0.1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
 | `player` | `impulseStrength`, `jumpStrength`, `linearDamping`, `mass` |
+
+### Renderlägen (`SETTINGS.render.style`)
+
+- `toon` — standardläget: `SurfaceIdEffect` + valfri SMAA.
+- `pixel` — samma som `toon` men med extra `Pixelation`-pass i slutet.
+- `retroPixelPass` — separat three.js composer-kedja med `ConfigurableRenderPixelatedPass` + `OutputPass`.
+
+`retroPixelPass` använder egna parametrar i `SETTINGS.retroPixelPass`.
 
 ### Benchmark-läge (Debug)
 
@@ -149,6 +164,23 @@ Spelkontroller är kapslade i egen komponent:
 
 ## Rendering Pipeline
 
+### Renderlägen (`Effects.tsx`)
+
+- `toon`:
+1. `SurfaceIdEffect` (outlines/creases)
+2. Valfri `SMAA`
+
+- `pixel`:
+1. `SurfaceIdEffect`
+2. Valfri `SMAA`
+3. `Pixelation`
+
+- `retroPixelPass`:
+1. `ConfigurableRenderPixelatedPass` (low-res render + normal/depth edge)
+2. `OutputPass` (tone mapping + color space conversion)
+
+I `retroPixelPass` används inte `SurfaceIdEffect`/`SMAA`, utan en separat three.js composer-kedja i `RetroPixelatedEffects.tsx`.
+
 ### 1. Toon Shader (`Materials.tsx`)
 
 Custom GLSL shader med tre zoner:
@@ -176,6 +208,15 @@ Postprocess-AA styrs i `Effects.tsx` via:
 - `SETTINGS.lines.smaaEnabled` + `SETTINGS.lines.smaaPreset`
 
 > **OBS:** Objekt med `userData.excludeFromOutlines = true` (t.ex. splines) hoppas över.
+
+### 2b. Retro Pixel Pass (`ConfigurableRenderPixelatedPass.ts`)
+
+Bygger på three.js `RenderPixelatedPass` men med extra uniforms för depth-trösklar:
+
+- `depthEdgeThresholdMin`
+- `depthEdgeThresholdMax`
+
+Det gör depth-edge användbar även i ortografiskt läge där standardtröskeln ofta är för hög.
 
 ### 3. C4DMesh
 
@@ -389,8 +430,11 @@ src/
 ├── Materials.tsx           # Toon shader & C4DMaterial
 ├── Lights.tsx              # Ljus & skuggor
 ├── CameraFollow.tsx        # Kamerarigg (follow/static, lock rotation/axes)
-├── Effects.tsx             # Post-processing wrapper
+├── Effects.tsx             # Render-lägesväxel + postprocessing wrapper
+├── RetroPixelatedEffects.tsx # Retro pixel-kedja (custom pass + output pass)
 ├── SurfaceIdEffect.tsx     # Custom outline-effekt
+├── postprocessing/
+│   └── ConfigurableRenderPixelatedPass.ts # Anpassad RenderPixelatedPass med depth-threshold settings
 ├── PhysicsStepper.ts       # Manuell physics step (oanvänd)
 ├── GltfConverter.tsx       # FBX/GLB → TSX konverterare
 ├── DocsPage.tsx            # Browser-renderad dokumentation
