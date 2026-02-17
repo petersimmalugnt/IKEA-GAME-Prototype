@@ -1,25 +1,25 @@
 import * as THREE from 'three'
-import { useRef, type RefObject } from 'react'
+import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SETTINGS } from '../GameSettings'
-import type { PlayerHandle } from '../Player'
 import type { ChunkActivationState, ChunkEntry } from '../streaming/ChunkStreamingSystem'
+import type { WorldPosition } from '../TargetAnchor'
 
 type StreamingDebugOverlayProps = {
-  playerRef: RefObject<PlayerHandle | null>
+  getCenterPosition: () => WorldPosition | undefined
   chunks: ChunkEntry[]
   chunkState: ChunkActivationState
 }
 
-export function StreamingDebugOverlay({ playerRef, chunks, chunkState }: StreamingDebugOverlayProps) {
+export function StreamingDebugOverlay({ getCenterPosition, chunks, chunkState }: StreamingDebugOverlayProps) {
   const showStreamingDebug = SETTINGS.debug.enabled && SETTINGS.debug.streaming.enabled
   const ringGroupRef = useRef<THREE.Group | null>(null)
   const streamingDebug = SETTINGS.debug.streaming
   const streaming = SETTINGS.streaming
 
   useFrame(() => {
-    if (!showStreamingDebug || !streamingDebug.showRadii || !ringGroupRef.current || !playerRef.current) return
-    const pos = playerRef.current.getPosition()
+    if (!showStreamingDebug || !streamingDebug.showRadii || !ringGroupRef.current) return
+    const pos = getCenterPosition()
     if (!pos) return
     ringGroupRef.current.position.set(pos.x, 0, pos.z)
   })

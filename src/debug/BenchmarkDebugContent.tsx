@@ -1,7 +1,7 @@
-import { useMemo, type RefObject } from 'react'
+import { useMemo } from 'react'
 import { CubeElement } from '../SceneComponents'
 import { SETTINGS, type PaletteName, type Vec3 } from '../GameSettings'
-import type { PlayerHandle } from '../Player'
+import { useCameraSystem } from '../CameraSystemContext'
 import {
   getChunkCoord,
   makeChunkKey,
@@ -23,10 +23,6 @@ type BenchmarkBlock = {
 
 type ChunkedBenchmarkBlock = BenchmarkBlock & {
   chunkKey: string
-}
-
-type BenchmarkDebugContentProps = {
-  playerRef: RefObject<PlayerHandle | null>
 }
 
 function buildBenchmarkBlocks(): BenchmarkBlock[] {
@@ -104,7 +100,8 @@ function buildBenchmarkChunks(blocks: BenchmarkBlock[], cellSize: number): {
   }
 }
 
-export function BenchmarkDebugContent({ playerRef }: BenchmarkDebugContentProps) {
+export function BenchmarkDebugContent() {
+  const { getStreamingCenter } = useCameraSystem()
   const benchmarkBlocks = useMemo(() => buildBenchmarkBlocks(), [])
   const streamingEnabled = SETTINGS.streaming.enabled && benchmarkBlocks.length > 0
 
@@ -114,7 +111,7 @@ export function BenchmarkDebugContent({ playerRef }: BenchmarkDebugContentProps)
   )
 
   const chunkState = useChunkStreamingState({
-    playerRef,
+    getCenterPosition: getStreamingCenter,
     chunks,
     enabled: streamingEnabled,
     config: SETTINGS.streaming,
@@ -140,7 +137,7 @@ export function BenchmarkDebugContent({ playerRef }: BenchmarkDebugContentProps)
         )
       })}
 
-      <StreamingDebugOverlay playerRef={playerRef} chunks={chunks} chunkState={chunkState} />
+      <StreamingDebugOverlay getCenterPosition={getStreamingCenter} chunks={chunks} chunkState={chunkState} />
     </>
   )
 }

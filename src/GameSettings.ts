@@ -22,6 +22,14 @@ export type PaletteAutoMidSettings = {
 
 export type PaletteVariantName = 'classic' | 'pine' | 'green'
 export type SMAAPresetName = 'low' | 'medium' | 'high' | 'ultra'
+export type CameraMode = 'static' | 'follow'
+export type StreamingCenterSource = 'target' | 'cameraFocus'
+
+type AxisMask = {
+  x: boolean
+  y: boolean
+  z: boolean
+}
 
 type Settings = {
   debug: {
@@ -55,6 +63,10 @@ type Settings = {
     renderUnloadRadius: number
     physicsLoadRadius: number
     physicsUnloadRadius: number
+    center: {
+      source: StreamingCenterSource
+      targetId: string
+    }
   }
   colors: {
     shadow: string
@@ -74,12 +86,32 @@ type Settings = {
     smaaEnabled: boolean
     smaaPreset: SMAAPresetName
   }
+  pixelation: {
+    enabled: boolean
+    granularity: number
+  }
   camera: {
-    zoom: number
-    position: Vec3
-    near: number
-    far: number
-    followLerp: number
+    mode: CameraMode
+    base: {
+      zoom: number
+      near: number
+      far: number
+    }
+    static: {
+      position: Vec3
+      lookAt: Vec3
+    }
+    follow: {
+      targetId: string
+      offset: Vec3
+      lookAtOffset: Vec3
+      followLerp: number
+      lookAtLerp: number
+      lockRotation: boolean
+      followAxes: AxisMask
+      lookAtAxes: AxisMask
+      moveLightWithTarget: boolean
+    }
   }
   light: {
     position: Vec3
@@ -140,6 +172,10 @@ export const SETTINGS: Settings = {
     renderUnloadRadius: 24, // Chunks tas bort visuellt först utanför denna radie
     physicsLoadRadius: 14, // Physics aktiveras inom denna radie
     physicsUnloadRadius: 18, // Physics stängs av först utanför denna radie
+    center: {
+      source: 'target', // 'target' = följ targetId, 'cameraFocus' = följ kamerans focus/lookAt
+      targetId: 'player',
+    },
   },
 
   // --- FÄRGER ---
@@ -183,15 +219,15 @@ export const SETTINGS: Settings = {
     autoMid: {
       enabled: true,        // Auto-generera mid från base om mid saknas i paletten
       lightnessDelta: -0.06, // Negativt = mörkare midtone
-      chromaDelta: -0.002,   // Negativt = lite mindre mättnad, positivt = mer punch
-      hueShift: -4,          // Negativt = vrider mot kallare toner i denna setup
+      chromaDelta: -0.005,   // Negativt = lite mindre mättnad, positivt = mer punch
+      hueShift: 5,          // Negativt = vrider mot kallare toner i denna setup
     },
   },
 
   // --- LINJER (Outlines & Creases) ---
   lines: {
     enabled: true,
-    thickness: 1.5,     // Tjocklek i pixlar
+    thickness: 1,     // Tjocklek i pixlar
     creaseAngle: 30,    // Vinkel i grader för inre linjer (30 = teknisk look)
     threshold: 0.01,    // Känslighet för surface-ID edge-detektion
     composerMultisampling: 4, // MSAA i postprocess-composer (0 stanger av)
@@ -199,13 +235,35 @@ export const SETTINGS: Settings = {
     smaaPreset: 'high', // low | medium | high | ultra
   },
 
+  // --- PIXELATION (Pixelart-test via postprocess-pass) ---
+  pixelation: {
+    enabled: false,   // Slå av/på pixel-look
+    granularity: 8,  // 1 = subtilt, högre = mer pixligt
+  },
+
   // --- KAMERA ---
   camera: {
-    zoom: 300,
-    position: [5, 5, 5],
-    near: 0.1,
-    far: 2000,
-    followLerp: 0.025, // Kamera-drag (0.01=trögt, 0.1=snappigt)
+    mode: 'static', // 'follow' eller 'static'
+    base: {
+      zoom: 300,
+      near: 0.1,
+      far: 2000,
+    },
+    static: {
+      position: [5, 5, 5], // Fast kameraposition i static-mode
+      lookAt: [0, 0, 0],   // Punkt kameran tittar mot i static-mode
+    },
+    follow: {
+      targetId: 'player', // ID på target i scenen som kameran följer
+      offset: [5, 5, 5],  // Isometrisk offset från target
+      lookAtOffset: [0, 0, 0], // Extra offset på kamerans lookAt
+      followLerp: 0.025,  // Kamera-drag position (0.01=trögt, 0.1=snappigt)
+      lookAtLerp: 0.04,   // Kamera-drag för lookAt-target
+      lockRotation: true, // Låser kamerans rotation för stabil ortografisk/isometrisk känsla
+      followAxes: { x: true, y: false, z: true }, // Följ bara sidled + djup, lås höjd
+      lookAtAxes: { x: true, y: true, z: true }, // Lås valda axlar för lookAt
+      moveLightWithTarget: true, // Flytta directional light tillsammans med follow-target
+    },
   },
 
   // --- LJUS (Påverkar skuggor & material) ---
@@ -221,7 +279,7 @@ export const SETTINGS: Settings = {
   // --- MATERIAL (Toon Shading) ---
   material: {
     highlightStep: 0.6, // Gräns för ljusaste zonen
-    midtoneStep: -1,   // Gräns för mellantonen
+    midtoneStep: .1,   // Gräns för mellantonen
     castMidtoneStep: 0.2, // Start för cast-shadow midtone (0 = ingen skugga, 1 = full skugga)
     castShadowStep: 0.6,  // Start för cast-shadow mörkaste zon
   },

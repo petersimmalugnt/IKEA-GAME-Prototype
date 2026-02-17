@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { PlayerHandle } from '../Player'
+import type { WorldPosition } from '../TargetAnchor'
 
 export type ChunkEntry = {
   key: string
@@ -28,7 +28,7 @@ export type ChunkStreamingConfig = {
 }
 
 type UseChunkStreamingStateParams = {
-  playerRef: RefObject<PlayerHandle | null>
+  getCenterPosition: () => WorldPosition | undefined
   chunks: ChunkEntry[]
   enabled: boolean
   config: ChunkStreamingConfig
@@ -74,7 +74,7 @@ export function distanceToChunkXZ(px: number, pz: number, chunk: ChunkEntry): nu
 }
 
 export function useChunkStreamingState({
-  playerRef,
+  getCenterPosition,
   chunks,
   enabled,
   config,
@@ -86,18 +86,23 @@ export function useChunkStreamingState({
   useEffect(() => {
     const nextState = createInitialChunkState(chunks, enabled)
     chunkStateRef.current = nextState
-    setChunkState(nextState)
     updateTimerMsRef.current = config.updateIntervalMs
+
+    const frame = requestAnimationFrame(() => {
+      setChunkState(nextState)
+    })
+
+    return () => cancelAnimationFrame(frame)
   }, [chunks, enabled, config.updateIntervalMs])
 
   useFrame((_state, delta) => {
-    if (!enabled || !playerRef.current) return
+    if (!enabled) return
 
     updateTimerMsRef.current += delta * 1000
     if (updateTimerMsRef.current < config.updateIntervalMs) return
     updateTimerMsRef.current = 0
 
-    const pos = playerRef.current.getPosition()
+    const pos = getCenterPosition()
     if (!pos) return
 
     const previous = chunkStateRef.current

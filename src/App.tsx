@@ -21,6 +21,9 @@ export default function App() {
   }
 
   const backgroundColor = getActiveBackground()
+  const initialCameraPosition = SETTINGS.camera.mode === 'follow'
+    ? SETTINGS.camera.follow.offset
+    : SETTINGS.camera.static.position
 
   return (
     <div style={{ width: '100vw', height: '100vh', background: backgroundColor }}>
@@ -37,14 +40,10 @@ export default function App() {
 
         <OrthographicCamera
           makeDefault
-          zoom={SETTINGS.camera.zoom}
-          position={[
-            SETTINGS.camera.position[0],
-            SETTINGS.camera.position[1],
-            SETTINGS.camera.position[2],
-          ]}
-          near={SETTINGS.camera.near}
-          far={SETTINGS.camera.far}
+          zoom={SETTINGS.camera.base.zoom}
+          position={initialCameraPosition}
+          near={SETTINGS.camera.base.near}
+          far={SETTINGS.camera.base.far}
         />
 
         <GameLights />
