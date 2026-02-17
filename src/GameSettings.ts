@@ -11,6 +11,7 @@ export type PaletteEntry = {
 }
 
 export type PaletteDefinition = Record<PaletteName, PaletteEntry>
+export type PaletteVariant = PaletteDefinition & { background: string }
 
 export type PaletteAutoMidSettings = {
   enabled: boolean
@@ -55,13 +56,12 @@ type Settings = {
     physicsUnloadRadius: number
   }
   colors: {
-    background: string
     shadow: string
     outline: string
   }
   palette: {
     active: PaletteVariantName
-    variants: Record<PaletteVariantName, PaletteDefinition>
+    variants: Record<PaletteVariantName, PaletteVariant>
     autoMid: PaletteAutoMidSettings
   }
   lines: {
@@ -140,7 +140,6 @@ export const SETTINGS: Settings = {
 
   // --- FÄRGER ---
   colors: {
-    background: '#3D2C23', // Hemsidans/Canvasens bakgrund
     shadow: '#141414',     // Färgen på skuggan (används av golvet och C4DMaterial)
     outline: '#141414',    // Färgen på outlines (oftast samma som skugga)
   },
@@ -150,6 +149,7 @@ export const SETTINGS: Settings = {
     active: 'classic',
     variants: {
       classic: {
+        background: '#3D2C23',
         one: { base: '#45253A' },
         two: { base: '#558DCE' },
         three: { base: '#D9B5A3' },
@@ -158,6 +158,7 @@ export const SETTINGS: Settings = {
         default: { base: '#45253A' },
       },
       pine: {
+        background: '#2F3B2A',
         one: { base: '#44553A' },
         two: { base: '#5A8C7A' },
         three: { base: '#D8C29A' },
@@ -166,6 +167,7 @@ export const SETTINGS: Settings = {
         default: { base: '#44553A' },
       },
       dusk: {
+        background: '#2B2436',
         one: { base: '#3B3248' },
         two: { base: '#5D7FB5' },
         three: { base: '#C9B39B' },
@@ -235,4 +237,8 @@ export const getLightDir = () => {
 
 export const getActivePalette = (): PaletteDefinition => {
   return SETTINGS.palette.variants[SETTINGS.palette.active]
+}
+
+export const getActiveBackground = (): string => {
+  return SETTINGS.palette.variants[SETTINGS.palette.active].background
 }

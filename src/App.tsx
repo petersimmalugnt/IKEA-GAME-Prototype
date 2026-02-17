@@ -3,7 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrthographicCamera } from '@react-three/drei'
 import { GameLights } from './Lights'
 // import { GameEffects } from './Effects' <--- BORTTAGEN HÄRIFRÅN
-import { SETTINGS } from './GameSettings'
+import { SETTINGS, getActiveBackground } from './GameSettings'
 import { Scene } from './Scene'
 import { GltfConverter } from './GltfConverter'
 import { DocsPage } from './DocsPage'
@@ -20,8 +20,10 @@ export default function App() {
     return <DocsPage />
   }
 
+  const backgroundColor = getActiveBackground()
+
   return (
-    <div style={{ width: '100vw', height: '100vh', background: SETTINGS.colors.background }}>
+    <div style={{ width: '100vw', height: '100vh', background: backgroundColor }}>
       <Canvas
         shadows={{ type: THREE.BasicShadowMap }}
         dpr={[1, 2]}
@@ -31,7 +33,7 @@ export default function App() {
           depth: true,
         }}
       >
-        <color attach="background" args={[SETTINGS.colors.background]} />
+        <color attach="background" args={[backgroundColor]} />
 
         <OrthographicCamera
           makeDefault

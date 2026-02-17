@@ -58,9 +58,9 @@ All visuell och gameplay-konfiguration samlas i `SETTINGS`-objektet:
 palette: {
   active: 'classic', // globalt palettbyte
   variants: {
-    classic: { one: { base: '#45253A' }, two: { base: '#558DCE' }, ... },
-    pine:    { one: { base: '#44553A' }, two: { base: '#5A8C7A' }, ... },
-    dusk:    { one: { base: '#3B3248' }, two: { base: '#5D7FB5' }, ... },
+    classic: { background: '#3D2C23', one: { base: '#45253A' }, two: { base: '#558DCE' }, ... },
+    pine:    { background: '#2F3B2A', one: { base: '#44553A' }, two: { base: '#5A8C7A' }, ... },
+    dusk:    { background: '#2B2436', one: { base: '#3B3248' }, two: { base: '#5D7FB5' }, ... },
   },
   autoMid: {
     enabled: true,
@@ -73,6 +73,7 @@ palette: {
 
 - `base` krävs per färgslot (`one`, `two`, `three`, `four`, `five`, `default`).
 - `mid` är valfri per slot. Om `mid` saknas auto-genereras den från `base` med OKLCH-reglagen i `autoMid`.
+- `background` ligger per variant och används för aktiv scen-/canvasbakgrund.
 - `active` byter hela paletten globalt utan att röra modellfiler.
 
 ### Viktiga inställningar
@@ -80,7 +81,7 @@ palette: {
 |---------|-----------------|
 | `debug` | `enabled`, `showColliders`, `showStats`, `benchmark`, `streaming` |
 | `streaming` | `enabled`, `cellSize`, `preloadRadius`, `renderLoadRadius`, `renderUnloadRadius`, `physicsLoadRadius`, `physicsUnloadRadius` |
-| `colors` | `background`, `shadow`, `outline` |
+| `colors` | `shadow`, `outline` |
 | `palette` | `active`, `variants`, `autoMid(lightnessDelta/chromaDelta/hueShift)` |
 | `lines` | `enabled`, `thickness`, `creaseAngle` |
 | `camera` | `zoom` (300), `position` ([5,5,5]), `followLerp` |
