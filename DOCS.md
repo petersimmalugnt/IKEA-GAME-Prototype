@@ -14,10 +14,14 @@ graph TD
     B -->|"/"| C[Scene.tsx]
     B -->|"/converter"| D[GltfConverter.tsx]
     B -->|"/docs"| L[DocsPage.tsx]
+    C --> M[GameKeyboardControls.tsx]
     C --> E[Player.tsx]
     C --> F[SceneComponents]
     C --> G[CameraFollow.tsx]
     C --> H[GameEffects]
+    C --> N[debug/BenchmarkDebugContent.tsx]
+    N --> O[streaming/ChunkStreamingSystem.ts]
+    N --> P[debug/StreamingDebugOverlay.tsx]
     H --> I[SurfaceIdEffect.tsx]
     F --> J[Materials.tsx]
     J --> K[GameSettings.ts]
@@ -27,9 +31,13 @@ graph TD
 |-----|--------|
 | `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
 | `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
-| `Scene.tsx` | Spelscenen med Physics-wrapper, alla element, keyboard controls |
+| `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
+| `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `Player.tsx` | Spelarbol med physics, keyboard input, hopp (raycast) |
 | `SceneComponents.tsx` | Återanvändbara element: Cube, Sphere, Cylinder, Spline, InvisibleFloor, C4DMesh |
+| `streaming/ChunkStreamingSystem.ts` | Kärnlogik för chunk-aktivering (preload/render/physics) |
+| `debug/BenchmarkDebugContent.tsx` | Debug/benchmark-objekt som använder streamingsystemet |
+| `debug/StreamingDebugOverlay.tsx` | Visuell streaming-debug (ringar och chunk-bounds) |
 | `Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
 | `Lights.tsx` | DirectionalLight med shadow-konfiguration |
 | `CameraFollow.tsx` | Isometrisk kamera som följer spelaren med lerp + skugg-target |
@@ -105,6 +113,27 @@ När `enabled: false` påverkas ordinarie bana inte.
 
 - Ringar runt spelaren för preload/render/physics-radier
 - Chunk-grid med färgkodning (preload/render/physics)
+
+---
+
+## Streaming-arkitektur (Core vs Debug)
+
+Streaming är uppdelat så att debug/benchmark kan tas bort utan att röra kärnlogiken:
+
+- `src/streaming/ChunkStreamingSystem.ts` — neutral kärna (chunk-state + aktiveringslogik)
+- `src/debug/BenchmarkDebugContent.tsx` — auto-genererad benchmark-content för test
+- `src/debug/StreamingDebugOverlay.tsx` — visuell debug-overlay
+- `src/Scene.tsx` kopplar in debugdelen via en enda komponent (`BenchmarkDebugContent`)
+
+---
+
+## Inputsystem
+
+Spelkontroller är kapslade i egen komponent:
+
+- `src/GameKeyboardControls.tsx` innehåller `KeyboardControls` + keymap
+- `src/Player.tsx` läser input via `useKeyboardControls<GameControlName>()`
+- `src/Scene.tsx` använder wrappern och håller scenkoden ren från input-konfig
 
 ---
 
@@ -320,9 +349,15 @@ src/
 ├── App.tsx                 # Routing & Canvas
 ├── main.tsx                # React entry point
 ├── GameSettings.ts         # Central konfiguration
+├── GameKeyboardControls.tsx # Input-wrapper + keymap
 ├── Scene.tsx               # Spelscen
 ├── Player.tsx              # Spelarlogik
 ├── SceneComponents.tsx     # Cube, Sphere, Cylinder, Spline, C4DMesh, InvisibleFloor
+├── streaming/
+│   └── ChunkStreamingSystem.ts   # Chunk-streaming core
+├── debug/
+│   ├── BenchmarkDebugContent.tsx # Benchmark-testcontent
+│   └── StreamingDebugOverlay.tsx # Streaming debug-visualisering
 ├── Materials.tsx           # Toon shader & C4DMaterial
 ├── Lights.tsx              # Ljus & skuggor
 ├── CameraFollow.tsx        # Isometrisk kamera-follow
@@ -332,11 +367,13 @@ src/
 ├── GltfConverter.tsx       # FBX/GLB → TSX konverterare
 ├── DocsPage.tsx            # Browser-renderad dokumentation
 ├── DocsPage.css            # Stil för docs-sidan
-└── assets/
-    ├── models/             # Genererade GLB + TSX filer
-    └── splineAndAnimTest.glb
+├── assets/
+│   ├── models/             # Genererade GLB + TSX filer
+│   └── splineAndAnimTest.glb
+└── types/
+    └── culori.d.ts         # Lokala typer för culori
 ```
 
 ---
 
-*Senast uppdaterad: 2026-02-16*
+*Senast uppdaterad: 2026-02-17*

@@ -3,16 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { RigidBody, BallCollider, useRapier, type RapierRigidBody } from '@react-three/rapier'
 import { useRef, forwardRef, useImperativeHandle } from 'react'
 import { SphereElement } from './SceneComponents'
+import type { GameControlName } from './GameKeyboardControls'
 import { SETTINGS, type Vec3 } from './GameSettings'
-
-type ControlState = {
-  forward: boolean
-  backward: boolean
-  left: boolean
-  right: boolean
-  jump: boolean
-}
-type ControlName = keyof ControlState
 
 export type PlayerHandle = {
   getPosition: () => { x: number; y: number; z: number } | undefined
@@ -25,7 +17,7 @@ type PlayerProps = {
 export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player({ position }, ref) {
   const rb = useRef<RapierRigidBody | null>(null)
   const { rapier, world } = useRapier()
-  const [, getKeys] = useKeyboardControls<ControlName>()
+  const [, getKeys] = useKeyboardControls<GameControlName>()
 
   // Exponera spelarens position till parent (CameraFollow)
   useImperativeHandle(ref, () => ({

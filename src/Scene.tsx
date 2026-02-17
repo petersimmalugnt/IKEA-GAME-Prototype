@@ -1,23 +1,14 @@
 import { useRef } from 'react'
 import { Physics } from '@react-three/rapier'
-import { KeyboardControls, Stats, type KeyboardControlsEntry } from '@react-three/drei'
+import { Stats } from '@react-three/drei'
 import { CubeElement, CylinderElement, SplineElement, InvisibleFloor } from './SceneComponents'
 import { Player, type PlayerHandle } from './Player'
 import { SplineAndAnimTest } from './assets/models/SplineAndAnimTest'
 import { GameEffects } from './Effects'
 import { CameraFollow } from './CameraFollow'
 import { BenchmarkDebugContent } from './debug/BenchmarkDebugContent'
+import { GameKeyboardControls } from './GameKeyboardControls'
 import { SETTINGS } from './GameSettings'
-
-type ControlName = 'forward' | 'backward' | 'left' | 'right' | 'jump'
-
-const keyboardMap: KeyboardControlsEntry<ControlName>[] = [
-  { name: 'forward', keys: ['ArrowUp', 'KeyW'] },
-  { name: 'backward', keys: ['ArrowDown', 'KeyS'] },
-  { name: 'left', keys: ['ArrowLeft', 'KeyA'] },
-  { name: 'right', keys: ['ArrowRight', 'KeyD'] },
-  { name: 'jump', keys: ['Space'] },
-]
 
 const isDebug = SETTINGS.debug.enabled
 
@@ -25,7 +16,7 @@ export function Scene() {
   const playerRef = useRef<PlayerHandle | null>(null)
 
   return (
-    <KeyboardControls map={keyboardMap}>
+    <GameKeyboardControls>
       <Physics gravity={[0, -9.81, 0]} debug={isDebug && SETTINGS.debug.showColliders}>
         <GameEffects />
         <CameraFollow playerRef={playerRef} />
@@ -97,6 +88,6 @@ export function Scene() {
 
       {/* Debug: FPS / MS / MB overlay */}
       {isDebug && SETTINGS.debug.showStats && <Stats />}
-    </KeyboardControls>
+    </GameKeyboardControls>
   )
 }
