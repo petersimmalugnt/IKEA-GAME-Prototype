@@ -12,7 +12,6 @@ import { SETTINGS } from './GameSettings'
 import { Laddertest } from './assets/models/Laddertest'
 import { VaultStairs } from './assets/models/VaultStairs'
 import { Stair } from './assets/models/Stair'
-import { TargetAnchor } from './TargetAnchor'
 
 const isDebug = SETTINGS.debug.enabled
 
@@ -68,44 +67,24 @@ export function Scene() {
           />
 
           {/* FBX PIPELINE TEST */}
-          <TargetAnchor
-            targetId="spline_test"
+          <SplineAndAnimTest
+            animation="Anim1"
             position={[-1.5, 0.5, 0]}
             scale={0.01}
-          >
-            <SplineAndAnimTest animation="Anim1" />
-          </TargetAnchor>
+          />
 
           {/* LADDTEST */}
-          <TargetAnchor
-            targetId="ladder_left"
+          <Laddertest
             position={[-2, 0, 2]}
             rotation={[0, Math.PI / -1.25, 0]}
-          >
-            <Laddertest />
-          </TargetAnchor>
+          />
 
-          <TargetAnchor
-            targetId="ladder_right"
-            position={[1.5, 0, 2.5]}
-          >
-            <Laddertest />
-          </TargetAnchor>
+          <Laddertest position={[1.5, 0, 2.5]} />
 
           {/* VÄLTEST */}
-          <TargetAnchor
-            targetId="vault_stairs"
-            position={[0, 0, 3]}
-          >
-            <VaultStairs />
-          </TargetAnchor>
+          <VaultStairs position={[0, 0, 3]} />
 
-          <TargetAnchor
-            targetId="stair_main"
-            position={[0, 0, 1]}
-          >
-            <Stair />
-          </TargetAnchor>
+          <Stair position={[1, 0, 2]} />
 
           {/* DEBUG BENCHMARK + STREAMING */}
           <BenchmarkDebugContent />

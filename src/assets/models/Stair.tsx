@@ -21,14 +21,17 @@ export function Stair(props: StairProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
   const colors: Record<string, PaletteName> = {
     default: 'default',
-    three: 'two',
+    three: 'three',
   }
 
   return (
     <group {...props} dispose={null}>
-      <RigidBody type="dynamic" colliders={false} position={[1.1071, 0, 0.3574]}>
-        <ConvexHullCollider args={[nodes['STAIRS_dynamic_collider_colorThree'].geometry.attributes.position.array]} />
-        <C4DMesh name={nodes['STAIRS_dynamic_collider_colorThree'].name} geometry={nodes['STAIRS_dynamic_collider_colorThree'].geometry} castShadow receiveShadow>
+      <RigidBody type="dynamic" colliders={false}>
+        <ConvexHullCollider args={[nodes['STAIRS_collider'].geometry.attributes.position.array]} />
+        <C4DMesh name={nodes['STAIRS'].name} geometry={nodes['STAIRS'].geometry} castShadow receiveShadow>
+          <C4DMaterial color={colors.three} />
+        </C4DMesh>
+        <C4DMesh name={nodes['STAIRS_top'].name} geometry={nodes['STAIRS_top'].geometry} castShadow receiveShadow>
           <C4DMaterial color={colors.three} />
         </C4DMesh>
       </RigidBody>

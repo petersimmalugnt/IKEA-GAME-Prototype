@@ -270,6 +270,8 @@ Kameran är uppdelad i tre delar:
 - `TargetAnchor` gör det enkelt att sätta `targetId` på valfritt scenelement
 - `CameraFollow` kör själva kamerariggen (trots namnet hanterar den både `follow` och `static`)
 
+`TargetAnchor` är valfri: i nuvarande `Scene.tsx` följs standard-target `player`, och `TargetAnchor` används bara när du vill registrera andra scenelement som möjliga camera/streaming-targets.
+
 Viktiga features:
 
 - **Mode:** `camera.mode = 'follow' | 'static'`
