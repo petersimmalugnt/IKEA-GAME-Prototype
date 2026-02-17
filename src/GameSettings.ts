@@ -98,6 +98,8 @@ type Settings = {
     pixelSize: number
     normalEdgeStrength: number
     depthEdgeStrength: number
+    depthEdgeThresholdMin: number
+    depthEdgeThresholdMax: number
   }
   camera: {
     mode: CameraMode
@@ -149,7 +151,7 @@ type Settings = {
 export const SETTINGS: Settings = {
   // --- RENDER STYLE ---
   render: {
-    style: 'retroPixelPass', // 'toon' | 'pixel' | 'retroPixelPass'
+    style: 'toon', // 'toon' | 'pixel' | 'retroPixelPass'
   },
 
   // --- DEBUG ---
@@ -258,8 +260,10 @@ export const SETTINGS: Settings = {
   // --- RETRO PIXEL PASS (three/examples RenderPixelatedPass) ---
   retroPixelPass: {
     pixelSize: 6,           // Storlek på "pixlarna"
-    normalEdgeStrength: 0.35, // Kantstyrka baserad på normaler
+    normalEdgeStrength: 0.5, // Kantstyrka baserad på normaler
     depthEdgeStrength: 0.45,  // Kantstyrka baserad på depth
+    depthEdgeThresholdMin: 0.0005, // Lägre värden gör depth-kanter känsligare (bra för ortografisk kamera)
+    depthEdgeThresholdMax: 0.003, // Bör vara större än min-värdet
   },
 
   // --- KAMERA ---

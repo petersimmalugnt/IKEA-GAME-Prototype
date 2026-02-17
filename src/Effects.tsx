@@ -18,6 +18,8 @@ export function GameEffects() {
         pixelSize={SETTINGS.retroPixelPass.pixelSize}
         normalEdgeStrength={SETTINGS.retroPixelPass.normalEdgeStrength}
         depthEdgeStrength={SETTINGS.retroPixelPass.depthEdgeStrength}
+        depthEdgeThresholdMin={SETTINGS.retroPixelPass.depthEdgeThresholdMin}
+        depthEdgeThresholdMax={SETTINGS.retroPixelPass.depthEdgeThresholdMax}
       />
     )
   }
