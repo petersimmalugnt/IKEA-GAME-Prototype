@@ -50,7 +50,7 @@ export function Scene() {
         <CubeElement
           size={[0.5, 1, 0.03]}
           physics="dynamic"
-          position={[0.8, 0, 0]}
+          position={[0.8, 0.5, 0]}
           mass={0.3}
         />
 
@@ -64,21 +64,8 @@ export function Scene() {
           colliderSegments={16}
         />
 
-        <SplineElement
-          points={[
-            [-1, 0.2, -0.5],
-            [-0.3, 0.5, 0],
-            [0.5, 0.15, 0.3],
-            [1.3, 0.4, -0.2],
-          ]}
-          position={[0.5, 0.5, 1]}
-          segments={40}
-          physics="dynamic"
-          friction={1}
-        />
-
         {/* FBX PIPELINE TEST */}
-        <SplineAndAnimTest position={[0, 2, -3]} scale={0.01} animation="Anim1" />
+        <SplineAndAnimTest position={[-1.5, .5, 0]} scale={0.01} animation="Anim1" />
 
         {/* DEBUG BENCHMARK + STREAMING */}
         <BenchmarkDebugContent playerRef={playerRef} />
