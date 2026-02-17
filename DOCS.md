@@ -16,6 +16,7 @@ graph TD
     B -->|"/docs"| L[DocsPage.tsx]
     C --> M[GameKeyboardControls.tsx]
     C --> E[Player.tsx]
+    C --> ECB[control/ExternalControlBridge.tsx]
     C --> F[SceneComponents]
     C --> CS[CameraSystem.tsx]
     C --> TA[TargetAnchor.tsx]
@@ -30,6 +31,8 @@ graph TD
     H --> I[SurfaceIdEffect.tsx]
     F --> J[Materials.tsx]
     J --> K[GameSettings.ts]
+    E --> ECS[control/ExternalControlStore.ts]
+    ECB --> ECS
 ```
 
 | Fil | Ansvar |
@@ -38,7 +41,9 @@ graph TD
 | `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
 | `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
-| `Player.tsx` | Spelarbol med physics, keyboard input, hopp (raycast) |
+| `Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
+| `control/ExternalControlBridge.tsx` | Adapterlager för extern styrdata (window API, custom events, valfri WebSocket-klient) |
+| `control/ExternalControlStore.ts` | Transport-oberoende in-memory store för digital/absolute kontrollframes |
 | `SceneComponents.tsx` | Återanvändbara element: Cube, Sphere, Cylinder, Spline, InvisibleFloor, C4DMesh |
 | `CameraSystem.tsx` | Kapslar target-registry + kamera + streaming-center, kopplas in via provider i `Scene` |
 | `CameraSystemContext.ts` | Delad context/hook för target-registry och streaming-center |
@@ -90,6 +95,7 @@ palette: {
 | Sektion | Nyckelparametrar |
 |---------|-----------------|
 | `render` | `style: 'toon' | 'pixel' | 'retroPixelPass'` |
+| `controls` | `inputSource`, `external(mode, staleTimeoutMs, absolute, websocket)` |
 | `debug` | `enabled`, `showColliders`, `showStats`, `benchmark`, `streaming` |
 | `streaming` | `enabled`, `cellSize`, `preload/render/physics`-radier, `updateIntervalMs`, `center(source,targetId)` |
 | `colors` | `shadow`, `outline` |
@@ -154,11 +160,52 @@ Streaming är uppdelat så att debug/benchmark kan tas bort utan att röra kärn
 
 ## Inputsystem
 
-Spelkontroller är kapslade i egen komponent:
+Input är uppdelat i keyboard + extern pipeline:
 
 - `src/GameKeyboardControls.tsx` innehåller `KeyboardControls` + keymap
-- `src/Player.tsx` läser input via `useKeyboardControls<GameControlName>()`
-- `src/Scene.tsx` använder wrappern och håller scenkoden ren från input-konfig
+- `src/control/ExternalControlStore.ts` är en transport-oberoende store för externa kontrollframes
+- `src/control/ExternalControlBridge.tsx` kopplar in valfri WebSocket-klient + browser API
+- `src/Player.tsx` läser och kombinerar input enligt `SETTINGS.controls`
+
+`SETTINGS.controls.inputSource` styr källa:
+
+- `keyboard` — endast keyboard
+- `external` — endast extern data
+- `hybrid` — keyboard + extern digital data (OR per knapp)
+
+`SETTINGS.controls.external.mode` styr extern typ:
+
+- `digital` — triggerdata (`forward/backward/left/right/jump`)
+- `absolute` — absolut target-position (`x/z`) med kort smoothing + hastighetsclamp
+
+I `absolute`-läge kör spelaren `kinematicPosition` (inte dynamic) för stabil positionering men med aktiv collider.
+
+### Extern API (browser)
+
+Bridge exponerar ett enkelt globalt API:
+
+```js
+window.__IKEA_GAME_CONTROL__.send({
+  mode: 'digital',
+  forward: true,
+  jump: false,
+  seq: 101,
+  timestamp: Date.now(),
+})
+```
+
+Eller via custom event:
+
+```js
+window.dispatchEvent(new CustomEvent('ikea-game-control', {
+  detail: { mode: 'absolute', x: 1.25, z: -0.8, seq: 202, timestamp: Date.now() }
+}))
+```
+
+Valfri inbyggd WebSocket-klient aktiveras via:
+
+- `SETTINGS.controls.external.websocket.enabled`
+- `SETTINGS.controls.external.websocket.url`
 
 ---
 
@@ -256,8 +303,9 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 ### Spelaren (`Player.tsx`)
 - `RigidBody` med `BallCollider` (r=0.1)
 - Densitet beräknas från `SETTINGS.player.mass`
-- Impulse-baserad rörelse (WASD/piltangenter)
-- **Hopp** via raycast nedåt (0.05 max avstånd)
+- Digitalt läge: impulse-baserad rörelse (keyboard och/eller extern triggerdata)
+- Digitalt läge: **hopp** via raycast nedåt (0.05 max avstånd)
+- Absolut läge: `kinematicPosition` + `setNextKinematicTranslation` (x/z) med smoothing/clamps från `SETTINGS.controls.external.absolute`
 - CCD aktivt (förhindrar tunneling)
 
 ---
@@ -420,6 +468,9 @@ src/
 ├── GameKeyboardControls.tsx # Input-wrapper + keymap
 ├── Scene.tsx               # Spelscen
 ├── Player.tsx              # Spelarlogik
+├── control/
+│   ├── ExternalControlBridge.tsx # Extern input-adapter (window API + optional WS)
+│   └── ExternalControlStore.ts   # Transport-oberoende kontrollstore (digital/absolute)
 ├── SceneComponents.tsx     # Cube, Sphere, Cylinder, Spline, C4DMesh, InvisibleFloor
 ├── CameraSystem.tsx        # Camera provider: target-registry + streaming-center
 ├── CameraSystemContext.ts  # Context/hook för camerasystemet

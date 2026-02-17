@@ -25,6 +25,8 @@ export type SMAAPresetName = 'low' | 'medium' | 'high' | 'ultra'
 export type CameraMode = 'static' | 'follow'
 export type StreamingCenterSource = 'target' | 'cameraFocus'
 export type RenderStyle = 'toon' | 'pixel' | 'retroPixelPass'
+export type ControlInputSource = 'keyboard' | 'external' | 'hybrid'
+export type ExternalControlMode = 'digital' | 'absolute'
 
 type AxisMask = {
   x: boolean
@@ -35,6 +37,23 @@ type AxisMask = {
 type Settings = {
   render: {
     style: RenderStyle
+  }
+  controls: {
+    inputSource: ControlInputSource
+    external: {
+      mode: ExternalControlMode
+      staleTimeoutMs: number
+      absolute: {
+        followLerp: number
+        maxUnitsPerSecond: number
+        maxTargetStep: number
+      }
+      websocket: {
+        enabled: boolean
+        url: string
+        reconnectMs: number
+      }
+    }
   }
   debug: {
     enabled: boolean
@@ -152,6 +171,25 @@ export const SETTINGS: Settings = {
   // --- RENDER STYLE ---
   render: {
     style: 'toon', // 'toon' | 'pixel' | 'retroPixelPass'
+  },
+
+  // --- INPUT PIPELINE ---
+  controls: {
+    inputSource: 'keyboard', // 'keyboard' | 'external' | 'hybrid'
+    external: {
+      mode: 'digital', // 'digital' = piltangent-triggers, 'absolute' = målposition (x,z)
+      staleTimeoutMs: 160, // Om paket uteblir längre än detta släpps extern input
+      absolute: {
+        followLerp: 0.35,     // Kort smoothing för att dämpa jitter i måldata
+        maxUnitsPerSecond: 8, // Hastighets-clamp mot målpunkten
+        maxTargetStep: 0.75,  // Max tillåtet hopp i målpunkt per update (anti-glitch)
+      },
+      websocket: {
+        enabled: false, // Sätt true för inbyggd WS-klient i spelet
+        url: 'ws://127.0.0.1:8080',
+        reconnectMs: 1000,
+      },
+    },
   },
 
   // --- DEBUG ---

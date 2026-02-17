@@ -12,6 +12,7 @@ import { SETTINGS } from './GameSettings'
 import { Laddertest } from './assets/models/Laddertest'
 import { VaultStairs } from './assets/models/VaultStairs'
 import { Stair } from './assets/models/Stair'
+import { ExternalControlBridge } from './control/ExternalControlBridge'
 
 const isDebug = SETTINGS.debug.enabled
 
@@ -20,6 +21,7 @@ export function Scene() {
 
   return (
     <GameKeyboardControls>
+      <ExternalControlBridge />
       <Physics gravity={[0, -9.81, 0]} debug={isDebug && SETTINGS.debug.showColliders}>
         <GameEffects />
         <CameraSystemProvider playerRef={playerRef}>
