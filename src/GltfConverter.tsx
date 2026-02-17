@@ -578,6 +578,18 @@ function getLocalBoundsForObject(obj: THREE.Object3D): { center: THREE.Vector3; 
     return { center, size }
 }
 
+function getPhysicsTypeFromName(name: string): 'dynamic' | 'fixed' | 'kinematicPosition' | null {
+    const lower = name.toLowerCase()
+    if (lower.includes('_dynamic')) return 'dynamic'
+    if (lower.includes('_static') || lower.includes('_fixed')) return 'fixed'
+    if (lower.includes('_kinematic')) return 'kinematicPosition'
+    return null
+}
+
+function hasPhysicsToken(name: string): boolean {
+    return getPhysicsTypeFromName(name) !== null
+}
+
 function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, settings: GenerateSettings): string {
     const { useSourceImport, modelPath, componentPath, animations = [], splines = [] } = settings
     const baseName = originalFileName.replace(/\.(glb|gltf)$/, '')
@@ -691,6 +703,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         if (obj.userData?.ignore) return ''
 
         const rawName = obj.name
+        const lowerName = rawName.toLowerCase()
         const safeName = sanitizeName(rawName)
         const transformProps = getTransformProps(obj)
 
@@ -700,23 +713,20 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
 
         if (!colorSet.has(currentColor)) colorSet.add(currentColor)
 
-        let physicsType: string | null = null
+        const physicsType = getPhysicsTypeFromName(rawName)
         let physicsProps = ''
-        if (rawName.includes('_dynamic')) physicsType = 'dynamic'
-        if (rawName.includes('_static') || rawName.includes('_fixed')) physicsType = 'fixed'
-        if (rawName.includes('_kinematic')) physicsType = 'kinematicPosition'
-        const massMatch = rawName.match(/_mass([\d.]+)/)
+        const massMatch = rawName.match(/_mass([\d.]+)/i)
         if (massMatch) physicsProps += ` mass={${massMatch[1]}}`
-        const fricMatch = rawName.match(/_fric([\d.]+)/)
+        const fricMatch = rawName.match(/_fric([\d.]+)/i)
         if (fricMatch) physicsProps += ` friction={${fricMatch[1]}}`
-        if (rawName.includes('_lockRot')) physicsProps += ` lockRotations`
-        if (rawName.includes('_sensor')) physicsProps += ` sensor`
+        if (lowerName.includes('_lockrot')) physicsProps += ` lockRotations`
+        if (lowerName.includes('_sensor')) physicsProps += ` sensor`
 
         const isColliderName = (name: string): boolean => name.toLowerCase().includes('_collider')
         const isSelfCollider = isColliderName(rawName)
-        const colliderChildren = obj.children.filter((c: any) => isColliderName(c.name))
+        const colliderChildren = obj.children.filter((c: any) => isColliderName(c.name) && !hasPhysicsToken(c.name))
         const explicitColliderMeshes = colliderChildren.filter((c: any) => Boolean(c.geometry))
-        const visualChildren = obj.children.filter((c: any) => !isColliderName(c.name))
+        const visualChildren = obj.children.filter((c: any) => !isColliderName(c.name) || hasPhysicsToken(c.name))
 
         const singleToneProp = singleTone ? ' singleTone' : ''
 
@@ -782,7 +792,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
             str += `${spaces}  <C4DMaterial color={colors.${currentColor}}${singleToneProp} />\n`
             visualChildren.forEach((child: any) => str += traverse(child, indent + 2, currentColor))
             str += `${spaces}</C4DMesh>\n`
-        } else if (!rawName.toLowerCase().includes('_collider')) {
+        } else if (!isSelfCollider) {
             if (transformProps) {
                 str += `${spaces}<group name={${JSON.stringify(rawName)}}${transformProps}>\n`
                 visualChildren.forEach((child: any) => str += traverse(child, indent + 2, currentColor))

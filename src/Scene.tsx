@@ -9,6 +9,9 @@ import { CameraFollow } from './CameraFollow'
 import { BenchmarkDebugContent } from './debug/BenchmarkDebugContent'
 import { GameKeyboardControls } from './GameKeyboardControls'
 import { SETTINGS } from './GameSettings'
+import { Laddertest } from './assets/models/Laddertest'
+import { VaultStairs } from './assets/models/VaultStairs'
+import { Stair } from './assets/models/Stair'
 
 const isDebug = SETTINGS.debug.enabled
 
@@ -65,7 +68,17 @@ export function Scene() {
         />
 
         {/* FBX PIPELINE TEST */}
-        <SplineAndAnimTest position={[-1.5, .5, 0]} scale={0.01} animation="Anim1" />
+        <SplineAndAnimTest position={[-1.5, .5, 0]} scale={.01} animation="Anim1" />
+
+        {/* LADDTEST */}
+        <Laddertest position={[-2, 0, 2]} rotation={[0, Math.PI / -1.25, 0]} />
+
+        <Laddertest position={[1.5, 0, 2.5]} />
+
+        {/* VÄLTEST */}
+        <VaultStairs position={[0, 0, 3]} />
+
+        <Stair position={[0, 0, 1]} />
 
         {/* DEBUG BENCHMARK + STREAMING */}
         <BenchmarkDebugContent playerRef={playerRef} />
