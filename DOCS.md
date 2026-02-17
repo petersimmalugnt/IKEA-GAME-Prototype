@@ -17,7 +17,10 @@ graph TD
     C --> M[GameKeyboardControls.tsx]
     C --> E[Player.tsx]
     C --> F[SceneComponents]
-    C --> G[CameraFollow.tsx]
+    C --> CS[CameraSystem.tsx]
+    C --> TA[TargetAnchor.tsx]
+    CS --> G[CameraFollow.tsx]
+    CS --> CTX[CameraSystemContext.ts]
     C --> H[GameEffects]
     C --> N[debug/BenchmarkDebugContent.tsx]
     N --> O[streaming/ChunkStreamingSystem.ts]
@@ -35,12 +38,15 @@ graph TD
 | `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `Player.tsx` | Spelarbol med physics, keyboard input, hopp (raycast) |
 | `SceneComponents.tsx` | Återanvändbara element: Cube, Sphere, Cylinder, Spline, InvisibleFloor, C4DMesh |
+| `CameraSystem.tsx` | Kapslar target-registry + kamera + streaming-center, kopplas in via provider i `Scene` |
+| `CameraSystemContext.ts` | Delad context/hook för target-registry och streaming-center |
+| `TargetAnchor.tsx` | Enkel wrapper för att ge valfritt scenelement ett `targetId` som kamera/streaming kan följa |
 | `streaming/ChunkStreamingSystem.ts` | Kärnlogik för chunk-aktivering (preload/render/physics) |
 | `debug/BenchmarkDebugContent.tsx` | Debug/benchmark-objekt som använder streamingsystemet |
 | `debug/StreamingDebugOverlay.tsx` | Visuell streaming-debug (ringar och chunk-bounds) |
 | `Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
 | `Lights.tsx` | DirectionalLight med shadow-konfiguration |
-| `CameraFollow.tsx` | Isometrisk kamera som följer spelaren med lerp + skugg-target |
+| `CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow |
 | `Effects.tsx` | Post-processing pipeline (EffectComposer + SMAA) |
 | `SurfaceIdEffect.tsx` | Custom outline-effekt: surface-ID + normal-baserade kanter |
 | `GltfConverter.tsx` | FBX/GLB → TSX-konverterare (drag & drop) |
@@ -56,17 +62,17 @@ All visuell och gameplay-konfiguration samlas i `SETTINGS`-objektet:
 ### Färgpalett (Toon Material)
 ```ts
 palette: {
-  active: 'classic', // globalt palettbyte
+  active: 'green', // globalt palettbyte
   variants: {
     classic: { background: '#3D2C23', one: { base: '#45253A' }, two: { base: '#558DCE' }, ... },
     pine:    { background: '#2F3B2A', one: { base: '#44553A' }, two: { base: '#5A8C7A' }, ... },
-    dusk:    { background: '#2B2436', one: { base: '#3B3248' }, two: { base: '#5D7FB5' }, ... },
+    green:   { background: '#0E3420', one: { base: '#669E10' }, two: { base: '#006B18' }, ... },
   },
   autoMid: {
     enabled: true,
     lightnessDelta: -0.06,
-    chromaDelta: -0.002,
-    hueShift: -4,
+    chromaDelta: -0.005,
+    hueShift: 5,
   },
 }
 ```
@@ -80,11 +86,11 @@ palette: {
 | Sektion | Nyckelparametrar |
 |---------|-----------------|
 | `debug` | `enabled`, `showColliders`, `showStats`, `benchmark`, `streaming` |
-| `streaming` | `enabled`, `cellSize`, `preloadRadius`, `renderLoadRadius`, `renderUnloadRadius`, `physicsLoadRadius`, `physicsUnloadRadius` |
+| `streaming` | `enabled`, `cellSize`, `preload/render/physics`-radier, `updateIntervalMs`, `center(source,targetId)` |
 | `colors` | `shadow`, `outline` |
 | `palette` | `active`, `variants`, `autoMid(lightnessDelta/chromaDelta/hueShift)` |
 | `lines` | `enabled`, `thickness`, `creaseAngle`, `threshold`, `composerMultisampling`, `smaaEnabled`, `smaaPreset` |
-| `camera` | `zoom` (300), `position` ([5,5,5]), `followLerp` |
+| `camera` | `mode`, `base`, `static(position/lookAt)`, `follow(targetId, offset, lerp, axis/rotation lock)` |
 | `light` | `position`, `shadowMapSize` (4096), `shadowBias` |
 | `material` | `highlightStep` (0.6), `midtoneStep` (-1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
 | `player` | `impulseStrength`, `jumpStrength`, `linearDamping`, `mass` |
@@ -102,17 +108,19 @@ När `enabled: false` påverkas ordinarie bana inte.
 
 ### Streaming-läge (Automatisk chunk-aktivering)
 
-`SETTINGS.streaming` styr automatiskt vilka benchmark/world-objekt som är aktiva utifrån spelarens position:
+`SETTINGS.streaming` styr automatiskt vilka benchmark/world-objekt som är aktiva utifrån vald center-källa:
 
 - `cellSize` — chunkstorlek i world-units
 - `preloadRadius` — markerar chunkar för preload-zon
 - `renderLoadRadius` / `renderUnloadRadius` — visuell in/ut-laddning med hysteresis
 - `physicsLoadRadius` / `physicsUnloadRadius` — fysik in/ut med hysteresis
 - `updateIntervalMs` — hur ofta aktiveringsberäkning uppdateras
+- `center.source` — `target` eller `cameraFocus`
+- `center.targetId` — vilket target som används när `source = 'target'`
 
 `SETTINGS.debug.streaming` ger visuell debug i scenen:
 
-- Ringar runt spelaren för preload/render/physics-radier
+- Ringar runt aktiv streaming-center för preload/render/physics-radier
 - Chunk-grid med färgkodning (preload/render/physics)
 
 ---
@@ -124,6 +132,7 @@ Streaming är uppdelat så att debug/benchmark kan tas bort utan att röra kärn
 - `src/streaming/ChunkStreamingSystem.ts` — neutral kärna (chunk-state + aktiveringslogik)
 - `src/debug/BenchmarkDebugContent.tsx` — auto-genererad benchmark-content för test
 - `src/debug/StreamingDebugOverlay.tsx` — visuell debug-overlay
+- `src/CameraSystem.tsx` levererar center-position till både kamera och streaming
 - `src/Scene.tsx` kopplar in debugdelen via en enda komponent (`BenchmarkDebugContent`)
 
 ---
@@ -214,11 +223,20 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 
 ## Kamerasystem
 
-**Ortografisk** isometrisk kamera med:
-- Position-offset `[5, 5, 5]` relativt spelaren
-- **Delta-oberoende lerp:** `1 - Math.pow(1 - followLerp, delta × 60)`
-- Skuggor flyttas med spelaren (DirectionalLight + target)
-- Första framen snappar direkt (inget lerp-glid vid start)
+Kameran är uppdelad i tre delar:
+
+- `CameraSystemProvider` registrerar targets (`targetId`) och exponerar streaming-center
+- `TargetAnchor` gör det enkelt att sätta `targetId` på valfritt scenelement
+- `CameraFollow` kör själva kamerariggen (trots namnet hanterar den både `follow` och `static`)
+
+Viktiga features:
+
+- **Mode:** `camera.mode = 'follow' | 'static'`
+- **Follow target:** `camera.follow.targetId` (t.ex. `player`, `vault_stairs`)
+- **Axellåsning:** `followAxes` och `lookAtAxes` (t.ex. lås höjd med `y: false`)
+- **Rotationslåsning:** `lockRotation: true` för stabil ortografisk/isometrisk känsla (ingen wobble)
+- **Delta-oberoende lerp:** `1 - Math.pow(1 - lerp, delta × 60)`
+- **Light follow:** `moveLightWithTarget` för directional light + shadow target
 
 ---
 
@@ -360,6 +378,9 @@ src/
 ├── Scene.tsx               # Spelscen
 ├── Player.tsx              # Spelarlogik
 ├── SceneComponents.tsx     # Cube, Sphere, Cylinder, Spline, C4DMesh, InvisibleFloor
+├── CameraSystem.tsx        # Camera provider: target-registry + streaming-center
+├── CameraSystemContext.ts  # Context/hook för camerasystemet
+├── TargetAnchor.tsx        # Target-ID wrapper för scenelement
 ├── streaming/
 │   └── ChunkStreamingSystem.ts   # Chunk-streaming core
 ├── debug/
@@ -367,7 +388,7 @@ src/
 │   └── StreamingDebugOverlay.tsx # Streaming debug-visualisering
 ├── Materials.tsx           # Toon shader & C4DMaterial
 ├── Lights.tsx              # Ljus & skuggor
-├── CameraFollow.tsx        # Isometrisk kamera-follow
+├── CameraFollow.tsx        # Kamerarigg (follow/static, lock rotation/axes)
 ├── Effects.tsx             # Post-processing wrapper
 ├── SurfaceIdEffect.tsx     # Custom outline-effekt
 ├── PhysicsStepper.ts       # Manuell physics step (oanvänd)
