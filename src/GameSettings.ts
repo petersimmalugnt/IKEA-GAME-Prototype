@@ -21,6 +21,7 @@ export type PaletteAutoMidSettings = {
 }
 
 export type PaletteVariantName = 'classic' | 'pine' | 'green'
+export type SMAAPresetName = 'low' | 'medium' | 'high' | 'ultra'
 
 type Settings = {
   debug: {
@@ -69,6 +70,9 @@ type Settings = {
     thickness: number
     creaseAngle: number
     threshold: number
+    composerMultisampling: number
+    smaaEnabled: boolean
+    smaaPreset: SMAAPresetName
   }
   camera: {
     zoom: number
@@ -189,7 +193,10 @@ export const SETTINGS: Settings = {
     enabled: true,
     thickness: 1,     // Tjocklek i pixlar
     creaseAngle: 30,    // Vinkel i grader för inre linjer (30 = teknisk look)
-    threshold: 0.01,    // Känslighet (rör ej)
+    threshold: 0.01,    // Känslighet för surface-ID edge-detektion
+    composerMultisampling: 4, // MSAA i postprocess-composer (0 stanger av)
+    smaaEnabled: true,  // SMAA efter outline-pass (bra mot trappsteg)
+    smaaPreset: 'high', // low | medium | high | ultra
   },
 
   // --- KAMERA ---

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { forwardRef, useId, useMemo, type ReactNode } from 'react'
-import { useFrame, useThree, type ThreeElements } from '@react-three/fiber'
+import { useThree, type ThreeElements } from '@react-three/fiber'
 import {
   RigidBody,
   CuboidCollider,
@@ -362,12 +362,12 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   position,
   rotation = [0, 0, 0],
 }, ref) {
-  const { size, camera: rawCamera, gl } = useThree()
+  const { size, camera: rawCamera } = useThree()
   const camera = rawCamera as THREE.OrthographicCamera
   const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
 
   const finalColor = color || SETTINGS.colors.outline
-  const finalLineWidth = lineWidth ?? (SETTINGS.lines.thickness * gl.getPixelRatio())
+  const finalLineWidth = lineWidth ?? SETTINGS.lines.thickness
 
   // Skapa kurvan och samplade punkter
   const curvePoints = useMemo(() => {
@@ -377,7 +377,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   }, [points, segments, closed, curveType, tension])
 
   // Bygg Line2 – konstant pixelbredd i screen-space
-  const { line2, lineMaterial } = useMemo(() => {
+  const line2 = useMemo(() => {
     const positions: number[] = []
     curvePoints.forEach((p) => positions.push(p.x, p.y, p.z))
 
@@ -390,18 +390,14 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
       worldUnits: false,
       resolution: new THREE.Vector2(size.width, size.height),
     })
+    material.alphaToCoverage = true
 
     const line = new Line2(geometry, material)
     line.computeLineDistances()
     line.userData.excludeFromOutlines = true
 
-    return { line2: line, lineMaterial: material }
+    return line
   }, [curvePoints, finalColor, finalLineWidth, size])
-
-  // Uppdatera resolution varje frame (hanterar resize + zoom)
-  useFrame(() => {
-    lineMaterial.resolution.set(size.width, size.height)
-  })
 
   // Beräkna collider-data för varje segment
   const colliders = useMemo<SegmentCollider[]>(() => {

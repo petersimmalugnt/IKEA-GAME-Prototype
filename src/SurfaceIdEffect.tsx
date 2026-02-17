@@ -13,6 +13,7 @@ const fragmentShader = `
   uniform vec2 resolution;
   uniform bool debug;
   uniform float normalThreshold;
+  uniform float idThreshold;
 
   vec3 unpackNormal(vec4 packedNormal) {
     return packedNormal.rgb * 2.0 - 1.0;
@@ -42,8 +43,10 @@ const fragmentShader = `
       vec2 neighborUv = uv + offsets[i];
 
       vec4 neighborId = texture2D(surfaceBuffer, neighborUv);
-      if (distance(centerId.rgb, neighborId.rgb) > 0.01) {
+      float idDiff = distance(centerId.rgb, neighborId.rgb);
+      if (idDiff > idThreshold) {
         idEdge = 1.0;
+        continue;
       }
 
       vec3 neighborNormal = unpackNormal(texture2D(normalBuffer, neighborUv));
@@ -68,6 +71,7 @@ type EffectParams = {
   height: number
   debug?: boolean
   normalThreshold?: number
+  idThreshold?: number
 }
 
 // --- 2. EFFECT KLASSEN ---
@@ -79,6 +83,7 @@ class SurfaceIdEffectImpl extends Effect {
     height,
     debug = false,
     normalThreshold = 0.86,
+    idThreshold = 0.01,
   }: EffectParams) {
     super('SurfaceIdEffect', fragmentShader, {
       uniforms: new Map<string, Uniform<unknown>>([
@@ -89,6 +94,7 @@ class SurfaceIdEffectImpl extends Effect {
         ['resolution', new Uniform(new THREE.Vector2(width, height))],
         ['debug', new Uniform(debug)],
         ['normalThreshold', new Uniform(normalThreshold)],
+        ['idThreshold', new Uniform(idThreshold)],
       ]),
     })
   }
@@ -104,6 +110,7 @@ type SurfaceIdEffectProps = {
   color?: string
   debug?: boolean
   creaseAngle?: number
+  idThreshold?: number
 }
 
 type OutlineObject = THREE.Object3D & {
@@ -120,10 +127,11 @@ export function SurfaceIdEffect({
   color = '#2e212f',
   debug = false,
   creaseAngle = 30,
+  idThreshold = 0.01,
 }: SurfaceIdEffectProps) {
   const { gl, scene, camera, size, viewport } = useThree()
 
-  const threshold = useMemo(() => Math.cos(creaseAngle * (Math.PI / 180)), [creaseAngle])
+  const normalThreshold = useMemo(() => Math.cos(creaseAngle * (Math.PI / 180)), [creaseAngle])
 
   const [idFbo, normalFbo] = useMemo(() => {
     const dpr = viewport.dpr
@@ -148,8 +156,9 @@ export function SurfaceIdEffect({
     width: size.width * viewport.dpr,
     height: size.height * viewport.dpr,
     debug,
-    normalThreshold: threshold,
-  }), [thickness, color, size, viewport.dpr, debug, threshold])
+    normalThreshold,
+    idThreshold,
+  }), [thickness, color, size, viewport.dpr, debug, normalThreshold, idThreshold])
 
   const idMaterialCache = useRef<Map<number, THREE.MeshBasicMaterial>>(new Map())
   const normalMaterial = useMemo(() => new THREE.MeshNormalMaterial(), [])
@@ -168,6 +177,7 @@ export function SurfaceIdEffect({
 
     // Dölj objekt som inte ska delta i outline-detektionen (t.ex. splines + debug lines)
     const hiddenObjects: OutlineObject[] = []
+    const outlineMeshes: THREE.Mesh[] = []
     scene.traverse((obj) => {
       const renderObj = obj as OutlineObject
       const shouldHide =
@@ -180,45 +190,42 @@ export function SurfaceIdEffect({
         renderObj.visible = false
         hiddenObjects.push(renderObj)
       }
+
+      const mesh = obj as THREE.Mesh
+      if (mesh.isMesh && mesh.userData.surfaceId && !shouldHide) {
+        outlineMeshes.push(mesh)
+      }
     })
 
     // --- PASS 1: SURFACE ID ---
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
-      if (mesh.isMesh && mesh.userData.surfaceId) {
-        originalMaterials.current.set(mesh.uuid, mesh.material)
-        mesh.material = getIdMaterial(mesh.userData.surfaceId.getHex())
-      }
+    outlineMeshes.forEach((mesh) => {
+      originalMaterials.current.set(mesh.uuid, mesh.material)
+      mesh.material = getIdMaterial(mesh.userData.surfaceId.getHex())
     })
     gl.setRenderTarget(idFbo)
     gl.clear()
     gl.render(scene, camera)
 
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
+    outlineMeshes.forEach((mesh) => {
       const original = originalMaterials.current.get(mesh.uuid)
-      if (mesh.isMesh && original) {
+      if (original) {
         mesh.material = original
       }
     })
     originalMaterials.current.clear()
 
     // --- PASS 2: NORMALER ---
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
-      if (mesh.isMesh && mesh.userData.surfaceId) {
-        originalMaterials.current.set(mesh.uuid, mesh.material)
-        mesh.material = normalMaterial
-      }
+    outlineMeshes.forEach((mesh) => {
+      originalMaterials.current.set(mesh.uuid, mesh.material)
+      mesh.material = normalMaterial
     })
     gl.setRenderTarget(normalFbo)
     gl.clear()
     gl.render(scene, camera)
 
-    scene.traverse((obj) => {
-      const mesh = obj as THREE.Mesh
+    outlineMeshes.forEach((mesh) => {
       const original = originalMaterials.current.get(mesh.uuid)
-      if (mesh.isMesh && original) {
+      if (original) {
         mesh.material = original
       }
     })
@@ -243,13 +250,15 @@ export function SurfaceIdEffect({
     const thicknessUniform = effect.uniforms.get('thickness') as Uniform<number> | undefined
     const colorUniform = effect.uniforms.get('outlineColor') as Uniform<THREE.Color> | undefined
     const debugUniform = effect.uniforms.get('debug') as Uniform<boolean> | undefined
-    const thresholdUniform = effect.uniforms.get('normalThreshold') as Uniform<number> | undefined
+    const normalThresholdUniform = effect.uniforms.get('normalThreshold') as Uniform<number> | undefined
+    const idThresholdUniform = effect.uniforms.get('idThreshold') as Uniform<number> | undefined
 
     if (thicknessUniform) thicknessUniform.value = scaledThickness
     if (colorUniform) colorUniform.value.set(color)
     if (debugUniform) debugUniform.value = debug
-    if (thresholdUniform) thresholdUniform.value = threshold
-  }, [effect, thickness, color, debug, threshold, viewport.dpr])
+    if (normalThresholdUniform) normalThresholdUniform.value = normalThreshold
+    if (idThresholdUniform) idThresholdUniform.value = idThreshold
+  }, [effect, thickness, color, debug, normalThreshold, idThreshold, viewport.dpr])
 
   return <primitive object={effect} dispose={null} />
 }

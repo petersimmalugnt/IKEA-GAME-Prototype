@@ -83,7 +83,7 @@ palette: {
 | `streaming` | `enabled`, `cellSize`, `preloadRadius`, `renderLoadRadius`, `renderUnloadRadius`, `physicsLoadRadius`, `physicsUnloadRadius` |
 | `colors` | `shadow`, `outline` |
 | `palette` | `active`, `variants`, `autoMid(lightnessDelta/chromaDelta/hueShift)` |
-| `lines` | `enabled`, `thickness`, `creaseAngle` |
+| `lines` | `enabled`, `thickness`, `creaseAngle`, `threshold`, `composerMultisampling`, `smaaEnabled`, `smaaPreset` |
 | `camera` | `zoom` (300), `position` ([5,5,5]), `followLerp` |
 | `light` | `position`, `shadowMapSize` (4096), `shadowBias` |
 | `material` | `highlightStep` (0.6), `midtoneStep` (-1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
@@ -158,7 +158,13 @@ Post-processing effekt med **två render-passes per frame:**
 
 Fragment-shadern jämför 8 grann-pixlar för att hitta:
 - **ID-kanter** — där surface-ID ändras (konturlinjer)
-- **Normal-kanter** — där normalvinkeln överstiger `creaseAngle` (inre linjer)
+- **Normal-kanter** — där normalvinkeln överstiger `creaseAngle` (inre linjer), men bara inom samma surface-ID
+
+ID-känslighet styrs av `SETTINGS.lines.threshold`.
+
+Postprocess-AA styrs i `Effects.tsx` via:
+- `SETTINGS.lines.composerMultisampling` (MSAA i composer)
+- `SETTINGS.lines.smaaEnabled` + `SETTINGS.lines.smaaPreset`
 
 > **OBS:** Objekt med `userData.excludeFromOutlines = true` (t.ex. splines) hoppas över.
 
