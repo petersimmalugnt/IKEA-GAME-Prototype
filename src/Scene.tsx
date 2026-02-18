@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Physics } from '@react-three/rapier'
 import { Stats } from '@react-three/drei'
 import { CubeElement, CylinderElement, InvisibleFloor } from './SceneComponents'
@@ -16,10 +16,12 @@ import { ExternalControlBridge } from './control/ExternalControlBridge'
 import { BrickBalloon } from './assets/models/BrickBalloon'
 import { BallBalloon } from './assets/models/BallBalloon'
 
+
 export function Scene() {
   useSettingsVersion()
   const playerRef = useRef<PlayerHandle | null>(null)
   const isDebug = SETTINGS.debug.enabled
+
 
   return (
     <GameKeyboardControls>
@@ -32,8 +34,10 @@ export function Scene() {
 
           {/* --- NIVÅN --- */}
 
-          <BallBalloon position={[-1, .5, 0]} animation="moving" materialColor1={0} />
-          <BrickBalloon position={[1.3, .5, 2]} animation="moving" />
+
+          <BallBalloon position={[0, .5, -4]} animation="moving" materialColor1={4} />
+          <BallBalloon position={[-1, .5, 0]} animation="moving2" materialColor1={4} />
+          <BrickBalloon position={[1.3, .5, 2]} animation="moving3" materialColor1={7} />
           <BrickBalloon position={[1.5, .5, -1]} animation="moving" materialColor1={3} />
 
           {/* BLÅ RAMP */}
@@ -85,6 +89,7 @@ export function Scene() {
           {/* VÄLTEST */}
           <VaultStairs position={[0, 0, 2.5]} />
           <VaultStairs position={[-.5, 0, -2.5]} rotation={[0, Math.PI / -1, 0]} materialColor0={0} />
+
 
           <Stair position={[1, 0, 2]} materialColor0={1} />
 
