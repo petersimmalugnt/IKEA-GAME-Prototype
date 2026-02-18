@@ -3,10 +3,10 @@ import { shaderMaterial } from '@react-three/drei'
 import { converter, formatHex } from 'culori'
 import {
   SETTINGS,
-  getActivePalette,
+  getPaletteEntry,
   getLightDir,
   type PaletteAutoMidSettings,
-  type PaletteName,
+  type MaterialColorIndex,
 } from './GameSettings'
 
 const toOklch = converter('oklch')
@@ -186,7 +186,7 @@ function getOrCreateMaterial(
 }
 
 type C4DMaterialProps = {
-  color?: PaletteName
+  color?: MaterialColorIndex
   singleTone?: boolean
   baseColor?: string
   midColor?: string
@@ -213,14 +213,13 @@ export function C4DMaterial({
   ...props
 }: C4DMaterialProps) {
   const finalLightDir = lightDir || getLightDir()
-  const activePalette = getActivePalette()
   const autoMid = SETTINGS.palette.autoMid
 
   let baseHex: string
   let midHex: string
 
-  if (color) {
-    const entry = activePalette[color] || activePalette.default
+  if (color !== undefined && color !== null) {
+    const entry = getPaletteEntry(color)
     baseHex = entry.base
     const fallbackMid = createAutoMidHex(baseHex, autoMid)
     midHex = singleTone ? baseHex : (entry.mid || fallbackMid)
@@ -229,7 +228,7 @@ export function C4DMaterial({
     const fallbackMid = createAutoMidHex(baseHex, autoMid)
     midHex = singleTone ? baseHex : (midColor || fallbackMid)
   } else {
-    const entry = activePalette.default
+    const entry = getPaletteEntry(0)
     baseHex = entry.base
     const fallbackMid = createAutoMidHex(baseHex, autoMid)
     midHex = singleTone ? baseHex : (entry.mid || fallbackMid)

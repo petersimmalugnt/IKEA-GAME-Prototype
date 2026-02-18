@@ -9,7 +9,7 @@ import { useGLTF } from '@react-three/drei'
 import { RigidBody, CuboidCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial } from '../../SceneComponents'
-import type { PaletteName } from '../../GameSettings'
+import type { MaterialColorIndex } from '../../GameSettings'
 import modelUrl from './laddertest.glb?url'
 
 type GeneratedRigidBodySettings = {
@@ -21,14 +21,14 @@ type GeneratedRigidBodySettings = {
 }
 
 type LaddertestProps = ThreeElements['group'] & {
-  colorOne?: PaletteName
+  materialColor0?: MaterialColorIndex
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
 }
 
-export function Laddertest({ colorOne = 'one', rigidBodyOne, ...props }: LaddertestProps) {
+export function Laddertest({ materialColor0 = 0, rigidBodyOne, ...props }: LaddertestProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
-  const colors: Record<'colorOne', PaletteName> = {
-    colorOne,
+  const materialColors: Record<'materialColor0', MaterialColorIndex> = {
+    materialColor0,
   }
 
   const rigidBodies: Record<'rigidBodyOne', GeneratedRigidBodySettings> = {
@@ -51,7 +51,7 @@ export function Laddertest({ colorOne = 'one', rigidBodyOne, ...props }: Laddert
       <RigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false}>
         <CuboidCollider args={[0.075, 0.345, 0.015]} position={[0, 0.345, 0]} />
         <C4DMesh name={nodes['HORIZONTALS'].name} geometry={nodes['HORIZONTALS'].geometry} castShadow receiveShadow>
-          <C4DMaterial color={colors.colorOne} />
+          <C4DMaterial color={materialColors.materialColor0} />
         </C4DMesh>
       </RigidBody>
     </group>

@@ -9,7 +9,7 @@ import { useGLTF } from '@react-three/drei'
 import { RigidBody, ConvexHullCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial } from '../../SceneComponents'
-import type { PaletteName } from '../../GameSettings'
+import type { MaterialColorIndex } from '../../GameSettings'
 import modelUrl from './stair.glb?url'
 
 type GeneratedRigidBodySettings = {
@@ -21,14 +21,14 @@ type GeneratedRigidBodySettings = {
 }
 
 type StairProps = ThreeElements['group'] & {
-  colorOne?: PaletteName
+  materialColor0?: MaterialColorIndex
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
 }
 
-export function Stair({ colorOne = 'three', rigidBodyOne, ...props }: StairProps) {
+export function Stair({ materialColor0 = 2, rigidBodyOne, ...props }: StairProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
-  const colors: Record<'colorOne', PaletteName> = {
-    colorOne,
+  const materialColors: Record<'materialColor0', MaterialColorIndex> = {
+    materialColor0,
   }
 
   const rigidBodies: Record<'rigidBodyOne', GeneratedRigidBodySettings> = {
@@ -51,10 +51,10 @@ export function Stair({ colorOne = 'three', rigidBodyOne, ...props }: StairProps
       <RigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false}>
         <ConvexHullCollider args={[nodes['STAIRS_collider'].geometry.attributes.position.array]} />
         <C4DMesh name={nodes['STAIRS'].name} geometry={nodes['STAIRS'].geometry} castShadow receiveShadow>
-          <C4DMaterial color={colors.colorOne} />
+          <C4DMaterial color={materialColors.materialColor0} />
         </C4DMesh>
         <C4DMesh name={nodes['STAIRS_top'].name} geometry={nodes['STAIRS_top'].geometry} castShadow receiveShadow>
-          <C4DMaterial color={colors.colorOne} />
+          <C4DMaterial color={materialColors.materialColor0} />
         </C4DMesh>
       </RigidBody>
     </group>

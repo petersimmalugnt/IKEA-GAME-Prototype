@@ -9,7 +9,7 @@ import { useGLTF } from '@react-three/drei'
 import { RigidBody, ConvexHullCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial } from '../../SceneComponents'
-import type { PaletteName } from '../../GameSettings'
+import type { MaterialColorIndex } from '../../GameSettings'
 import modelUrl from './VaultStairs.glb?url'
 
 type GeneratedRigidBodySettings = {
@@ -21,14 +21,14 @@ type GeneratedRigidBodySettings = {
 }
 
 type VaultStairsProps = ThreeElements['group'] & {
-  colorOne?: PaletteName
+  materialColor0?: MaterialColorIndex
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
 }
 
-export function VaultStairs({ colorOne = 'two', rigidBodyOne, ...props }: VaultStairsProps) {
+export function VaultStairs({ materialColor0 = 1, rigidBodyOne, ...props }: VaultStairsProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
-  const colors: Record<'colorOne', PaletteName> = {
-    colorOne,
+  const materialColors: Record<'materialColor0', MaterialColorIndex> = {
+    materialColor0,
   }
 
   const rigidBodies: Record<'rigidBodyOne', GeneratedRigidBodySettings> = {
@@ -51,7 +51,7 @@ export function VaultStairs({ colorOne = 'two', rigidBodyOne, ...props }: VaultS
       <RigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false} position={[0, 0, 0.2636]}>
         <ConvexHullCollider args={[nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].geometry.attributes.position.array]} />
         <C4DMesh name={nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].name} geometry={nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].geometry} castShadow receiveShadow>
-          <C4DMaterial color={colors.colorOne} />
+          <C4DMaterial color={materialColors.materialColor0} />
         </C4DMesh>
       </RigidBody>
     </group>

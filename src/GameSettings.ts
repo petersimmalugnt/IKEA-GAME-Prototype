@@ -2,16 +2,17 @@ import * as THREE from 'three'
 
 export type Vec3 = [number, number, number]
 
-export type PaletteTone = 'one' | 'two' | 'three' | 'four' | 'five'
-export type PaletteName = PaletteTone | 'default'
+export type MaterialColorIndex = number
 
 export type PaletteEntry = {
   base: string
   mid?: string
 }
 
-export type PaletteDefinition = Record<PaletteName, PaletteEntry>
-export type PaletteVariant = PaletteDefinition & { background: string }
+export type PaletteVariant = {
+  background: string
+  colors: PaletteEntry[]
+}
 
 export type PaletteAutoMidSettings = {
   enabled: boolean
@@ -218,14 +219,14 @@ export const SETTINGS: Settings = {
 
   // --- STREAMING (Automatisk chunk-aktivering) ---
   streaming: {
-    enabled: true,        // Master-toggle för streaming av auto-genererade/world-objekt
-    cellSize: 8,           // Storlek på varje chunk-cell i world-units
+    enabled: false,        // Master-toggle för streaming av auto-genererade/world-objekt
+    cellSize: 1,           // Storlek på varje chunk-cell i world-units
     updateIntervalMs: 120, // Hur ofta chunk-aktivering uppdateras
-    preloadRadius: 26,     // Chunks inom denna radie markeras som preload
-    renderLoadRadius: 20,  // Chunks laddas in visuellt inom denna radie
-    renderUnloadRadius: 24, // Chunks tas bort visuellt först utanför denna radie
-    physicsLoadRadius: 14, // Physics aktiveras inom denna radie
-    physicsUnloadRadius: 18, // Physics stängs av först utanför denna radie
+    preloadRadius: 2.6,     // Chunks inom denna radie markeras som preload
+    renderLoadRadius: 2.0,  // Chunks laddas in visuellt inom denna radie
+    renderUnloadRadius: 2.4, // Chunks tas bort visuellt först utanför denna radie
+    physicsLoadRadius: 1.4, // Physics aktiveras inom denna radie
+    physicsUnloadRadius: 1.8, // Physics stängs av först utanför denna radie
     center: {
       source: 'target', // 'target' = följ targetId, 'cameraFocus' = följ kamerans focus/lookAt
       targetId: 'player',
@@ -244,30 +245,48 @@ export const SETTINGS: Settings = {
     variants: {
       classic: {
         background: '#3D2C23',
-        one: { base: '#45253A' },
-        two: { base: '#558DCE' },
-        three: { base: '#D9B5A3' },
-        four: { base: '#665747' },
-        five: { base: '#FF2D19' },
-        default: { base: '#45253A' },
+        colors: [
+          { base: '#45253A' },
+          { base: '#558DCE' },
+          { base: '#D9B5A3' },
+          { base: '#665747' },
+          { base: '#FF2D19' },
+          { base: '#78C850' },
+          { base: '#E0C24A' },
+          { base: '#8A6BEA' },
+          { base: '#2FB9A6' },
+          { base: '#F2E5C4' },
+        ],
       },
       greyscale: {
         background: '#1b1b1b',
-        one: { base: '#717171' },
-        two: { base: '#424242' },
-        three: { base: '#007FB5' },
-        four: { base: '#C96C05' },
-        five: { base: '#ffffff' },
-        default: { base: '#717171' },
+        colors: [
+          { base: '#717171' },
+          { base: '#424242' },
+          { base: '#007FB5' },
+          { base: '#C96C05' },
+          { base: '#ffffff' },
+          { base: '#2A2A2A' },
+          { base: '#5B5B5B' },
+          { base: '#8D8D8D' },
+          { base: '#BFBFBF' },
+          { base: '#E8E8E8' },
+        ],
       },
       green: {
         background: '#0E3420',
-        one: { base: '#669E10' },
-        two: { base: '#006B18' },
-        three: { base: '#007FB5' },
-        four: { base: '#C96C05' },
-        five: { base: '#e1d4bd' },
-        default: { base: '#006B18' },
+        colors: [
+          { base: '#669E10' },
+          { base: '#006B18' },
+          { base: '#007FB5' },
+          { base: '#C96C05' },
+          { base: '#E1D4BD' },
+          { base: '#8BC34A' },
+          { base: '#2E8B57' },
+          { base: '#A7C957' },
+          { base: '#3FA34D' },
+          { base: '#F0E6CC' },
+        ],
       },
     },
     autoMid: {
@@ -286,7 +305,7 @@ export const SETTINGS: Settings = {
     threshold: 0.005,    // Känslighet för surface-ID edge-detektion
     composerMultisampling: 4, // MSAA i postprocess-composer (0 stanger av)
     smaaEnabled: true,  // SMAA efter outline-pass (bra mot trappsteg)
-    smaaPreset: 'high', // low | medium | high | ultra
+    smaaPreset: 'ultra', // low | medium | high | ultra
   },
 
   // --- PIXELATION (Pixelart-test via postprocess-pass) ---
@@ -306,7 +325,7 @@ export const SETTINGS: Settings = {
 
   // --- KAMERA ---
   camera: {
-    mode: 'static', // 'follow' eller 'static'
+    mode: 'follow', // 'follow' eller 'static'
     base: {
       zoom: 300,
       near: 0.1,
@@ -363,10 +382,30 @@ export const getLightDir = () => {
   return new THREE.Vector3(...SETTINGS.light.position).normalize()
 }
 
-export const getActivePalette = (): PaletteDefinition => {
+const FALLBACK_PALETTE_ENTRY: PaletteEntry = { base: '#ffffff' }
+
+export const getActivePalette = (): PaletteVariant => {
   return SETTINGS.palette.variants[SETTINGS.palette.active]
 }
 
 export const getActiveBackground = (): string => {
   return SETTINGS.palette.variants[SETTINGS.palette.active].background
+}
+
+export const normalizePaletteIndex = (index: number, paletteLength: number): number => {
+  if (paletteLength <= 0) return 0
+  if (!Number.isFinite(index)) return 0
+  const truncated = Math.trunc(index)
+  return ((truncated % paletteLength) + paletteLength) % paletteLength
+}
+
+export const resolveMaterialColorIndex = (index: MaterialColorIndex | null | undefined): number => {
+  const palette = getActivePalette()
+  return normalizePaletteIndex(index ?? 0, palette.colors.length)
+}
+
+export const getPaletteEntry = (index: MaterialColorIndex | null | undefined): PaletteEntry => {
+  const palette = getActivePalette()
+  if (palette.colors.length === 0) return FALLBACK_PALETTE_ENTRY
+  return palette.colors[resolveMaterialColorIndex(index)]
 }

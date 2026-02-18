@@ -159,7 +159,7 @@ export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player({ po
       ccd
     >
       <BallCollider args={[0.1]} density={targetDensity} />
-      <SphereElement radius={0.1} color="five" />
+      <SphereElement radius={0.1} color={4} />
     </RigidBody>
   )
 })

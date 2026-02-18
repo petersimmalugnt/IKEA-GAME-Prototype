@@ -31,14 +31,14 @@ export function Scene() {
 
           {/* --- NIVÅN --- */}
 
-          <BallBalloon position={[-1, .5, 0]} animation="moving" colorTwo="one" />
+          <BallBalloon position={[-1, .5, 0]} animation="moving" materialColor1={0} />
           <BrickBalloon position={[1.3, .5, 2]} animation="moving" />
-          <BrickBalloon position={[1.5, .5, -1]} animation="moving" colorTwo="four" />
+          <BrickBalloon position={[1.5, .5, -1]} animation="moving" materialColor1={3} />
 
           {/* BLÅ RAMP */}
           <CubeElement
             size={[0.5, 2, 0.03]}
-            color="two"
+            color={1}
             physics="dynamic"
             position={[0.1, 0.5, 0.75]}
             rotation={[-61, 0, 0]}
@@ -83,11 +83,11 @@ export function Scene() {
 
           {/* VÄLTEST */}
           <VaultStairs position={[0, 0, 2.5]} />
-          <VaultStairs position={[-.5, 0, -2.5]} rotation={[0, Math.PI / -1, 0]} colorOne="one" />
+          <VaultStairs position={[-.5, 0, -2.5]} rotation={[0, Math.PI / -1, 0]} materialColor0={0} />
 
-          <Stair position={[1, 0, 2]} colorOne="two" />
+          <Stair position={[1, 0, 2]} materialColor0={1} />
 
-          <Stair position={[-2, 0, 0]} colorOne="one" />
+          <Stair position={[-2, 0, 0]} materialColor0={0} />
 
           {/* DEBUG BENCHMARK + STREAMING */}
           <BenchmarkDebugContent />

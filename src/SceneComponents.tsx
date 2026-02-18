@@ -13,7 +13,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { C4DMaterial } from './Materials'
-import { SETTINGS, type PaletteName, type Vec3 } from './GameSettings'
+import { SETTINGS, type MaterialColorIndex, type Vec3 } from './GameSettings'
 
 function hashToSurfaceHex(input: string): number {
   let hash = 0
@@ -124,14 +124,14 @@ type MeshElementProps = Omit<ThreeElements['mesh'], 'position' | 'rotation'>
 
 type CubeElementProps = MeshElementProps & PhysicsProps & {
   size?: Vec3
-  color?: PaletteName
+  color?: MaterialColorIndex
   singleTone?: boolean
 }
 
 // --- CUBE ---
 export const CubeElement = forwardRef<THREE.Mesh, CubeElementProps>(function CubeElement({
   size = [1, 1, 1],
-  color = 'one',
+  color = 0,
   singleTone = false,
   physics,
   mass,
@@ -181,7 +181,7 @@ export const CubeElement = forwardRef<THREE.Mesh, CubeElementProps>(function Cub
 type SphereElementProps = MeshElementProps & PhysicsProps & {
   radius?: number
   segments?: number
-  color?: PaletteName
+  color?: MaterialColorIndex
   singleTone?: boolean
   flatShading?: boolean
 }
@@ -190,7 +190,7 @@ type SphereElementProps = MeshElementProps & PhysicsProps & {
 export const SphereElement = forwardRef<THREE.Mesh, SphereElementProps>(function SphereElement({
   radius = 0.5,
   segments = 32,
-  color = 'one',
+  color = 0,
   singleTone = true,
   flatShading = false,
   physics,
@@ -240,7 +240,7 @@ type CylinderElementProps = MeshElementProps & PhysicsProps & {
   height?: number
   segments?: number
   colliderSegments?: number
-  color?: PaletteName
+  color?: MaterialColorIndex
   singleTone?: boolean
 }
 
@@ -250,7 +250,7 @@ export const CylinderElement = forwardRef<THREE.Mesh, CylinderElementProps>(func
   height = 1,
   segments = 32,
   colliderSegments = 8,
-  color = 'one',
+  color = 0,
   singleTone = true,
   physics,
   mass,

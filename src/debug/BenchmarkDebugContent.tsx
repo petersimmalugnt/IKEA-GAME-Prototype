@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { CubeElement } from '../SceneComponents'
-import { SETTINGS, type PaletteName, type Vec3 } from '../GameSettings'
+import { SETTINGS, type MaterialColorIndex, type Vec3 } from '../GameSettings'
 import { useCameraSystem } from '../CameraSystemContext'
 import {
   getChunkCoord,
@@ -10,14 +10,14 @@ import {
 } from '../streaming/ChunkStreamingSystem'
 import { StreamingDebugOverlay } from './StreamingDebugOverlay'
 
-const benchmarkColors: PaletteName[] = ['one', 'two', 'three', 'four', 'five']
+const benchmarkColors: MaterialColorIndex[] = [0, 1, 2, 3, 4]
 
 type BenchmarkBlock = {
   id: string
   size: Vec3
   position: Vec3
   rotation: Vec3
-  color: PaletteName
+  color: MaterialColorIndex
   physics?: 'fixed'
 }
 

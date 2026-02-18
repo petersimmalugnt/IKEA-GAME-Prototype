@@ -73,9 +73,9 @@ All visuell och gameplay-konfiguration samlas i `SETTINGS`-objektet:
 palette: {
   active: 'green', // globalt palettbyte
   variants: {
-    classic: { background: '#3D2C23', one: { base: '#45253A' }, two: { base: '#558DCE' }, ... },
-    pine:    { background: '#2F3B2A', one: { base: '#44553A' }, two: { base: '#5A8C7A' }, ... },
-    green:   { background: '#0E3420', one: { base: '#669E10' }, two: { base: '#006B18' }, ... },
+    classic: { background: '#3D2C23', colors: [{ base: '#45253A' }, { base: '#558DCE' }, ...] },
+    greyscale: { background: '#1b1b1b', colors: [{ base: '#717171' }, { base: '#424242' }, ...] },
+    green: { background: '#0E3420', colors: [{ base: '#669E10' }, { base: '#006B18' }, ...] },
   },
   autoMid: {
     enabled: true,
@@ -86,10 +86,12 @@ palette: {
 }
 ```
 
-- `base` krävs per färgslot (`one`, `two`, `three`, `four`, `five`, `default`).
-- `mid` är valfri per slot. Om `mid` saknas auto-genereras den från `base` med OKLCH-reglagen i `autoMid`.
+- `base` krävs per färgentry i `colors`-arrayen (index `0..N`).
+- `mid` är valfri per entry. Om `mid` saknas auto-genereras den från `base` med OKLCH-reglagen i `autoMid`.
 - `background` ligger per variant och används för aktiv scen-/canvasbakgrund.
 - `active` byter hela paletten globalt utan att röra modellfiler.
+- Modellprops använder numeriska index: `materialColor0={3}`.
+- Index normaliseras med modulo mot aktiv palettlängd (ex: `12` i en 10-färgspalett blir index `2`).
 
 ### Viktiga inställningar
 | Sektion | Nyckelparametrar |
@@ -373,8 +375,8 @@ Tokens sätts i **objektnamnet** i Cinema 4D:
 
 | Token | Funktion | Exempel |
 |-------|----------|---------|
-| `_colorX` | Sätter färg från paletten | `Cube_colorTwo` → `colorOne="two"` (slot-baserad prop) |
-| `_singletone` | Tvingar enhetlig ton (ingen mid) | `Box_colorFive_singletone` |
+| `_colorX` | Sätter färgindex från paletten (`X` är heltal, börjar på `0`) | `Cube_color3` → `materialColor0={3}` (slot-baserad prop) |
+| `_singletone` | Tvingar enhetlig ton (ingen mid) | `Box_color4_singletone` |
 | `_dynamic` | Dynamisk fysikkropp | `Group_dynamic` |
 | `_fixed` / `_static` | Fast fysikkropp | `Floor_fixed` |
 | `_kinematic` | Kinematisk kropp | `Platform_kinematic` |
@@ -395,16 +397,16 @@ Tokens sätts i **objektnamnet** i Cinema 4D:
 - **Viktigt:** Redigera inte genererad TSX i `assets/models` manuellt; uppdatera konverteraren och kör ny FBX→GLB/TSX-konvertering
 
 ### Färg-arv
-Färg-tokens ärvs nedåt i hierarkin. Om en grupp har `_colorTwo`, får alla barn den färgen om de inte har en egen token.
+Färg-tokens ärvs nedåt i hierarkin. Om en grupp har `_color3`, får alla barn den färgen om de inte har en egen token.
 
 ### Genererade override-props
 Konverteraren genererar nu slot-baserade props för återanvändning:
 
-- Färger: `colorOne`, `colorTwo`, `colorThree` ...
+- Färger: `materialColor0`, `materialColor1`, `materialColor2` ...
 - Fysikprofiler: `rigidBodyOne`, `rigidBodyTwo`, `rigidBodyThree` ...
 
-Slot-namnen är stabila per exporterad modell och separerade från själva palette-värdet.
-Exempel: om modellen bara använder token `_colorThree` blir default `colorOne="three"`.
+Färgslot-namnen är stabila per exporterad modell och separerade från själva färgindexet.
+Exempel: om modellen bara använder token `_color7` blir default `materialColor0={7}`.
 
 Fysikprofiler dedupliceras: objekt med identisk physics-config delar samma rigidBody-slot.
 Det gör att en override på t.ex. `rigidBodyOne` slår på alla objekt som använder den profilen.
@@ -412,7 +414,7 @@ Det gör att en override på t.ex. `rigidBodyOne` slår på alla objekt som anv�
 Exempel:
 ```tsx
 <Stair
-  colorOne="five"
+  materialColor0={4}
   rigidBodyOne={{ type: 'fixed', friction: 1.5 }}
 />
 ```

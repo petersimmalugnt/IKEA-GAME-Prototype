@@ -8,6 +8,8 @@ import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 type ParsedSpline = {
   name: string
   parentPath: string[]
+  siblingIndex: number
+  anchorIndex: number
   points: number[][]
   closed: boolean
   tension: number
@@ -134,6 +136,12 @@ export function GltfConverter() {
                             : (child.name || 'Spline')
                         const originalName = normalizeNodeName(originalNameRaw) || 'Spline'
                         const parentPath = getParentPathNames(child, fbxScene)
+                        const parentChildren = child.parent?.children ?? []
+                        const siblingIndex = Math.max(parentChildren.indexOf(child), 0)
+                        const anchorIndex = parentChildren
+                            .slice(0, siblingIndex)
+                            .filter((sibling: any) => isVisualHierarchyNode(sibling))
+                            .length
                         // Kolla om spline är closed (sista punkt ≈ första punkt)
                         const first = points[0]
                         const last = points[points.length - 1]
@@ -149,6 +157,8 @@ export function GltfConverter() {
                         splines.push({
                             name: originalName,
                             parentPath,
+                            siblingIndex,
+                            anchorIndex,
                             points,
                             closed,
                             tension: isLinear ? 0 : 0.5,
@@ -536,6 +546,16 @@ function normalizeNodeName(name: string): string {
     return name.split('\u0000')[0].trim()
 }
 
+function isColliderName(name: string): boolean {
+    return name.toLowerCase().includes('_collider')
+}
+
+function isVisualHierarchyNode(node: any): boolean {
+    if (!node || node.isLine) return false
+    const name = typeof node.name === 'string' ? node.name : ''
+    return !isColliderName(name) || hasPhysicsToken(name)
+}
+
 function toCanonicalNodeName(name: string): string {
     const normalized = normalizeNodeName(name)
     const withoutNamespace = normalized.includes('::')
@@ -721,9 +741,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     const hasAnimations = selectableAnims.length > 0
     const hasSplines = splines.length > 0
 
-    function getColorFromName(name: string): string | null {
-        const match = name.match(/_color([A-Za-z0-9]+)/)
-        return match ? match[1].toLowerCase() : null
+    function getColorFromName(name: string): number | null {
+        const match = name.match(/_color(\d+)/i)
+        if (!match) return null
+        const parsed = parseInt(match[1], 10)
+        if (!Number.isFinite(parsed)) return null
+        return Math.max(0, Math.trunc(parsed))
     }
 
     function hasSingleTone(name: string): boolean {
@@ -734,21 +757,103 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         id: number
         spline: ParsedSpline
         canonicalParentPath: string[]
+        siblingIndex: number
+        anchorIndex: number
     }
 
     const indexedSplines: IndexedSpline[] = splines.map((spline, id) => ({
         id,
         spline,
         canonicalParentPath: spline.parentPath.map(toCanonicalNodeName).filter(Boolean),
+        siblingIndex: Number.isFinite(spline.siblingIndex) ? spline.siblingIndex : id,
+        anchorIndex: Number.isFinite(spline.anchorIndex) ? spline.anchorIndex : 0,
     }))
+
+    type ScenePathCandidate = {
+        key: string
+        canonicalPath: string[]
+    }
+
+    const scenePathCandidates: ScenePathCandidate[] = [{ key: '', canonicalPath: [] }]
+    const scenePathSet = new Set<string>([''])
+
+    function collectScenePaths(obj: THREE.Object3D, path: string[] = []): void {
+        const cleanedName = normalizeNodeName(obj.name)
+        const currentPath = cleanedName ? [...path, cleanedName] : path
+        const canonicalPath = currentPath.map(toCanonicalNodeName).filter(Boolean)
+        const key = buildPathKey(canonicalPath)
+
+        if (!scenePathSet.has(key)) {
+            scenePathSet.add(key)
+            scenePathCandidates.push({ key, canonicalPath })
+        }
+
+        obj.children.forEach((child) => collectScenePaths(child, currentPath))
+    }
+
+    scene.children.forEach((child) => collectScenePaths(child))
+
+    const singleTopLevelPathKey = (() => {
+        const levelOneKeys = Array.from(
+            new Set(
+                scenePathCandidates
+                    .filter((candidate) => candidate.canonicalPath.length === 1)
+                    .map((candidate) => candidate.key)
+            )
+        )
+        return levelOneKeys.length === 1 ? levelOneKeys[0] : null
+    })()
+
+    function matchSplineParentKey(canonicalParentPath: string[]): string | null {
+        const exactKey = buildPathKey(canonicalParentPath)
+        if (scenePathSet.has(exactKey)) return exactKey
+
+        if (canonicalParentPath.length === 0) return ''
+
+        let bestMatchKey: string | null = null
+        let bestOffset = Number.POSITIVE_INFINITY
+
+        scenePathCandidates.forEach((candidate) => {
+            if (candidate.canonicalPath.length < canonicalParentPath.length) return
+            const offset = candidate.canonicalPath.length - canonicalParentPath.length
+            for (let i = 0; i < canonicalParentPath.length; i += 1) {
+                if (candidate.canonicalPath[offset + i] !== canonicalParentPath[i]) return
+            }
+            if (offset < bestOffset) {
+                bestOffset = offset
+                bestMatchKey = candidate.key
+            }
+        })
+
+        return bestMatchKey
+    }
 
     const splinesByParentKey = new Map<string, IndexedSpline[]>()
     indexedSplines.forEach((entry) => {
-        const key = buildPathKey(entry.canonicalParentPath)
-        const list = splinesByParentKey.get(key)
+        const matchedParentKey = matchSplineParentKey(entry.canonicalParentPath)
+        if (matchedParentKey === null) return
+
+        // FBXLoader kan ibland tappa parent för kurvor (tom path) när hierarkin exporteras.
+        // Om scenen har en tydlig enda toppgrupp, placera sådana splines där istället för i root.
+        const parentKey = matchedParentKey === ''
+            && entry.canonicalParentPath.length === 0
+            && singleTopLevelPathKey
+            ? singleTopLevelPathKey
+            : matchedParentKey
+
+        const list = splinesByParentKey.get(parentKey)
         if (list) list.push(entry)
-        else splinesByParentKey.set(key, [entry])
+        else splinesByParentKey.set(parentKey, [entry])
     })
+
+    splinesByParentKey.forEach((list) => {
+        list.sort((a, b) => {
+            if (a.anchorIndex !== b.anchorIndex) return a.anchorIndex - b.anchorIndex
+            if (a.siblingIndex !== b.siblingIndex) return a.siblingIndex - b.siblingIndex
+            return a.id - b.id
+        })
+    })
+
     const renderedSplineIds = new Set<number>()
 
     function toRounded(value: number): number {
@@ -792,34 +897,8 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         return splineOutput
     }
 
-    function renderSplineElementsForPath(path: string[], indent: number): string {
-        const canonicalPath = path.map(toCanonicalNodeName).filter(Boolean)
-        const key = buildPathKey(canonicalPath)
-        const exactEntries = splinesByParentKey.get(key) ?? []
-        const pendingExact = exactEntries.filter((entry) => !renderedSplineIds.has(entry.id))
-        if (pendingExact.length > 0) return renderSplineEntries(pendingExact, indent)
-
-        // Fallback: om FBX-hierarkin har extra toppnivå(er), matcha på suffix.
-        if (canonicalPath.length === 0) return ''
-
-        const suffixMatches = indexedSplines.filter((entry) => {
-            if (renderedSplineIds.has(entry.id)) return false
-            if (entry.canonicalParentPath.length < canonicalPath.length) return false
-
-            const offset = entry.canonicalParentPath.length - canonicalPath.length
-            for (let i = 0; i < canonicalPath.length; i += 1) {
-                if (entry.canonicalParentPath[offset + i] !== canonicalPath[i]) return false
-            }
-            return true
-        })
-
-        return renderSplineEntries(suffixMatches, indent)
-    }
-
-    const isColliderName = (name: string): boolean => name.toLowerCase().includes('_collider')
-
-    const colorTokensInUse: string[] = []
-    const colorTokenSet = new Set<string>()
+    const colorIndicesInUse: number[] = []
+    const colorIndexSet = new Set<number>()
 
     type RigidBodySlotConfig = {
         slot: string
@@ -830,10 +909,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     const rigidBodySlots: RigidBodySlotConfig[] = []
     const rigidBodySlotBySignature = new Map<string, string>()
 
-    function registerColorToken(token: string): void {
-        if (colorTokenSet.has(token)) return
-        colorTokenSet.add(token)
-        colorTokensInUse.push(token)
+    function registerColorIndex(colorIndex: number): void {
+        if (!Number.isFinite(colorIndex)) return
+        const normalized = Math.max(0, Math.trunc(colorIndex))
+        if (colorIndexSet.has(normalized)) return
+        colorIndexSet.add(normalized)
+        colorIndicesInUse.push(normalized)
     }
 
     function registerRigidBodyProfile(profile: ParsedPhysicsConfig): string {
@@ -847,12 +928,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         return slot
     }
 
-    function collectMetadata(obj: any, inheritedColor: string | null = null): void {
+    function collectMetadata(obj: any, inheritedColor: number | null = null): void {
         if (obj.userData?.ignore) return
 
         const rawName = obj.name
         const ownColor = getColorFromName(rawName)
-        const currentColor = ownColor || inheritedColor || 'default'
+        const currentColor = ownColor ?? inheritedColor ?? 0
         const physicsConfig = parsePhysicsConfigFromName(rawName)
 
         if (physicsConfig) {
@@ -872,7 +953,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
 
             const shouldRenderOwnColliderMesh = useSelfMeshCollider
             if (obj.isMesh && (!selfIsCollider || shouldRenderOwnColliderMesh)) {
-                registerColorToken(currentColor)
+                registerColorIndex(currentColor)
             }
 
             visualChildren.forEach((child: any) => collectMetadata(child, currentColor))
@@ -880,7 +961,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         }
 
         if (obj.isMesh && !selfIsCollider) {
-            registerColorToken(currentColor)
+            registerColorIndex(currentColor)
             visualChildren.forEach((child: any) => collectMetadata(child, currentColor))
             return
         }
@@ -891,13 +972,13 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     }
 
     scene.children.forEach((child) => collectMetadata(child))
-    if (colorTokensInUse.length === 0) registerColorToken('default')
+    if (colorIndicesInUse.length === 0) registerColorIndex(0)
 
-    const colorSlots = colorTokensInUse.map((token, index) => ({
-        slot: toSlotName('color', index),
-        token,
+    const colorSlots = colorIndicesInUse.map((colorIndex, slotIndex) => ({
+        slot: `materialColor${slotIndex}`,
+        colorIndex,
     }))
-    const colorSlotByToken = new Map<string, string>(colorSlots.map((entry) => [entry.token, entry.slot]))
+    const colorSlotByIndex = new Map<number, string>(colorSlots.map((entry) => [entry.colorIndex, entry.slot]))
     const firstColorSlot = colorSlots[0]?.slot
     const firstRigidBodySlot = rigidBodySlots[0]?.slot
 
@@ -912,12 +993,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     output += `__RAPIER_IMPORT__\n`
     output += `import type { ThreeElements } from '@react-three/fiber'\n`
     output += `import { C4DMesh, C4DMaterial${hasSplines ? ', SplineElement' : ''} } from '${componentPath}'\n`
-    output += `import type { PaletteName } from '../../GameSettings'\n`
+    output += `import type { MaterialColorIndex } from '../../GameSettings'\n`
     if (importStr) output += `${importStr}\n`
     output += `\n`
 
     if (colorSlots.length > 0) {
-        output += `type ColorSlot = ${colorSlots.map(({ slot }) => `'${slot}'`).join(' | ')}\n`
+        output += `type MaterialColorSlot = ${colorSlots.map(({ slot }) => `'${slot}'`).join(' | ')}\n`
     }
 
     if (rigidBodySlots.length > 0) {
@@ -939,7 +1020,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         output += `  fadeDuration?: number\n`
     }
     colorSlots.forEach(({ slot }) => {
-        output += `  ${slot}?: PaletteName\n`
+        output += `  ${slot}?: MaterialColorIndex\n`
     })
     rigidBodySlots.forEach(({ slot }) => {
         output += `  ${slot}?: Partial<GeneratedRigidBodySettings>\n`
@@ -951,8 +1032,8 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         componentParams.push('animation = null')
         componentParams.push('fadeDuration = 0.3')
     }
-    colorSlots.forEach(({ slot, token }) => {
-        componentParams.push(`${slot} = '${token}'`)
+    colorSlots.forEach(({ slot, colorIndex }) => {
+        componentParams.push(`${slot} = ${colorIndex}`)
     })
     rigidBodySlots.forEach(({ slot }) => {
         componentParams.push(slot)
@@ -984,7 +1065,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     }
 
     if (colorSlots.length > 0) {
-        output += `\n  const colors: Record<ColorSlot, PaletteName> = {\n`
+        output += `\n  const materialColors: Record<MaterialColorSlot, MaterialColorIndex> = {\n`
         colorSlots.forEach(({ slot }) => {
             output += `    ${slot},\n`
         })
@@ -1018,28 +1099,61 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         output += `    <group {...props} dispose={null}>\n`
     }
 
-    const rootSplines = renderSplineElementsForPath([], 6)
-    if (rootSplines) {
-        output += `      {/* Splines */}\n`
-        output += rootSplines
+    function renderChildrenWithSplines(
+        parentPath: string[],
+        visualChildren: any[],
+        childIndent: number,
+        inheritedColor: number | null,
+    ): string {
+        const canonicalPath = parentPath.map(toCanonicalNodeName).filter(Boolean)
+        const parentKey = buildPathKey(canonicalPath)
+        const pendingSplines = (splinesByParentKey.get(parentKey) ?? [])
+            .filter((entry) => !renderedSplineIds.has(entry.id))
+
+        if (pendingSplines.length === 0) {
+            let childrenOnly = ''
+            visualChildren.forEach((child) => {
+                childrenOnly += traverse(child, childIndent, inheritedColor, parentPath)
+            })
+            return childrenOnly
+        }
+
+        const splinesByAnchor = new Map<number, IndexedSpline[]>()
+        pendingSplines.forEach((entry) => {
+            const clampedAnchor = Math.min(Math.max(entry.anchorIndex, 0), visualChildren.length)
+            const bucket = splinesByAnchor.get(clampedAnchor)
+            if (bucket) bucket.push(entry)
+            else splinesByAnchor.set(clampedAnchor, [entry])
+        })
+
+        let combined = ''
+        for (let i = 0; i <= visualChildren.length; i += 1) {
+            const splineEntries = splinesByAnchor.get(i)
+            if (splineEntries && splineEntries.length > 0) {
+                combined += renderSplineEntries(splineEntries, childIndent)
+            }
+            if (i < visualChildren.length) {
+                combined += traverse(visualChildren[i], childIndent, inheritedColor, parentPath)
+            }
+        }
+        return combined
     }
 
-    function traverse(obj: any, indent = 6, inheritedColor: string | null = null, path: string[] = []): string {
+    function traverse(obj: any, indent = 6, inheritedColor: number | null = null, path: string[] = []): string {
         let str = ''
         const spaces = ' '.repeat(indent)
         if (obj.userData?.ignore) return ''
 
         const rawName = obj.name
-        const lowerName = rawName.toLowerCase()
         const cleanedName = normalizeNodeName(rawName)
         const currentPath = cleanedName ? [...path, cleanedName] : path
         const safeName = sanitizeName(rawName)
         const transformProps = getTransformProps(obj)
 
         const ownColor = getColorFromName(rawName)
-        const currentColor = ownColor || inheritedColor || 'default'
-        const currentColorSlot = colorSlotByToken.get(currentColor) ?? firstColorSlot
-        const colorExpression = currentColorSlot ? `colors.${currentColorSlot}` : `'default'`
+        const currentColor = ownColor ?? inheritedColor ?? 0
+        const currentColorSlot = colorSlotByIndex.get(currentColor) ?? firstColorSlot
+        const colorExpression = currentColorSlot ? `materialColors.${currentColorSlot}` : '0'
         const singleTone = hasSingleTone(rawName)
 
         const physicsConfig = parsePhysicsConfigFromName(rawName)
@@ -1104,36 +1218,31 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
             if (obj.isMesh && (!isSelfCollider || shouldRenderOwnColliderMesh)) {
                 str += `${spaces}  <C4DMesh name={nodes['${safeName}'].name} geometry={nodes['${safeName}'].geometry} castShadow receiveShadow>\n`
                 str += `${spaces}    <C4DMaterial color={${colorExpression}}${singleToneProp} />\n`
-                str += renderSplineElementsForPath(currentPath, indent + 4)
-                visualChildren.forEach((child: any) => str += traverse(child, indent + 4, currentColor, currentPath))
+                str += renderChildrenWithSplines(currentPath, visualChildren, indent + 4, currentColor)
                 str += `${spaces}  </C4DMesh>\n`
             } else {
-                str += renderSplineElementsForPath(currentPath, indent + 2)
-                visualChildren.forEach((child: any) => str += traverse(child, indent + 2, currentColor, currentPath))
+                str += renderChildrenWithSplines(currentPath, visualChildren, indent + 2, currentColor)
             }
             str += `${spaces}</RigidBody>\n`
         } else if (obj.isMesh && !isSelfCollider) {
             str += `${spaces}<C4DMesh name={nodes['${safeName}'].name} geometry={nodes['${safeName}'].geometry} castShadow receiveShadow${transformProps}>\n`
             str += `${spaces}  <C4DMaterial color={${colorExpression}}${singleToneProp} />\n`
-            str += renderSplineElementsForPath(currentPath, indent + 2)
-            visualChildren.forEach((child: any) => str += traverse(child, indent + 2, currentColor, currentPath))
+            str += renderChildrenWithSplines(currentPath, visualChildren, indent + 2, currentColor)
             str += `${spaces}</C4DMesh>\n`
         } else if (!isSelfCollider) {
             if (transformProps) {
                 str += `${spaces}<group name={${JSON.stringify(rawName)}}${transformProps}>\n`
-                str += renderSplineElementsForPath(currentPath, indent + 2)
-                visualChildren.forEach((child: any) => str += traverse(child, indent + 2, currentColor, currentPath))
+                str += renderChildrenWithSplines(currentPath, visualChildren, indent + 2, currentColor)
                 str += `${spaces}</group>\n`
             } else {
-                str += renderSplineElementsForPath(currentPath, indent)
-                visualChildren.forEach((child: any) => str += traverse(child, indent, currentColor, currentPath))
+                str += renderChildrenWithSplines(currentPath, visualChildren, indent, currentColor)
             }
         }
 
         return str
     }
 
-    scene.children.forEach((child) => output += traverse(child))
+    output += renderChildrenWithSplines([], scene.children, 6, null)
 
     const unmatchedSplines = indexedSplines.filter((entry) => !renderedSplineIds.has(entry.id))
     if (unmatchedSplines.length > 0) {
