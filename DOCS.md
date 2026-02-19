@@ -21,6 +21,7 @@ graph TD
     C --> AM[assets/models/*.tsx]
     AM --> F[SceneComponents]
     C --> TM[TransformMotion.tsx]
+    C --> GC[GridCloner.tsx]
     C --> CS[CameraSystem.tsx]
     C --> TA[TargetAnchor.tsx]
     CS --> G[CameraFollow.tsx]
@@ -44,6 +45,7 @@ graph TD
 | `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
 | `TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale (auto-loop när `positionRange` finns) |
+| `GridCloner.tsx` | Grid-baserad cloner för att duplicera valfria scenelement med valfri cloner-fysik |
 | `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
 | `PositionTargetHandle.ts` | Delad ref-handle-typ (`getPosition`) för player/primitives |
@@ -400,6 +402,7 @@ Renderar kurviga linjer med konstant pixelbredd:
 - Kastar skuggor via en intern shadow-proxy (`InstancedMesh` med osynliga box-segment per spline-segment)
 - `castShadow={false}` stänger av spline-shadow-proxy lokalt
 - Med `physics`: genererar `CuboidCollider` per segment, orienterade längs kurvan
+- Line2-resolution synkas nu explicit mot canvas-storlek för stabilare linjer vid browser-resize
 
 ---
 
@@ -432,6 +435,94 @@ Exempel:
 ```
 
 Detta håller modellkomponenterna "dumma" (render-only), men ger enkel authoring i scenen med central uppdatering för bättre skalning.
+
+---
+
+## GridCloner
+
+`GridCloner.tsx` är en ny wrapper för C4D-lik grid-distribution av valfria barn.
+
+- Duplicerar `children` i ett 3D-grid via:
+  - `count={[x, y, z]}`
+  - `spacing={[x, y, z]}`
+  - `offset={[x, y, z]}`
+  - `position`, `rotation`, `scale` på själva clonern
+  - `gridUnit` (optional): skalar positionsrelaterade värden med blocksteg
+    - presets: `lg=0.2`, `md=0.1`, `sm=0.05`, `xs=0.025`
+    - kan även vara ett eget tal (meter per "1")
+  - `centered`:
+    - `true`: griden centreras runt `position`
+    - `false`: griden startar i `position` (hörn/startpunkt)
+- `transformMode`:
+  - `cloner` (default): barnets top-level transform nollställs och cloner styr transform
+  - `child`: barnens transform behålls
+- Enkel linjär index-offset via `stepOffset` (adderas per klonindex).
+- Ordered effectors kan skrivas som children via:
+  - `<LinearFieldEffector />` (C4D-lik linear field)
+    - Direction/falloff: `axis`, `center`, `size`, `invert`
+    - Remap/contour: `enableRemap`, `innerOffset`, `remapMin`, `remapMax`, `clampMin`, `clampMax`, `contourMode`, `contourSteps`, `contourMultiplier`, `contourCurve`
+    - Applicering: `position`, `rotation`, `scale`, `hidden`, `color`, `materialColors`
+  - `<RandomEffector />` (deterministisk jitter via seed)
+  - `<NoiseEffector />` (spatialt sammanhängande 3D-noise)
+  - `<TimeEffector />` (tidsdriven modulation med `loopMode`, `duration`, `speed`, `timeOffset`, `cloneOffset`)
+  - Körs i child-ordning och appliceras relativt (position/rotation/scale/hidden/färg)
+  - Positionsrelaterade effector-värden (t.ex. `position`, plane `center/size`, noise `offset`) skalas också av `gridUnit`
+- Legacy: `effectors`-prop fungerar fortfarande.
+- Barnens egen `physics`-prop stripas automatiskt när clonern har fysik aktiv.
+- Valfri cloner-fysik per klon:
+  - enkel syntax som primitives: `physics="fixed|dynamic|kinematicPosition"` + `mass`, `friction`, `lockRotations`
+  - default om du sätter `physics`: Rapier auto-collider från clone-meshen (ingen manuell collider krävs)
+  - för exakt kontroll kan du override:a med `collider` + `colliderOffset`
+  - collider-former: `cuboid` (`halfExtents`), `ball` (`radius`), `cylinder` (`halfHeight`, `radius`), `auto`
+  - `collider: { shape: 'auto' }` försöker inferera collider från första barnet (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`) inkl. align-offset
+- `showDebugEffectors` (default följer `SETTINGS.debug.enabled`) visar linear field med två plan + riktning (linje/pil) i scenen.
+
+Exempel:
+
+```tsx
+<GridCloner
+  count={[6, 1, 4]}
+  gridUnit="lg"
+  spacing={[4, 0, 4]}
+  position={[3, 0, 0]}
+  centered
+  transformMode="cloner"
+  stepOffset={[0, 0.02, 0]}
+  physics="dynamic"
+  mass={0.2}
+  friction={0.8}
+>
+  <LinearFieldEffector
+    axis="x"
+    center={0}
+    size={6}
+    enableRemap
+    contourMode="curve"
+    contourCurve={[[0, 0], [0.35, 0.15], [0.7, 0.7], [1, 1]]}
+    position={[0, 1, 0]}
+  />
+  <RandomEffector seed={12} strength={0.6} rotation={[0, 0.35, 0]} scale={[0.15, 0.15, 0.15]} />
+  <NoiseEffector
+    seed={42}
+    strength={0.7}
+    frequency={[0.8, 0.8, 0.8]}
+    position={[0.25, 0.1, 0.25]}
+    rotation={[0, 0.2, 0]}
+    scale={[0.1, 0.1, 0.1]}
+  />
+  <TimeEffector
+    loopMode="pingpong"
+    duration={2}
+    cloneOffset={0.08}
+    easing="smooth"
+    position={[0, 0.2, 0]}
+  />
+  <BlockElement sizePreset="sm" heightPreset="md" color={2} />
+</GridCloner>
+```
+
+Notering:
+- v1 renderar separata kloner (ej GPU-instancing), vilket bevarar nuvarande outline-beteende och minskar risk för linje-artifacts.
 
 ---
 
@@ -574,6 +665,7 @@ src/
 ├── GameKeyboardControls.tsx # Input-wrapper + keymap
 ├── Scene.tsx               # Spelscen
 ├── TransformMotion.tsx     # Centralt motionsystem + wrapper (linjär rörelse, loop/pingpong)
+├── GridCloner.tsx          # Grid-cloner (count/spacing/offset + valfri cloner-fysik)
 ├── Player.tsx              # Spelarlogik
 ├── PositionTargetHandle.ts # Delad ref-handle-typ (getPosition)
 ├── control/

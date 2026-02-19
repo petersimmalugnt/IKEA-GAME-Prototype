@@ -3,17 +3,19 @@ import { forwardRef, useMemo, type ComponentPropsWithoutRef } from 'react'
 import type { Vec3 } from '../GameSettings'
 import type { PositionTargetHandle } from '../PositionTargetHandle'
 import { CubeElement } from './CubeElement'
+import type { Align3 } from './anchor'
 
 type CubeElementProps = ComponentPropsWithoutRef<typeof CubeElement>
 
-type BlockSizePreset = 'lg' | 'md' | 'sm' | 'xs' | 'xxs'
-type BlockHeightPreset = 'sm' | 'md' | 'lg'
-type BlockPlane = 'x' | 'y' | 'z'
+export type BlockSizePreset = 'lg' | 'md' | 'sm' | 'xs' | 'xxs'
+export type BlockHeightPreset = 'sm' | 'md' | 'lg'
+export type BlockPlane = 'x' | 'y' | 'z'
 
-type BlockElementProps = Omit<CubeElementProps, 'size'> & {
+export type BlockElementProps = Omit<CubeElementProps, 'size' | 'align'> & {
   sizePreset?: BlockSizePreset
   heightPreset?: BlockHeightPreset
   plane?: BlockPlane
+  align?: Align3
 }
 
 const BLOCK_FOOTPRINTS_M: Record<BlockSizePreset, [number, number]> = {
@@ -31,6 +33,19 @@ const BLOCK_HEIGHTS_M: Record<BlockHeightPreset, number> = {
   lg: 0.6,
 }
 
+export function resolveBlockSize(
+  sizePreset: BlockSizePreset,
+  heightPreset: BlockHeightPreset,
+  plane: BlockPlane,
+): Vec3 {
+  const footprint = BLOCK_FOOTPRINTS_M[sizePreset]
+  const height = BLOCK_HEIGHTS_M[heightPreset]
+
+  if (plane === 'x') return [height, footprint[0], footprint[1]]
+  if (plane === 'z') return [footprint[0], footprint[1], height]
+  return [footprint[0], height, footprint[1]]
+}
+
 // Modulär byggkloss med måttpresets.
 // Align/fysik/render hanteras av CubeElement.
 export const BlockElement = forwardRef<PositionTargetHandle, BlockElementProps>(function BlockElement({
@@ -40,14 +55,10 @@ export const BlockElement = forwardRef<PositionTargetHandle, BlockElementProps>(
   align,
   ...props
 }, ref) {
-  const footprint = BLOCK_FOOTPRINTS_M[sizePreset]
-  const height = BLOCK_HEIGHTS_M[heightPreset]
-
-  const finalSize = useMemo<Vec3>(() => {
-    if (plane === 'x') return [height, footprint[0], footprint[1]]
-    if (plane === 'z') return [footprint[0], footprint[1], height]
-    return [footprint[0], height, footprint[1]]
-  }, [footprint, height, plane])
+  const finalSize = useMemo<Vec3>(
+    () => resolveBlockSize(sizePreset, heightPreset, plane),
+    [sizePreset, heightPreset, plane],
+  )
 
   const finalAlign = useMemo(() => ({
     y: 0,

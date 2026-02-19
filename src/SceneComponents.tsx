@@ -109,7 +109,13 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
     line.userData.excludeFromOutlines = true
 
     return line
-  }, [curvePoints, finalColor, finalLineWidth, size])
+  }, [curvePoints, finalColor, finalLineWidth, size.width, size.height])
+
+  // Håll Line2-materialets resolution synkad med canvas-storleken.
+  useLayoutEffect(() => {
+    const material = line2.material as LineMaterial
+    material.resolution.set(size.width, size.height)
+  }, [line2, size.width, size.height])
 
   // Beräkna collider-data för varje segment
   const colliders = useMemo<SegmentCollider[]>(() => {

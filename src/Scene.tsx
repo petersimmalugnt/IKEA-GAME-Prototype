@@ -19,6 +19,13 @@ import { BrickBalloon } from './assets/models/BrickBalloon'
 import { BallBalloon } from './assets/models/BallBalloon'
 import { MotionSystemProvider, TransformMotion } from './TransformMotion'
 import { BlockElement } from './primitives/BlockElement'
+import {
+  GridCloner,
+  LinearFieldEffector,
+  NoiseEffector,
+  RandomEffector,
+  TimeEffector,
+} from './GridCloner'
 
 export function Scene() {
   useSettingsVersion()
@@ -38,18 +45,9 @@ export function Scene() {
 
             {/* --- NIVÅN --- */}
 
-            <TransformMotion positionVelocity={{ z: -0.2 }} positionRange={{ z: [0, -4] }}>
+            <TransformMotion positionVelocity={{ z: -0.25 }} positionRange={{ z: [0, -4] }}>
               <BlockElement ref={playerRef} hidden />
             </TransformMotion>
-
-            <BlockElement
-              color={1}
-              position={[3, 0, 0]}
-              sizePreset="lg"
-              heightPreset="lg"
-              plane="y"
-              physics="dynamic"
-            />
 
             <TransformMotion positionVelocity={{ z: 0.22 }} positionRange={{ z: [0, 4] }}>
               <BrickBalloon position={[-2, 1, -3]} animation="moving" materialColor1={8} materialColor0={8} />
@@ -74,6 +72,72 @@ export function Scene() {
             <TransformMotion positionVelocity={{ z: 0.18 }} positionRange={{ z: [0, 4] }} >
               <BrickBalloon position={[1.5, 1, -1]} animation="moving" materialColor1={4} materialColor0={4} />
             </TransformMotion>
+
+            {/* GRIDCLONER DEMOS */}
+            <GridCloner
+              position={[-3.4, 0, 3.2]}
+              count={[7, 1, 2]}
+              spacing={[1, 0, 1]}
+              gridUnit="md"
+              centered
+              physics="fixed"
+              showDebugEffectors={isDebug}
+            >
+              <LinearFieldEffector
+                axis="x"
+                center={0}
+                size={7}
+                enableRemap
+                contourMode="curve"
+                contourCurve={[[0, 0], [0.25, 0.05], [0.65, 0.5], [1, 1]]}
+                position={[0, 2.2, 0]}
+              />
+              <BlockElement sizePreset="md" heightPreset="sm" color={2} />
+            </GridCloner>
+
+            <GridCloner
+              position={[0.2, 0, 3.2]}
+              count={[7, 1, 2]}
+              spacing={[1, 0, 1]}
+              gridUnit="md"
+              centered
+              physics="fixed"
+            >
+              <RandomEffector
+                seed={19}
+                strength={0.8}
+                position={[0, 0.65, 0]}
+                rotation={[0, 0.35, 0]}
+                scale={[0.1, 0.35, 0.1]}
+                color={[2, 3, 4, 5]}
+              />
+              <NoiseEffector
+                seed={42}
+                strength={0.7}
+                frequency={[0.9, 0.9, 0.9]}
+                position={[0, 0.45, 0]}
+              />
+              <BlockElement sizePreset="sm" heightPreset="sm" color={1} />
+            </GridCloner>
+
+            <GridCloner
+              position={[3.8, 0, 3.2]}
+              count={[6, 1, 2]}
+              spacing={[1, 0, 1]}
+              gridUnit="md"
+              centered
+              physics="fixed"
+            >
+              <TimeEffector
+                loopMode="pingpong"
+                duration={2.4}
+                cloneOffset={0.14}
+                easing="smooth"
+                position={[0, 1.4, 0]}
+                scale={[0, 0.35, 0]}
+              />
+              <BlockElement sizePreset="sm" heightPreset="sm" color={4} />
+            </GridCloner>
 
             {/* BLÅ RAMP */}
             <CubeElement

@@ -178,7 +178,7 @@ export const SETTINGS: Settings = {
   controls: {
     inputSource: "keyboard", // 'keyboard' | 'external' | 'hybrid'
     external: {
-      mode: "absolute", // 'digital' = piltangent-triggers, 'absolute' = målposition (x,z)
+      mode: "digital", // 'digital' = piltangent-triggers, 'absolute' = målposition (x,z)
       staleTimeoutMs: 160, // Om paket uteblir längre än detta släpps extern input
       absolute: {
         followLerp: 0.5, // Kort smoothing för att dämpa jitter i måldata
@@ -195,7 +195,7 @@ export const SETTINGS: Settings = {
 
   // --- DEBUG ---
   debug: {
-    enabled: false, // Master-toggle för allt debug
+    enabled: true, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
     streaming: {
@@ -363,7 +363,7 @@ export const SETTINGS: Settings = {
 
   // --- SPELARFYSIK ---
   player: {
-    impulseStrength: 0.02, // Hur hårt bollen knuffas
+    impulseStrength: 0.01, // Hur hårt bollen knuffas
     jumpStrength: 0.08, // Hur högt bollen hoppar
     linearDamping: 1.5, // Luftmotstånd (bromsar farten framåt)
     angularDamping: 2.0, // Rotationsmotstånd (bromsar rullandet)
