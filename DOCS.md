@@ -1,7 +1,7 @@
 # IKEA Game — Projektdokumentation
 
 > **Tech:** Vite + React 19 + TypeScript (strict) + Three.js r182 + React Three Fiber 9 + Rapier Physics + Culori (OKLCH)
-> **Repo:** [IKEA-GAME-Prototype](https://github.com/petersimmalugnt/IKEA-GAME-Prototype)
+> **Repo:** [IKEA-GAME-Prototype](https://github.com/simmalugnt-se/IKEA-GAME-Prototype)
 > **Dev:** `npm run dev` → `http://localhost:5173` (spel) / `http://localhost:5173/converter` (konverterare) / `http://localhost:5173/docs` (dokumentation)
 
 ---
@@ -43,12 +43,13 @@ graph TD
 | `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
 | `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
-| `TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale |
+| `TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale (auto-loop när `positionRange` finns) |
 | `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
+| `PositionTargetHandle.ts` | Delad ref-handle-typ (`getPosition`) för player/primitives |
 | `control/ExternalControlBridge.tsx` | Adapterlager för extern styrdata (window API, custom events, valfri WebSocket-klient) |
 | `control/ExternalControlStore.ts` | Transport-oberoende in-memory store för digital/absolute kontrollframes |
-| `primitives/*` | Primitive-komponenter (`CubeElement`, `SphereElement`, `CylinderElement`, `InvisibleFloor`) + gemensam physics-wrapper |
+| `primitives/*` | Primitive-komponenter (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`, `InvisibleFloor`) + gemensam physics-wrapper + align-hjälpare |
 | `SceneComponents.tsx` | Shared scene-byggstenar för konverterade modeller (`C4DMesh`, `C4DMaterial`, `SplineElement`) |
 | `CameraSystem.tsx` | Kapslar target-registry + kamera + streaming-center, kopplas in via provider i `Scene` |
 | `CameraSystemContext.ts` | Delad context/hook för target-registry och streaming-center |
@@ -292,6 +293,7 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 | `CubeElement` | `CuboidCollider` | Automatisk halvstorlek |
 | `SphereElement` | `BallCollider` | Radie-baserad |
 | `CylinderElement` | `ConvexHullCollider` | Genererar top/bottom rings med N sidor |
+| `BlockElement` | `CuboidCollider` (via `CubeElement`) | Modulära storlekspresets + `plane` (`x | y | z`) |
 | `InvisibleFloor` | `CuboidCollider` | Fast golv med skugg-plan |
 
 ### SceneComponents (`src/SceneComponents.tsx`)
@@ -314,9 +316,36 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 />
 ```
 
-`CubeElement`, `SphereElement` och `CylinderElement` stödjer även `hidden={true}`:
+`CubeElement`, `SphereElement`, `CylinderElement` och `BlockElement` stödjer `hidden={true}`:
 - Döljer den visuella meshen
 - Behåller collider/physics när `physics` är aktiv
+
+### Align + Target refs (primitives)
+
+- `align` används på primitives (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`) för pivot/offset i procent per axel (`0..100`, default `50`).
+- `anchor` används inte längre.
+- `BlockElement` default-alignar alltid mot botten (`y: 0`) om inget eget `align` skickas.
+- `BlockElement.plane` styr vilken axel som behandlas som "höjd"-axel:
+  - `y` (default): standard [x, y, z]
+  - `x`: x/y byter plats
+  - `z`: y/z byter plats
+- `sizePreset`: `lg | md | sm | xs | xxs`
+- `heightPreset`: `sm | md | lg`
+
+Alla dessa komponenter exponerar samma ref-handle som `Player` via `PositionTargetHandle`:
+
+```tsx
+const targetRef = useRef<PositionTargetHandle | null>(null)
+
+<BlockElement
+  ref={targetRef}
+  sizePreset="md"
+  heightPreset="lg"
+  plane="z"
+/>
+```
+
+`targetRef.current?.getPosition()` returnerar world-position och kan användas för kamera-/streamingtargets.
 
 ### Spelaren (`Player.tsx`)
 - `RigidBody` med `BallCollider` (r=0.1)
@@ -384,6 +413,10 @@ Renderar kurviga linjer med konstant pixelbredd:
   - Linjär hastighet per axel (`positionVelocity`, `rotationVelocity`, `scaleVelocity`)
   - `loopMode`: `none` | `loop` | `pingpong`
   - Per-axel range för loop/pingpong (`positionRange`, `rotationRange`, `scaleRange`)
+- Default-beteende:
+  - Om `loopMode` utelämnas och `positionRange` är satt, används `loop`.
+  - Om `loopMode` utelämnas och ingen `positionRange` finns, används `none`.
+  - Explicit `loopMode` vinner alltid.
 - Viktigt: range tolkas i wrapperns lokala transform-rum (dvs oftast som offset runt wrapperns startvärde).
 
 Exempel:
@@ -542,6 +575,7 @@ src/
 ├── Scene.tsx               # Spelscen
 ├── TransformMotion.tsx     # Centralt motionsystem + wrapper (linjär rörelse, loop/pingpong)
 ├── Player.tsx              # Spelarlogik
+├── PositionTargetHandle.ts # Delad ref-handle-typ (getPosition)
 ├── control/
 │   ├── ExternalControlBridge.tsx # Extern input-adapter (window API + optional WS)
 │   └── ExternalControlStore.ts   # Transport-oberoende kontrollstore (digital/absolute)
@@ -550,6 +584,8 @@ src/
 │   ├── CubeElement.tsx     # Cube primitive (hidden + optional physics)
 │   ├── SphereElement.tsx   # Sphere primitive (hidden + optional physics)
 │   ├── CylinderElement.tsx # Cylinder primitive (hidden + optional physics)
+│   ├── BlockElement.tsx    # Modulär block-primitive (presets + plane + default bottom align)
+│   ├── anchor.ts           # Align-hjälpare (percent -> offset)
 │   └── InvisibleFloor.tsx  # Osynligt golv + shadow plane + fast collider
 ├── SceneComponents.tsx     # Shared components för konverterade modeller (C4DMesh, C4DMaterial, SplineElement)
 ├── SceneHelpers.ts         # Delade hjälpare (surfaceId-hash + grader→radianer)
@@ -582,4 +618,4 @@ src/
 
 ---
 
-*Senast uppdaterad: 2026-02-18*
+*Senast uppdaterad: 2026-02-19*
