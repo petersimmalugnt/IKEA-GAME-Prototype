@@ -241,14 +241,14 @@ export const SETTINGS: Settings = {
 
   // --- FÄRGPALETT (Toon Material) ---
   palette: {
-    active: "greyscale",
+    active: "green",
     variants: {
       classic: {
         background: '#3D2C23',
         colors: [
+          { base: '#D9B5A3' },
           { base: '#45253A' },
           { base: '#558DCE' },
-          { base: '#D9B5A3' },
           { base: '#665747' },
           { base: '#FF2D19' },
         ],
@@ -256,6 +256,7 @@ export const SETTINGS: Settings = {
       greyscale: {
         background: '#191919',
         colors: [
+          { base: '#E1D4BD' },
           { base: '#606060' },
           { base: '#3b3b3b' },
           { base: '#669E10' },
@@ -266,18 +267,20 @@ export const SETTINGS: Settings = {
           { base: '#C96C05' },
           { base: '#BE0D64' },
           { base: '#A00003' },
-          { base: '#E1D4BD' },
         ],
       },
       green: {
         background: '#0E3420',
         colors: [
+          { base: '#E1D4BD' },
           { base: '#669E10' },
           { base: '#006B18' },
+          { base: '#BE0D64' },
+          { base: '#A00003' },
           { base: '#007FB5' },
-          { base: '#C96C05' },
+          { base: '#003889' },
           { base: '#D2BE27' },
-          { base: '#E1D4BD' },
+          { base: '#C96C05' },
         ],
       },
     },

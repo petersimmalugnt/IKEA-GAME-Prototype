@@ -45,7 +45,7 @@ export function BallBalloon({ animation = null, fadeDuration = 0.3, materialColo
 
   return (
     <group ref={group} {...props} dispose={null}>
-      <group name={"BALLBALLOON"} position={[0, 0.6, 0]}>
+      <group name={"BALLBALLOON"} position={[0, 0.8, 0]}>
         <group name={"BALL"} position={[0, -0.3, 0]}>
           {/* Circle_1 */}
           <SplineElement

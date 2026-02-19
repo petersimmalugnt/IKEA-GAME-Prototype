@@ -45,7 +45,7 @@ export function BrickBalloon({ animation = null, fadeDuration = 0.3, materialCol
 
   return (
     <group ref={group} {...props} dispose={null}>
-      <group name={"BRICKBALLOON"} position={[0, 0.6, 0]}>
+      <group name={"BRICKBALLOON"} position={[0, 0.8, 0]}>
         <group name={"BRICK"} position={[0, -0.3, 0]}>
           {/* Rectangle_1 */}
           <SplineElement

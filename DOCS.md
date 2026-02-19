@@ -18,6 +18,7 @@ graph TD
     C --> E[Player.tsx]
     C --> ECB[control/ExternalControlBridge.tsx]
     C --> F[SceneComponents]
+    C --> TM[TransformMotion.tsx]
     C --> CS[CameraSystem.tsx]
     C --> TA[TargetAnchor.tsx]
     CS --> G[CameraFollow.tsx]
@@ -40,6 +41,7 @@ graph TD
 | `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
 | `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
+| `TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale |
 | `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
 | `control/ExternalControlBridge.tsx` | Adapterlager för extern styrdata (window API, custom events, valfri WebSocket-klient) |
@@ -356,6 +358,34 @@ Renderar kurviga linjer med konstant pixelbredd:
 
 ---
 
+## TransformMotion
+
+`TransformMotion.tsx` introducerar ett lätt motionsystem för scenobjekt:
+
+- `MotionSystemProvider` kör en central `useFrame`-uppdatering för alla registrerade motion-wrappers.
+- `TransformMotion` används som wrapper runt valfri modell/mesh i `Scene.tsx`.
+- Stöd i steg 1:
+  - Linjär hastighet per axel (`positionVelocity`, `rotationVelocity`, `scaleVelocity`)
+  - `loopMode`: `none` | `loop` | `pingpong`
+  - Per-axel range för loop/pingpong (`positionRange`, `rotationRange`, `scaleRange`)
+- Viktigt: range tolkas i wrapperns lokala transform-rum (dvs oftast som offset runt wrapperns startvärde).
+
+Exempel:
+
+```tsx
+<TransformMotion
+  positionVelocity={{ z: 0.2 }}
+  positionRange={{ z: [-4.8, -3.2] }}
+  loopMode="pingpong"
+>
+  <BallBalloon position={[0, 0.5, -4]} animation="moving" />
+</TransformMotion>
+```
+
+Detta håller modellkomponenterna "dumma" (render-only), men ger enkel authoring i scenen med central uppdatering för bättre skalning.
+
+---
+
 ## C4D → R3F Konverterare
 
 **URL:** `http://localhost:5173/converter`
@@ -491,6 +521,7 @@ src/
 ├── GameSettings.ts         # Central konfiguration
 ├── GameKeyboardControls.tsx # Input-wrapper + keymap
 ├── Scene.tsx               # Spelscen
+├── TransformMotion.tsx     # Centralt motionsystem + wrapper (linjär rörelse, loop/pingpong)
 ├── Player.tsx              # Spelarlogik
 ├── control/
 │   ├── ExternalControlBridge.tsx # Extern input-adapter (window API + optional WS)
