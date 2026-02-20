@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { Physics } from '@react-three/rapier'
 import { Stats } from '@react-three/drei'
 import { CubeElement } from '@/primitives/CubeElement'
@@ -28,11 +28,16 @@ import {
 } from '@/scene/GridCloner'
 import { LiveLevelSync } from '@/LiveLevelSync'
 import { LevelRenderer } from '@/LevelRenderer'
+import { useLevelStore } from '@/levelStore'
 
 export function Scene() {
   useSettingsVersion()
   const playerRef = useRef<PlayerHandle | null>(null)
   const isDebug = SETTINGS.debug.enabled
+
+  useEffect(() => {
+    useLevelStore.getState().loadLevel(SETTINGS.level.defaultFile)
+  }, [])
 
 
   return (
