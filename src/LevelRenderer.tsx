@@ -13,6 +13,7 @@ import {
   RandomEffector,
   NoiseEffector,
   TimeEffector,
+  StepEffector,
   type GridEffector,
 } from '@/scene/GridCloner'
 import { useLevelStore, type LevelNode } from './levelStore'
@@ -48,6 +49,7 @@ const EFFECTOR_TYPE_MAP: Record<string, string> = {
   RandomEffector: 'random',
   NoiseEffector: 'noise',
   TimeEffector: 'time',
+  StepEffector: 'step',
 }
 
 const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
@@ -55,6 +57,7 @@ const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
   RandomEffector,
   NoiseEffector,
   TimeEffector,
+  StepEffector,
 }
 
 function renderObjectNode(node: LevelNode) {

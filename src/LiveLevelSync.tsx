@@ -10,25 +10,9 @@ function parseLevelMessage(data: string): LevelData | null {
     if (parsed === null || typeof parsed !== 'object') return null
     const obj = parsed as Record<string, unknown>
 
-    if (typeof obj.version !== 'number') return null
-
-    if (Array.isArray(obj.nodes)) {
-      return { version: obj.version, nodes: obj.nodes }
-    }
-
-    if (Array.isArray(obj.objects)) {
-      const nodes = (obj.objects as Record<string, unknown>[]).map((o) => ({
-        id: (o.id as string) ?? crypto.randomUUID(),
-        nodeType: 'object' as const,
-        type: o.type as string,
-        position: o.position as LevelData['nodes'][number]['position'],
-        rotation: o.rotation as LevelData['nodes'][number]['rotation'],
-        props: (o.props as Record<string, unknown>) ?? {},
-      }))
-      return { version: 2, nodes }
-    }
-
-    return null
+    if (obj.version !== 3) return null
+    if (!Array.isArray(obj.nodes)) return null
+    return { version: 3, nodes: obj.nodes }
   } catch {
     return null
   }

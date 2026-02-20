@@ -1,7 +1,6 @@
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { RigidBodyProps } from '@react-three/rapier'
-import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js'
 import { SETTINGS, type Vec3 } from '@/settings/GameSettings'
 import { applyEasing, clamp01, type EasingName } from '@/utils/easing'
 import { GameRigidBody } from '@/physics/GameRigidBody'
@@ -13,12 +12,14 @@ import { CylinderElement } from '@/primitives/CylinderElement'
 import { PhysicsWrapper } from '@/physics/PhysicsWrapper'
 import { SphereElement } from '@/primitives/SphereElement'
 import { toRadians } from '@/scene/SceneHelpers'
+import { SeededImprovedNoise } from '@/utils/seededNoise'
 
 export const GRID_CLONER_AXES = ['x', 'y', 'z'] as const
 export const GRID_CLONER_TRANSFORM_MODES = ['child', 'cloner'] as const
 export const GRID_CLONER_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
 export const GRID_CLONER_UNIT_PRESETS = ['lg', 'md', 'sm', 'xs'] as const
-export const GRID_CLONER_CONTOUR_BASE_MODES = ['none', 'quadratic', 'step', 'quantize', 'curve'] as const
+export const GRID_CLONER_CONTOUR_BASE_MODES = ['none', 'quadratic', 'step', 'quantize'] as const
+export const GRID_CLONER_STEP_PROFILES = ['ramp', 'hump'] as const
 
 export type GridCount = [number, number, number]
 export type AxisName = (typeof GRID_CLONER_AXES)[number]
@@ -29,7 +30,7 @@ export type GridUnitPreset = (typeof GRID_CLONER_UNIT_PRESETS)[number]
 export type GridUnit = GridUnitPreset | number
 export type ContourBaseMode = (typeof GRID_CLONER_CONTOUR_BASE_MODES)[number]
 export type ContourMode = ContourBaseMode | EasingName
-type RemapCurvePoint = [number, number]
+export type StepProfile = (typeof GRID_CLONER_STEP_PROFILES)[number]
 
 export type GridCollider =
   | {
@@ -64,15 +65,32 @@ export type GridPhysicsConfig = {
 }
 export type GridPhysics = PhysicsBodyType | GridPhysicsConfig
 
-export type LinearFieldEffectorConfig = {
-  type: 'linear'
+type EffectorColorValue = number | number[]
+type EffectorMaterialColorValue = Record<string, number | number[]>
+
+type SharedEffectorChannels = {
+  position?: Vec3
+  rotation?: Vec3
+  scale?: Vec3
+  hidden?: boolean
+  hideThreshold?: number
+  color?: EffectorColorValue
+  materialColors?: EffectorMaterialColorValue
+}
+
+type SharedEffectorBase = SharedEffectorChannels & {
   enabled?: boolean
   strength?: number
+}
+
+export type LinearFieldEffectorConfig = SharedEffectorBase & {
+  type: 'linear'
   axis?: AxisName
   center?: number
   size?: number
+  fieldPosition?: Vec3
+  fieldRotation?: Vec3
   invert?: boolean
-  easing?: EasingName
   enableRemap?: boolean
   innerOffset?: number
   remapMin?: number
@@ -82,71 +100,53 @@ export type LinearFieldEffectorConfig = {
   contourMode?: ContourMode
   contourSteps?: number
   contourMultiplier?: number
-  contourCurve?: RemapCurvePoint[]
-  position?: Vec3
-  rotation?: Vec3
-  scale?: Vec3
-  hidden?: boolean
-  hideThreshold?: number
-  color?: number
-  materialColors?: Record<string, number>
 }
 
-export type RandomEffectorConfig = {
+export type RandomEffectorConfig = SharedEffectorBase & {
   type: 'random'
-  enabled?: boolean
   seed?: number
-  strength?: number
-  position?: Vec3
-  rotation?: Vec3
-  scale?: Vec3
-  hidden?: boolean
   hideProbability?: number
-  color?: number | number[]
-  materialColors?: Record<string, number | number[]>
 }
 
-export type NoiseEffectorConfig = {
+export type NoiseEffectorConfig = SharedEffectorBase & {
   type: 'noise'
-  enabled?: boolean
   seed?: number
-  strength?: number
   frequency?: number | Vec3
   offset?: Vec3
-  position?: Vec3
-  rotation?: Vec3
-  scale?: Vec3
-  hidden?: boolean
-  hideThreshold?: number
-  color?: number | number[]
-  materialColors?: Record<string, number | number[]>
+  noisePosition?: number | Vec3
+  noisePositionSpeed?: number | Vec3
 }
 
-export type TimeEffectorConfig = {
+export type TimeEffectorConfig = SharedEffectorBase & {
   type: 'time'
-  enabled?: boolean
-  strength?: number
   loopMode?: LoopMode
   easing?: EasingName
   duration?: number
   speed?: number
   timeOffset?: number
   cloneOffset?: number
-  position?: Vec3
-  rotation?: Vec3
-  scale?: Vec3
-  hidden?: boolean
-  hideThreshold?: number
-  color?: number | number[]
-  materialColors?: Record<string, number | number[]>
 }
 
-export type GridEffector = LinearFieldEffectorConfig | RandomEffectorConfig | NoiseEffectorConfig | TimeEffectorConfig
+export type StepEffectorConfig = SharedEffectorBase & {
+  type: 'step'
+  profile?: StepProfile
+  easing?: EasingName
+  humpEasing?: EasingName
+  phaseOffset?: number
+}
+
+export type GridEffector =
+  | LinearFieldEffectorConfig
+  | RandomEffectorConfig
+  | NoiseEffectorConfig
+  | TimeEffectorConfig
+  | StepEffectorConfig
 export type LinearFieldEffectorProps = Omit<LinearFieldEffectorConfig, 'type'>
 export type RandomEffectorProps = Omit<RandomEffectorConfig, 'type'>
 export type NoiseEffectorProps = Omit<NoiseEffectorConfig, 'type'>
 export type TimeEffectorProps = Omit<TimeEffectorConfig, 'type'>
-type EffectorComponentType = 'linear' | 'random' | 'noise' | 'time'
+export type StepEffectorProps = Omit<StepEffectorConfig, 'type'>
+type EffectorComponentType = 'linear' | 'random' | 'noise' | 'time' | 'step'
 
 type EffectorMarkerComponent = {
   __gridEffectorType?: EffectorComponentType
@@ -164,7 +164,6 @@ export type GridClonerProps = {
   /** 'child' | 'cloner' */
   transformMode?: TransformMode
   enabled?: boolean
-  stepOffset?: Vec3
   /** Grid size preset ('lg' | 'md' | 'sm' | 'xs') or explicit multiplier. */
   gridUnit?: GridUnit
   effectors?: GridEffector[]
@@ -239,12 +238,16 @@ function resolveGridUnitMultiplier(gridUnit: GridUnit | undefined): number {
 
 function getEffectorComponentType(type: unknown): EffectorComponentType | null {
   const marker = (type as EffectorMarkerComponent | undefined)?.__gridEffectorType
-  if (marker === 'linear' || marker === 'random' || marker === 'noise' || marker === 'time') return marker
+  if (marker === 'linear' || marker === 'random' || marker === 'noise' || marker === 'time' || marker === 'step') return marker
   return null
 }
 
 function isLinearEffector(effector: GridEffector): effector is LinearFieldEffectorConfig {
   return effector.type === 'linear'
+}
+
+function isStepEffector(effector: GridEffector): effector is StepEffectorConfig {
+  return effector.type === 'step'
 }
 
 function isPhysicsBodyType(value: unknown): value is PhysicsBodyType {
@@ -273,6 +276,10 @@ function addVec3(a: Vec3, b: Vec3): Vec3 {
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
 }
 
+function subVec3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
 function scaleVec3(value: Vec3, multiplier: number): Vec3 {
   if (multiplier === 1) return value
   return [
@@ -287,12 +294,51 @@ function scaleOptionalVec3(value: Vec3 | undefined, multiplier: number): Vec3 | 
   return scaleVec3(value, multiplier)
 }
 
+function scaleNoiseMotion(value: number | Vec3 | undefined, multiplier: number): number | Vec3 | undefined {
+  if (value === undefined) return undefined
+  if (typeof value === 'number') return value * multiplier
+  return scaleVec3(value, multiplier)
+}
+
 function addScaledVec3(base: Vec3, delta: Vec3, amount: number): Vec3 {
   return [
     base[0] + (delta[0] * amount),
     base[1] + (delta[1] * amount),
     base[2] + (delta[2] * amount),
   ]
+}
+
+function rotateVec3InverseXYZ(value: Vec3, rotation: Vec3): Vec3 {
+  let [x, y, z] = value
+
+  if (rotation[2] !== 0) {
+    const cos = Math.cos(-rotation[2])
+    const sin = Math.sin(-rotation[2])
+    const nx = (x * cos) - (y * sin)
+    const ny = (x * sin) + (y * cos)
+    x = nx
+    y = ny
+  }
+
+  if (rotation[1] !== 0) {
+    const cos = Math.cos(-rotation[1])
+    const sin = Math.sin(-rotation[1])
+    const nx = (x * cos) + (z * sin)
+    const nz = (-x * sin) + (z * cos)
+    x = nx
+    z = nz
+  }
+
+  if (rotation[0] !== 0) {
+    const cos = Math.cos(-rotation[0])
+    const sin = Math.sin(-rotation[0])
+    const ny = (y * cos) - (z * sin)
+    const nz = (y * sin) + (z * cos)
+    y = ny
+    z = nz
+  }
+
+  return [x, y, z]
 }
 
 function hasNonZeroVec3(value: Vec3 | undefined, epsilon = 1e-6): boolean {
@@ -311,6 +357,12 @@ function pingPong01(value: number): number {
   return positive <= 1 ? positive : 2 - positive
 }
 
+function resolveNoiseMotion(value: number | Vec3 | undefined): Vec3 {
+  if (typeof value === 'number') return [value, value, value]
+  if (isVec3(value)) return value
+  return [0, 0, 0]
+}
+
 function normalizeFrequency(frequency: number | Vec3 | undefined): Vec3 {
   if (typeof frequency === 'number') return [frequency, frequency, frequency]
   if (isVec3(frequency)) return frequency
@@ -327,7 +379,6 @@ function applyContour(
   value: number,
   mode: ContourMode,
   steps: number,
-  curve: RemapCurvePoint[] | undefined,
 ): number {
   if (mode === 'none') {
     return value
@@ -349,35 +400,13 @@ function applyContour(
     return Math.round(normalized * (quantSteps - 1)) / (quantSteps - 1)
   }
 
-  if (mode === 'curve') {
-    const points = (curve && curve.length >= 2)
-      ? [...curve].sort((a, b) => a[0] - b[0])
-      : [[0, 0], [1, 1]]
-
-    const x = clamp01(value)
-    if (x <= points[0][0]) return points[0][1]
-    if (x >= points[points.length - 1][0]) return points[points.length - 1][1]
-
-    for (let i = 1; i < points.length; i++) {
-      const prev = points[i - 1]
-      const next = points[i]
-      if (x <= next[0]) {
-        const span = Math.max(0.00001, next[0] - prev[0])
-        const t = (x - prev[0]) / span
-        return prev[1] + ((next[1] - prev[1]) * t)
-      }
-    }
-
-    return points[points.length - 1][1]
-  }
-
   // If mode is not one of the contour base modes above, we treat it as an easing name.
-  return applyEasing(value, mode)
+  return applyEasing(clamp01(value), mode)
 }
 
 function remapLinearWeight(progress: number, effector: LinearFieldEffectorConfig): number {
   if (!(effector.enableRemap ?? false)) {
-    return applyEasing(clamp01(progress), effector.easing ?? 'smooth')
+    return clamp01(progress)
   }
 
   let value = progress
@@ -402,7 +431,7 @@ function remapLinearWeight(progress: number, effector: LinearFieldEffectorConfig
 
   const contourMode = effector.contourMode ?? 'none'
   const contourSteps = effector.contourSteps ?? 6
-  value = applyContour(value, contourMode, contourSteps, effector.contourCurve)
+  value = applyContour(value, contourMode, contourSteps)
 
   const contourMultiplier = effector.contourMultiplier ?? 1
   return value * contourMultiplier
@@ -426,6 +455,53 @@ function evaluateTimeWeight(timeSeconds: number, cloneIndex: number, effector: T
   }
 
   return applyEasing(wrap01(progress), easing)
+}
+
+function evaluateStepWeight(cloneIndex: number, cloneCount: number, effector: StepEffectorConfig): number {
+  const strength = clamp01(effector.strength ?? 1)
+  if (strength <= 0) return 0
+
+  const span = cloneCount - 1
+  const baseProgress = span <= 0 ? 0 : cloneIndex / span
+  const phaseOffset = effector.phaseOffset ?? 0
+  const shifted = wrap01(baseProgress + phaseOffset)
+  const profile = effector.profile ?? 'ramp'
+
+  if (profile === 'hump') {
+    const hump = Math.sin(shifted * Math.PI)
+    const humpEasing = effector.humpEasing ?? 'smooth'
+    return applyEasing(clamp01(hump), humpEasing) * strength
+  }
+
+  const easing = effector.easing ?? 'smooth'
+  return applyEasing(clamp01(shifted), easing) * strength
+}
+
+function resolveColorValue(value: EffectorColorValue | undefined, amount: number): number | undefined {
+  if (value === undefined) return undefined
+  if (!Array.isArray(value)) return value
+  if (value.length === 0) return undefined
+  const clamped = clamp01(amount)
+  const index = Math.floor(clamped * value.length)
+  return value[Math.min(value.length - 1, index)]
+}
+
+function applyMaterialColorValues(
+  output: Record<string, number>,
+  value: EffectorMaterialColorValue | undefined,
+  amount: number,
+) {
+  if (!value) return
+  const clamped = clamp01(amount)
+  Object.entries(value).forEach(([key, raw]) => {
+    if (Array.isArray(raw)) {
+      if (raw.length === 0) return
+      const index = Math.floor(clamped * raw.length)
+      output[key] = raw[Math.min(raw.length - 1, index)]
+      return
+    }
+    output[key] = raw
+  })
 }
 
 function random01(seed: number, a: number, b = 0, c = 0): number {
@@ -572,6 +648,9 @@ function normalizeScale(scale: Vec3): Vec3 {
 }
 
 function evaluateLinearFieldWeight(localPosition: Vec3, effector: LinearFieldEffectorConfig): number {
+  const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
+  const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
+  const fieldLocalPosition = rotateVec3InverseXYZ(subVec3(localPosition, fieldPosition), fieldRotation)
   const axis = effector.axis ?? 'y'
   const axisIndex = axisToIndex(axis)
   const center = effector.center ?? 0
@@ -579,7 +658,7 @@ function evaluateLinearFieldWeight(localPosition: Vec3, effector: LinearFieldEff
   const start = center - (size / 2)
   const strength = clamp01(effector.strength ?? 1)
 
-  let progress = (localPosition[axisIndex] - start) / size
+  let progress = (fieldLocalPosition[axisIndex] - start) / size
 
   if (effector.invert) {
     progress = 1 - progress
@@ -615,6 +694,7 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
       ...effector,
       center: effector.center !== undefined ? effector.center * unitMultiplier : undefined,
       size: effector.size !== undefined ? effector.size * unitMultiplier : undefined,
+      fieldPosition: scaleOptionalVec3(effector.fieldPosition, unitMultiplier),
       position: scaleOptionalVec3(effector.position, unitMultiplier),
     }
   }
@@ -630,6 +710,8 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
     return {
       ...effector,
       offset: scaleOptionalVec3(effector.offset, unitMultiplier),
+      noisePosition: scaleNoiseMotion(effector.noisePosition, unitMultiplier),
+      noisePositionSpeed: scaleNoiseMotion(effector.noisePositionSpeed, unitMultiplier),
       position: scaleOptionalVec3(effector.position, unitMultiplier),
     }
   }
@@ -682,6 +764,13 @@ export function TimeEffector(_props: TimeEffectorProps) {
 
 ;(TimeEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'time'
 
+/** Indexbaserad step-effector med ramp/hump-profiler. */
+export function StepEffector(_props: StepEffectorProps) {
+  return null
+}
+
+;(StepEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'step'
+
 /** GridCloner duplicerar valfria barn i ett 3D-grid med optional effectors/fysik. */
 export function GridCloner({
   children,
@@ -694,7 +783,6 @@ export function GridCloner({
   centered = true,
   transformMode = 'cloner',
   enabled = true,
-  stepOffset = [0, 0, 0],
   gridUnit,
   effectors = [],
   physics,
@@ -712,7 +800,6 @@ export function GridCloner({
   const scaledSpacing = useMemo(() => scaleVec3(spacing, unitMultiplier), [spacing, unitMultiplier])
   const scaledOffset = useMemo(() => scaleVec3(offset, unitMultiplier), [offset, unitMultiplier])
   const scaledPosition = useMemo(() => scaleVec3(position, unitMultiplier), [position, unitMultiplier])
-  const scaledStepOffset = useMemo(() => scaleVec3(stepOffset, unitMultiplier), [stepOffset, unitMultiplier])
   const scaledColliderOffset = useMemo(
     () => scaleOptionalVec3(colliderOffset, unitMultiplier),
     [colliderOffset, unitMultiplier],
@@ -767,9 +854,17 @@ export function GridCloner({
         return
       }
 
+      if (effectorType === 'time') {
+        childEffectors.push({
+          type: 'time',
+          ...(props as TimeEffectorProps),
+        })
+        return
+      }
+
       childEffectors.push({
-        type: 'time',
-        ...(props as TimeEffectorProps),
+        type: 'step',
+        ...(props as StepEffectorProps),
       })
     })
 
@@ -789,16 +884,35 @@ export function GridCloner({
   )
   const normalizedEffectors = useMemo(
     () => scaledEffectors.map((effector) => {
-      if (!effector.rotation) return effector
-      return {
+      let normalized: GridEffector = {
         ...effector,
-        rotation: toRadians(effector.rotation),
-      } as GridEffector
+      }
+      if (effector.rotation) {
+        normalized = {
+          ...normalized,
+          rotation: toRadians(effector.rotation),
+        }
+      }
+      if (isLinearEffector(effector) && effector.fieldRotation) {
+        normalized = {
+          ...normalized,
+          fieldRotation: toRadians(effector.fieldRotation),
+        } as GridEffector
+      }
+      return normalized
     }),
     [scaledEffectors],
   )
   const hasTimeEffector = useMemo(
     () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
+    [normalizedEffectors],
+  )
+  const hasAnimatedNoiseEffector = useMemo(
+    () => normalizedEffectors.some((effector) => (
+      effector.type === 'noise'
+      && effector.enabled !== false
+      && hasNonZeroVec3(resolveNoiseMotion(effector.noisePositionSpeed))
+    )),
     [normalizedEffectors],
   )
   const hasTimeScaleEffector = useMemo(
@@ -812,10 +926,16 @@ export function GridCloner({
   )
   const [frameTime, setFrameTime] = useState(0)
   useFrame(({ clock }) => {
-    if (!hasTimeEffector) return
+    if (!hasTimeEffector && !hasAnimatedNoiseEffector) return
     setFrameTime(clock.getElapsedTime())
   })
-  const noiseGenerator = useMemo(() => new ImprovedNoise(), [])
+  const noiseGenerators = useMemo(
+    () => normalizedEffectors.map((effector) => {
+      if (effector.type !== 'noise') return null
+      return new SeededImprovedNoise(effector.seed ?? 1337)
+    }),
+    [normalizedEffectors],
+  )
 
   const debugBounds = useMemo<Vec3>(() => {
     const [cx, cy, cz] = normalizedCount
@@ -960,7 +1080,7 @@ export function GridCloner({
     const [cx, cy, cz] = normalizedCount
     const [sx, sy, sz] = scaledSpacing
     const [ox, oy, oz] = scaledOffset
-    const [stepX, stepY, stepZ] = scaledStepOffset
+    const totalClones = cx * cy * cz
 
     const startX = centered ? -((cx - 1) * sx) / 2 : 0
     const startY = centered ? -((cy - 1) * sy) / 2 : 0
@@ -972,9 +1092,9 @@ export function GridCloner({
       for (let z = 0; z < cz; z++) {
         for (let x = 0; x < cx; x++) {
           const localPosition: Vec3 = [
-            startX + (x * sx) + ox + (flatIndex * stepX),
-            startY + (y * sy) + oy + (flatIndex * stepY),
-            startZ + (z * sz) + oz + (flatIndex * stepZ),
+            startX + (x * sx) + ox,
+            startY + (y * sy) + oy,
+            startZ + (z * sz) + oz,
           ]
 
           let finalPosition = addVec3(localPosition, scaledPosition)
@@ -990,32 +1110,58 @@ export function GridCloner({
             if (isLinearEffector(effector)) {
               const weight = evaluateLinearFieldWeight(localPosition, effector)
               if (weight === 0) return
-              const remappedWeight = clamp01(weight)
+              const amount = weight
+              const clampedAmount = clamp01(amount)
 
               if (effector.position) {
-                finalPosition = addScaledVec3(finalPosition, effector.position, weight)
+                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
               }
               if (effector.rotation) {
-                finalRotation = addScaledVec3(finalRotation, effector.rotation, weight)
+                finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
               }
               if (effector.scale) {
-                finalScale = addScaledVec3(finalScale, effector.scale, weight)
+                finalScale = addScaledVec3(finalScale, effector.scale, amount)
               }
 
-              if (effector.hidden && remappedWeight >= (effector.hideThreshold ?? 0.5)) {
+              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
                 hidden = true
               }
 
-              if (effector.color !== undefined) {
-                color = effector.color
+              const nextColor = resolveColorValue(effector.color, clampedAmount)
+              if (nextColor !== undefined) {
+                color = nextColor
               }
 
-              if (effector.materialColors) {
-                Object.entries(effector.materialColors).forEach(([key, value]) => {
-                  materialColors[key] = value
-                })
+              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
+
+              return
+            }
+
+            if (isStepEffector(effector)) {
+              const amount = evaluateStepWeight(flatIndex, totalClones, effector)
+              if (amount === 0) return
+              const clampedAmount = clamp01(amount)
+
+              if (effector.position) {
+                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+              }
+              if (effector.rotation) {
+                finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
+              }
+              if (effector.scale) {
+                finalScale = addScaledVec3(finalScale, effector.scale, amount)
               }
 
+              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
+                hidden = true
+              }
+
+              const nextColor = resolveColorValue(effector.color, clampedAmount)
+              if (nextColor !== undefined) {
+                color = nextColor
+              }
+
+              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
               return
             }
 
@@ -1080,16 +1226,17 @@ export function GridCloner({
               return
             }
 
-            if (effector.type === 'time') {
-              const strength = clamp01(effector.strength ?? 1)
-              if (strength <= 0) return
+              if (effector.type === 'time') {
+                const strength = clamp01(effector.strength ?? 1)
+                if (strength <= 0) return
 
-              const weight = evaluateTimeWeight(frameTime, flatIndex, effector)
-              const amount = weight * strength
-              if (amount <= 0) return
+                const weight = evaluateTimeWeight(frameTime, flatIndex, effector)
+                const amount = weight * strength
+                if (amount <= 0) return
+                const clampedAmount = clamp01(amount)
 
-              if (effector.position) {
-                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+                if (effector.position) {
+                  finalPosition = addScaledVec3(finalPosition, effector.position, amount)
               }
 
               if (effector.rotation) {
@@ -1100,41 +1247,36 @@ export function GridCloner({
                 finalScale = addScaledVec3(finalScale, effector.scale, amount)
               }
 
-              if (effector.hidden && amount >= (effector.hideThreshold ?? 0.5)) {
+              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
                 hidden = true
               }
 
-              if (effector.color !== undefined) {
-                if (Array.isArray(effector.color) && effector.color.length > 0) {
-                  const i = Math.floor(amount * effector.color.length)
-                  color = effector.color[Math.min(effector.color.length - 1, i)]
-                } else if (typeof effector.color === 'number') {
-                  color = effector.color
-                }
+              const nextColor = resolveColorValue(effector.color, clampedAmount)
+              if (nextColor !== undefined) {
+                color = nextColor
               }
 
-              if (effector.materialColors) {
-                Object.entries(effector.materialColors).forEach(([key, value]) => {
-                  if (Array.isArray(value) && value.length > 0) {
-                    const i = Math.floor(amount * value.length)
-                    materialColors[key] = value[Math.min(value.length - 1, i)]
-                  } else if (typeof value === 'number') {
-                    materialColors[key] = value
-                  }
-                })
-              }
+              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
               return
             }
 
-            const seed = effector.seed ?? 1337
             const strength = clamp01(effector.strength ?? 1)
             if (strength <= 0) return
 
+            const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(effector.seed ?? 1337)
             const freq = normalizeFrequency(effector.frequency)
-            const noiseOffset = effector.offset ?? IDENTITY_POSITION
-            const sampleX = (localPosition[0] * freq[0]) + noiseOffset[0] + (seed * 0.0137)
-            const sampleY = (localPosition[1] * freq[1]) + noiseOffset[1] + (seed * 0.0179)
-            const sampleZ = (localPosition[2] * freq[2]) + noiseOffset[2] + (seed * 0.0193)
+            const staticOffset = effector.offset ?? IDENTITY_POSITION
+            const noisePosition = resolveNoiseMotion(effector.noisePosition)
+            const noisePositionSpeed = resolveNoiseMotion(effector.noisePositionSpeed)
+            const animatedNoisePosition: Vec3 = [
+              staticOffset[0] + noisePosition[0] + (noisePositionSpeed[0] * frameTime),
+              staticOffset[1] + noisePosition[1] + (noisePositionSpeed[1] * frameTime),
+              staticOffset[2] + noisePosition[2] + (noisePositionSpeed[2] * frameTime),
+            ]
+
+            const sampleX = (localPosition[0] * freq[0]) + animatedNoisePosition[0]
+            const sampleY = (localPosition[1] * freq[1]) + animatedNoisePosition[1]
+            const sampleZ = (localPosition[2] * freq[2]) + animatedNoisePosition[2]
 
             const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
             const noisePosX = noiseGenerator.noise(sampleX + 11.31, sampleY + 7.77, sampleZ + 3.19)
@@ -1170,26 +1312,13 @@ export function GridCloner({
               hidden = true
             }
 
-            if (effector.color !== undefined) {
-              if (Array.isArray(effector.color) && effector.color.length > 0) {
-                const i = Math.floor(normalized * effector.color.length)
-                color = effector.color[Math.min(effector.color.length - 1, i)]
-              } else if (typeof effector.color === 'number') {
-                if (normalized <= strength) color = effector.color
-              }
+            const nextColor = resolveColorValue(effector.color, normalized)
+            if (nextColor !== undefined && normalized <= strength) {
+              color = nextColor
             }
 
-            if (effector.materialColors) {
-              Object.entries(effector.materialColors).forEach(([key, value]) => {
-                if (Array.isArray(value) && value.length > 0) {
-                  const i = Math.floor(normalized * value.length)
-                  materialColors[key] = value[Math.min(value.length - 1, i)]
-                } else if (typeof value === 'number') {
-                  if (normalized <= strength) {
-                    materialColors[key] = value
-                  }
-                }
-              })
+            if (normalized <= strength) {
+              applyMaterialColorValues(materialColors, effector.materialColors, normalized)
             }
           })
 
@@ -1219,12 +1348,11 @@ export function GridCloner({
     scaledSpacing,
     scaledOffset,
     centered,
-    scaledStepOffset,
     scaledPosition,
     baseRotation,
     scale,
     normalizedEffectors,
-    noiseGenerator,
+    noiseGenerators,
     frameTime,
     collisionActivatedPhysics,
     collisionActivatedClones,
@@ -1340,7 +1468,7 @@ export function GridCloner({
         )
       })}
 
-      {shouldShowDebugEffectors && scaledEffectors
+      {shouldShowDebugEffectors && normalizedEffectors
         .filter((effector): effector is LinearFieldEffectorConfig => isLinearEffector(effector) && effector.enabled !== false)
         .map((effector, index) => {
           const axis = effector.axis ?? 'y'
@@ -1353,36 +1481,67 @@ export function GridCloner({
           const headScale = Math.max(0.03, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.04)
           const lineColor = effector.invert ? '#ff9f43' : '#2ecc71'
           const thin = Math.max(0.002, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.015)
+          const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
+          const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
+          const fieldOrigin = addVec3(scaledPosition, fieldPosition)
           const planeSize = getPlaneDebugSize(axis, thin, debugBounds)
+          const volumeSize = getPlaneDebugSize(axis, size, debugBounds)
 
-          const startPosition: Vec3 = [...scaledPosition]
-          startPosition[axisIndex] += center - half
-          const endPosition: Vec3 = [...scaledPosition]
-          endPosition[axisIndex] += center + half
+          const startLocal: Vec3 = [0, 0, 0]
+          startLocal[axisIndex] = center - half
+          const endLocal: Vec3 = [0, 0, 0]
+          endLocal[axisIndex] = center + half
+          const volumeCenter: Vec3 = [0, 0, 0]
+          volumeCenter[axisIndex] = center
 
-          const arrowStart = directionSign > 0 ? startPosition : endPosition
-          const arrowEnd = directionSign > 0 ? endPosition : startPosition
+          const arrowStart = directionSign > 0 ? startLocal : endLocal
+          const arrowEnd = directionSign > 0 ? endLocal : startLocal
           const arrowHeadRotation = getArrowHeadRotation(axis, directionSign > 0)
           const arrowLinePositions = new Float32Array([
             arrowStart[0], arrowStart[1], arrowStart[2],
             arrowEnd[0], arrowEnd[1], arrowEnd[2],
           ])
 
+          let remapMarker: Vec3 | null = null
+          const innerOffset = clamp01(effector.innerOffset ?? 0)
+          if ((effector.enableRemap ?? false) && innerOffset > 0) {
+            const marker: Vec3 = [0, 0, 0]
+            const markerPosition = directionSign > 0
+              ? (center - half) + (innerOffset * size)
+              : (center + half) - (innerOffset * size)
+            marker[axisIndex] = markerPosition
+            remapMarker = marker
+          }
+
           return (
             <group
               key={`linear-field-debug-${index}`}
               userData={{ excludeFromOutlines: true }}
               renderOrder={2000}
+              position={fieldOrigin}
+              rotation={fieldRotation}
             >
-              <mesh position={startPosition}>
+              <mesh position={volumeCenter}>
+                <boxGeometry args={volumeSize} />
+                <meshBasicMaterial color={lineColor} transparent opacity={0.08} depthWrite={false} />
+              </mesh>
+
+              <mesh position={startLocal}>
                 <boxGeometry args={planeSize} />
                 <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
               </mesh>
 
-              <mesh position={endPosition}>
+              <mesh position={endLocal}>
                 <boxGeometry args={planeSize} />
                 <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
               </mesh>
+
+              {remapMarker && (
+                <mesh position={remapMarker}>
+                  <boxGeometry args={planeSize} />
+                  <meshBasicMaterial color="#74b9ff" wireframe transparent opacity={0.9} depthWrite={false} />
+                </mesh>
+              )}
 
               <line>
                 <bufferGeometry>

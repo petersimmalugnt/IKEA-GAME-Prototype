@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "objects": [
+  "version": 3,
+  "nodes": [
     {
       "type": "CubeElement",
       "position": [
@@ -26,7 +26,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "9cc93166-4693-4db0-9eab-8e0d35240988"
+      "id": "9cc93166-4693-4db0-9eab-8e0d35240988",
+      "nodeType": "object"
     },
     {
       "type": "CylinderElement",
@@ -52,7 +53,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "a5d22618-507d-4bae-856e-c1c076bd0c76"
+      "id": "a5d22618-507d-4bae-856e-c1c076bd0c76",
+      "nodeType": "object"
     },
     {
       "type": "CubeElement",
@@ -79,7 +81,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "f1f2e9ed-2de6-4d22-adc7-3cd94def5914"
+      "id": "f1f2e9ed-2de6-4d22-adc7-3cd94def5914",
+      "nodeType": "object"
     },
     {
       "type": "CubeElement",
@@ -106,7 +109,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "f9a1c03f-f2ba-4bcb-995a-c839ee6e4541"
+      "id": "f9a1c03f-f2ba-4bcb-995a-c839ee6e4541",
+      "nodeType": "object"
     },
     {
       "type": "CylinderElement",
@@ -132,7 +136,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "42249193-5c0a-4c7f-9775-ace17c2faa10"
+      "id": "42249193-5c0a-4c7f-9775-ace17c2faa10",
+      "nodeType": "object"
     },
     {
       "type": "CylinderElement",
@@ -158,7 +163,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "ae167591-6711-4f38-bf12-50a3157455e3"
+      "id": "ae167591-6711-4f38-bf12-50a3157455e3",
+      "nodeType": "object"
     },
     {
       "type": "CubeElement",
@@ -185,7 +191,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "2a477041-e475-4be2-b123-3fc51c6645be"
+      "id": "2a477041-e475-4be2-b123-3fc51c6645be",
+      "nodeType": "object"
     },
     {
       "type": "CubeElement",
@@ -212,7 +219,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "eb9a266f-9302-42d5-81c1-c543883e74e8"
+      "id": "eb9a266f-9302-42d5-81c1-c543883e74e8",
+      "nodeType": "object"
     },
     {
       "type": "CylinderElement",
@@ -238,7 +246,8 @@
         "friction": 1,
         "lockRotations": false
       },
-      "id": "89a4aa2d-baa0-47e1-9f0b-0ee877f60d82"
+      "id": "89a4aa2d-baa0-47e1-9f0b-0ee877f60d82",
+      "nodeType": "object"
     }
   ]
 }

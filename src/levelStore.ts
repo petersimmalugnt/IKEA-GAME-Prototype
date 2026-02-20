@@ -12,38 +12,22 @@ export type LevelNode = {
 }
 
 export type LevelData = {
-  version: number
+  version: 3
   nodes: LevelNode[]
-}
-
-/** Convert v1 flat objects format to v2 nodes format. */
-function convertV1ToV2(data: { version: number; objects: unknown[] }): LevelData {
-  const nodes: LevelNode[] = (data.objects ?? []).map((raw) => {
-    const obj = raw as Record<string, unknown>
-    return {
-      id: (obj.id as string) ?? crypto.randomUUID(),
-      nodeType: 'object' as const,
-      type: obj.type as string,
-      position: obj.position as Vec3 | undefined,
-      rotation: obj.rotation as Vec3 | undefined,
-      props: (obj.props as Record<string, unknown>) ?? {},
-    }
-  })
-  return { version: 2, nodes }
 }
 
 function parseLevelFileJson(raw: unknown): LevelData {
   const data = raw as Record<string, unknown>
 
-  if (Array.isArray(data.nodes)) {
-    return { version: Number(data.version) || 2, nodes: data.nodes as LevelNode[] }
+  if (data.version !== 3) {
+    throw new Error(`Unsupported level format version ${String(data.version)}. Expected version 3.`)
   }
 
-  if (Array.isArray(data.objects)) {
-    return convertV1ToV2(data as { version: number; objects: unknown[] })
+  if (!Array.isArray(data.nodes)) {
+    throw new Error('Invalid level format: missing nodes array')
   }
 
-  throw new Error('Invalid level format: missing nodes or objects array')
+  return { version: 3, nodes: data.nodes as LevelNode[] }
 }
 
 type LevelStoreState = {

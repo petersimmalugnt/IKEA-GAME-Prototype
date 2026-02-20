@@ -485,23 +485,27 @@ Detta håller modellkomponenterna "dumma" (render-only), men ger enkel authoring
 | `position/rotation/scale` | `Vec3` | `[0,0,0] / [0,0,0] / [1,1,1]` | Transform på clonern |
 | `centered` | `boolean` | `true` | `true` = grid centrerad runt `position`, `false` = start i hörn |
 | `transformMode` | `'cloner' \| 'child'` | `'cloner'` | `cloner` nollställer barnens top-level transform, `child` behåller |
-| `stepOffset` | `Vec3` | `[0,0,0]` | Linjär offset per klonindex |
 | `gridUnit` | `'lg' \| 'md' \| 'sm' \| 'xs' \| number` | `1` | Skalar positionsrelaterade värden (`lg=0.2`, `md=0.1`, `sm=0.05`, `xs=0.025`) |
-| `showDebugEffectors` | `boolean` | `SETTINGS.debug.enabled` | Visar linear-field debug-gizmos |
+| `showDebugEffectors` | `boolean` | `SETTINGS.debug.enabled` | Visar linear-field debug-gizmos (boundary-plan, riktning, remap-markör) |
 
 ### Effectors
 
 | Effector | Viktiga props | Funktion |
 |----------|----------------|----------|
-| `LinearFieldEffector` | `axis`, `center`, `size`, `invert`, `enableRemap`, `contourMode`, `position/rotation/scale` | C4D-lik linear field med remap/contour |
+| `LinearFieldEffector` | `axis`, `center`, `size`, `fieldPosition`, `fieldRotation`, `invert`, `enableRemap`, `contourMode` | C4D-lik linear field med egen field-transform + remap/contour |
 | `RandomEffector` | `seed`, `strength`, `position/rotation/scale`, `color` | Deterministisk jitter |
-| `NoiseEffector` | `seed`, `frequency`, `offset`, `position/rotation/scale` | Spatialt sammanhängande 3D-noise |
+| `NoiseEffector` | `seed`, `frequency`, `offset`, `noisePosition`, `noisePositionSpeed`, `position/rotation/scale` | Seedad 3D-noise + domänförflyttning över tid |
 | `TimeEffector` | `loopMode`, `duration`, `speed`, `timeOffset`, `cloneOffset`, `easing` | Tidsdriven modulation |
+| `StepEffector` | `profile`, `easing`, `humpEasing`, `phaseOffset` | Index-baserad progression (`ramp`/`hump`) |
 
 - Effectors körs i child-ordning och appliceras relativt.
 - `GridCloner.rotation` och alla effector-`rotation` anges i **grader**.
 - Positionsrelaterade effector-värden skalas av `gridUnit`.
-- `contourMode` stöder både klassiska lägen (`none`, `quadratic`, `step`, `quantize`, `curve`) och easing-namn.
+- `contourMode` stöder både klassiska lägen (`none`, `quadratic`, `step`, `quantize`) och easing-namn.
+- Alla effectors delar samma kanalset: `position`, `rotation`, `scale`, `hidden`, `hideThreshold`, `color`, `materialColors`.
+- `StepEffector` använder clone-order `x -> z -> y` (flat-index).
+- `NoiseEffector.seed` byter noise-mönster (permutation), medan `noisePosition`/`noisePositionSpeed` flyttar sampling-domänen.
+- Linear debug följer `fieldPosition`/`fieldRotation` och visar två gränsplan, riktning (inkl. `invert`) och `innerOffset`-markör när remap är aktiv.
 
 ### Physics i GridCloner
 
@@ -532,18 +536,24 @@ Exempel:
   position={[3, 0, 0]}
   centered
   transformMode="cloner"
-  stepOffset={[0, 0.02, 0]}
   physics="dynamic"
   mass={0.2}
   friction={0.8}
 >
+  <StepEffector
+    profile="ramp"
+    easing="smooth"
+    phaseOffset={0.1}
+    position={[0, 0.2, 0]}
+  />
   <LinearFieldEffector
     axis="x"
     center={0}
     size={6}
+    fieldPosition={[0, 0.5, 0]}
+    fieldRotation={[0, 25, 0]}
     enableRemap
-    contourMode="curve"
-    contourCurve={[[0, 0], [0.35, 0.15], [0.7, 0.7], [1, 1]]}
+    contourMode="easeInOutCubic"
     position={[0, 1, 0]}
   />
   <RandomEffector seed={12} strength={0.6} rotation={[0, 0.35, 0]} scale={[0.15, 0.15, 0.15]} />
@@ -551,6 +561,8 @@ Exempel:
     seed={42}
     strength={0.7}
     frequency={[0.8, 0.8, 0.8]}
+    noisePosition={0}
+    noisePositionSpeed={0.35}
     position={[0.25, 0.1, 0.25]}
     rotation={[0, 0.2, 0]}
     scale={[0.1, 0.1, 0.1]}
@@ -568,6 +580,19 @@ Exempel:
 
 Notering:
 - v1 renderar separata kloner (ej GPU-instancing), vilket bevarar nuvarande outline-beteende och minskar risk för linje-artifacts.
+
+### Level Format v3
+
+Nodes-baserade level-filer är nu strikt `version: 3`:
+
+```json
+{
+  "version": 3,
+  "nodes": []
+}
+```
+
+`version 1/2` och gamla `objects`-filer stöds inte längre i runtime/parser.
 
 ---
 

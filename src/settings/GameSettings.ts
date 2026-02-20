@@ -60,7 +60,7 @@ export const SETTINGS: Settings = {
 
   // --- DEBUG ---
   debug: {
-    enabled: true, // Master-toggle för allt debug
+    enabled: false, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
     streaming: {
@@ -170,7 +170,7 @@ export const SETTINGS: Settings = {
 
   // --- PIXELATION (Pixelart-test via postprocess-pass) ---
   pixelation: {
-    enabled: false, // Används när render.style = 'pixel'
+    enabled: true, // Används när render.style = 'pixel'
     granularity: 8, // 1 = subtilt, högre = mer pixligt
   },
 
@@ -240,7 +240,7 @@ export const SETTINGS: Settings = {
   level: {
     defaultFile: "level.json", // filename inside public/levels/
     liveSync: {
-      enabled: true,
+      enabled: false,
       url: "ws://localhost:5174/ws/level",
       reconnectMs: 1000,
     },

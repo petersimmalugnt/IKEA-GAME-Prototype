@@ -91,8 +91,7 @@ export function Scene() {
                 center={0}
                 size={7}
                 enableRemap
-                contourMode="curve"
-                contourCurve={[[0, 0], [0.25, 0.05], [0.65, 0.5], [1, 1]]}
+                contourMode="easeInOutCubic"
                 position={[0, 2.2, 0]}
               />
               <BlockElement sizePreset="md" heightPreset="sm" color={2} />
