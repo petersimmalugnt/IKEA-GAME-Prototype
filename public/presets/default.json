@@ -5,7 +5,7 @@
   "controls": {
     "inputSource": "keyboard",
     "external": {
-      "mode": "absolute",
+      "mode": "digital",
       "staleTimeoutMs": 160,
       "absolute": {
         "followLerp": 0.5,
@@ -20,7 +20,7 @@
     }
   },
   "debug": {
-    "enabled": true,
+    "enabled": false,
     "showColliders": true,
     "showStats": true,
     "streaming": {
@@ -36,20 +36,24 @@
       "layers": 2,
       "spacing": 1.25,
       "heightStep": 0.45,
-      "origin": [-12, 0, -12],
+      "origin": [
+        -12,
+        0,
+        -12
+      ],
       "usePhysics": false,
       "fixedColliderEvery": 4
     }
   },
   "streaming": {
-    "enabled": true,
-    "cellSize": 8,
+    "enabled": false,
+    "cellSize": 1,
     "updateIntervalMs": 120,
-    "preloadRadius": 26,
-    "renderLoadRadius": 20,
-    "renderUnloadRadius": 24,
-    "physicsLoadRadius": 14,
-    "physicsUnloadRadius": 18,
+    "preloadRadius": 2.6,
+    "renderLoadRadius": 2,
+    "renderUnloadRadius": 2.4,
+    "physicsLoadRadius": 1.4,
+    "physicsUnloadRadius": 1.8,
     "center": {
       "source": "target",
       "targetId": "player"
@@ -60,51 +64,96 @@
     "outline": "#141414"
   },
   "palette": {
-    "active": "greyscale",
+    "active": "green",
     "variants": {
       "classic": {
         "background": "#3D2C23",
         "colors": [
-          { "base": "#45253A" },
-          { "base": "#558DCE" },
-          { "base": "#D9B5A3" },
-          { "base": "#665747" },
-          { "base": "#FF2D19" },
-          { "base": "#78C850" },
-          { "base": "#E0C24A" },
-          { "base": "#8A6BEA" },
-          { "base": "#2FB9A6" },
-          { "base": "#F2E5C4" }
+          {
+            "base": "#D9B5A3"
+          },
+          {
+            "base": "#45253A"
+          },
+          {
+            "base": "#558DCE"
+          },
+          {
+            "base": "#665747"
+          },
+          {
+            "base": "#FF2D19"
+          }
         ]
       },
       "greyscale": {
-        "background": "#1b1b1b",
+        "background": "#191919",
         "colors": [
-          { "base": "#717171" },
-          { "base": "#424242" },
-          { "base": "#7AB51D" },
-          { "base": "#008533" },
-          { "base": "#0096D2" },
-          { "base": "#0058A3" },
-          { "base": "#FFDB00" },
-          { "base": "#EE7F00" },
-          { "base": "#E52F7E" },
-          { "base": "#CC0008" }
+          {
+            "base": "#E1D4BD"
+          },
+          {
+            "base": "#606060"
+          },
+          {
+            "base": "#3b3b3b"
+          },
+          {
+            "base": "#669E10"
+          },
+          {
+            "base": "#006B18"
+          },
+          {
+            "base": "#007FB5"
+          },
+          {
+            "base": "#003889"
+          },
+          {
+            "base": "#D2BE27"
+          },
+          {
+            "base": "#C96C05"
+          },
+          {
+            "base": "#BE0D64"
+          },
+          {
+            "base": "#A00003"
+          }
         ]
       },
       "green": {
         "background": "#0E3420",
         "colors": [
-          { "base": "#669E10" },
-          { "base": "#006B18" },
-          { "base": "#007FB5" },
-          { "base": "#C96C05" },
-          { "base": "#E1D4BD" },
-          { "base": "#8BC34A" },
-          { "base": "#2E8B57" },
-          { "base": "#A7C957" },
-          { "base": "#3FA34D" },
-          { "base": "#F0E6CC" }
+          {
+            "base": "#E1D4BD"
+          },
+          {
+            "base": "#669E10"
+          },
+          {
+            "base": "#006B18"
+          },
+          {
+            "base": "#BE0D64"
+          },
+          {
+            "base": "#A00003"
+          },
+          {
+            "base": "#007FB5"
+          },
+          {
+            "base": "#003889"
+          },
+          {
+            "base": "#D2BE27"
+          },
+          {
+            "base": "#C96C05"
+          }
         ]
       }
     },
@@ -120,7 +169,7 @@
     "thickness": 1,
     "creaseAngle": 30,
     "threshold": 0.005,
-    "composerMultisampling": 0,
+    "composerMultisampling": 4,
     "smaaEnabled": true,
     "smaaPreset": "ultra"
   },
@@ -136,30 +185,58 @@
     "depthEdgeThresholdMax": 0.003
   },
   "camera": {
-    "mode": "static",
+    "mode": "follow",
     "base": {
       "zoom": 300,
       "near": 0.1,
       "far": 2000
     },
     "static": {
-      "position": [5, 5, 5],
-      "lookAt": [0, 0, 0]
+      "position": [
+        5,
+        5,
+        5
+      ],
+      "lookAt": [
+        0,
+        0,
+        0
+      ]
     },
     "follow": {
       "targetId": "player",
-      "offset": [5, 5, 5],
-      "lookAtOffset": [0, 0, 0],
+      "offset": [
+        5,
+        5,
+        5
+      ],
+      "lookAtOffset": [
+        0,
+        0,
+        0
+      ],
       "followLerp": 0.025,
       "lookAtLerp": 0.04,
       "lockRotation": true,
-      "followAxes": { "x": true, "y": false, "z": true },
-      "lookAtAxes": { "x": true, "y": true, "z": true },
+      "followAxes": {
+        "x": true,
+        "y": false,
+        "z": true
+      },
+      "lookAtAxes": {
+        "x": true,
+        "y": true,
+        "z": true
+      },
       "moveLightWithTarget": true
     }
   },
   "light": {
-    "position": [0, 2.0, 5],
+    "position": [
+      0,
+      2,
+      5
+    ],
     "intensity": 1,
     "shadowMapSize": 4096,
     "shadowBias": 0,
@@ -173,11 +250,19 @@
     "castShadowStep": 0.6
   },
   "player": {
-    "impulseStrength": 0.02,
+    "impulseStrength": 0.01,
     "jumpStrength": 0.08,
     "linearDamping": 1.5,
-    "angularDamping": 2.0,
+    "angularDamping": 2,
     "mass": 0.1,
     "friction": 1.5
+  },
+  "level": {
+    "defaultFile": "level.json",
+    "liveSync": {
+      "enabled": true,
+      "url": "ws://localhost:5174/ws/level",
+      "reconnectMs": 1000
+    }
   }
 }

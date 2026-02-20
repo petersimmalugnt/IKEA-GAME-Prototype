@@ -799,5 +799,11 @@ export function ControlCenter() {
   useLevelControls()
   usePresetControls()
 
+  useEffect(() => {
+    loadBundledPreset('default')
+      .then(() => syncLevaFromSettings())
+      .catch(() => { /* default preset not found, keep hardcoded defaults */ })
+  }, [])
+
   return null
 }
