@@ -581,18 +581,21 @@ Exempel:
 Notering:
 - v1 renderar separata kloner (ej GPU-instancing), vilket bevarar nuvarande outline-beteende och minskar risk för linje-artifacts.
 
-### Level Format v3
+### Level Format v4
 
-Nodes-baserade level-filer är nu strikt `version: 3`:
+Nodes-baserade level-filer är nu strikt `version: 4`:
 
 ```json
 {
-  "version": 3,
+  "version": 4,
   "nodes": []
 }
 ```
 
-`version 1/2` och gamla `objects`-filer stöds inte längre i runtime/parser.
+`version 1/2/3` och gamla `objects`-filer stöds inte längre i runtime/parser.
+
+Ny container-typ:
+- `Null` fungerar som ren transform/container-nod med `children`, utan egen renderad geometri i spelet.
 
 ---
 

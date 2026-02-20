@@ -91,6 +91,21 @@ function renderEffectorNode(node: LevelNode) {
   return <Component key={node.id} {...node.props} />
 }
 
+function renderNullNode(node: LevelNode) {
+  const children = (node.children ?? []).filter((child) => child.nodeType === 'object')
+  const rotation: Vec3 = node.rotation ? toRadians(node.rotation) : [0, 0, 0]
+
+  return (
+    <group
+      key={node.id}
+      position={node.position}
+      rotation={rotation}
+    >
+      {children.map((child) => renderNode(child))}
+    </group>
+  )
+}
+
 function renderGridClonerNode(node: LevelNode) {
   const children = node.children ?? []
 
@@ -126,6 +141,10 @@ function renderGridClonerNode(node: LevelNode) {
 function renderNode(node: LevelNode) {
   if (node.nodeType === 'effector') {
     return renderEffectorNode(node)
+  }
+
+  if (node.type === 'Null') {
+    return renderNullNode(node)
   }
 
   if (node.type === 'GridCloner') {
