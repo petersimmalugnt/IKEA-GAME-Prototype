@@ -26,6 +26,8 @@ import {
   RandomEffector,
   TimeEffector,
 } from '@/scene/GridCloner'
+import { LiveLevelSync } from '@/LiveLevelSync'
+import { LevelRenderer } from '@/LevelRenderer'
 
 export function Scene() {
   useSettingsVersion()
@@ -36,6 +38,7 @@ export function Scene() {
   return (
     <GameKeyboardControls>
       <ExternalControlBridge />
+      <LiveLevelSync />
       <Physics gravity={[0, -9.81, 0]} debug={isDebug && SETTINGS.debug.showColliders}>
         <GameEffects />
         <CameraSystemProvider playerRef={playerRef}>
@@ -191,6 +194,9 @@ export function Scene() {
             <VaultStairs position={[-.5, 0, -2.5]} rotation={[0, Math.PI / -1, 0]} materialColor0={1} />
             <Stair position={[1, 0, 2]} materialColor0={2} />
             <Stair position={[-2, 0, 0]} materialColor0={1} /> */}
+
+            {/* LEVEL FROM STORE (file or live sync) */}
+            <LevelRenderer />
 
             {/* DEBUG BENCHMARK + STREAMING */}
             <BenchmarkDebugContent />

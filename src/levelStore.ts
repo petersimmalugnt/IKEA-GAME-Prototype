@@ -1,17 +1,49 @@
 import { create } from 'zustand'
 import type { Vec3 } from '@/settings/GameSettings'
 
-export type LevelObject = {
+export type LevelNode = {
   id: string
+  nodeType: 'object' | 'effector'
   type: string
-  position: Vec3
-  rotation: Vec3
+  position?: Vec3
+  rotation?: Vec3
   props: Record<string, unknown>
+  children?: LevelNode[]
 }
 
 export type LevelData = {
   version: number
-  objects: LevelObject[]
+  nodes: LevelNode[]
+}
+
+/** Convert v1 flat objects format to v2 nodes format. */
+function convertV1ToV2(data: { version: number; objects: unknown[] }): LevelData {
+  const nodes: LevelNode[] = (data.objects ?? []).map((raw) => {
+    const obj = raw as Record<string, unknown>
+    return {
+      id: (obj.id as string) ?? crypto.randomUUID(),
+      nodeType: 'object' as const,
+      type: obj.type as string,
+      position: obj.position as Vec3 | undefined,
+      rotation: obj.rotation as Vec3 | undefined,
+      props: (obj.props as Record<string, unknown>) ?? {},
+    }
+  })
+  return { version: 2, nodes }
+}
+
+function parseLevelFileJson(raw: unknown): LevelData {
+  const data = raw as Record<string, unknown>
+
+  if (Array.isArray(data.nodes)) {
+    return { version: Number(data.version) || 2, nodes: data.nodes as LevelNode[] }
+  }
+
+  if (Array.isArray(data.objects)) {
+    return convertV1ToV2(data as { version: number; objects: unknown[] })
+  }
+
+  throw new Error('Invalid level format: missing nodes or objects array')
 }
 
 type LevelStoreState = {
@@ -38,12 +70,8 @@ export const useLevelStore = create<LevelStoreState>((set, get) => ({
       if (!response.ok) {
         throw new Error(`Failed to load level: ${response.status} ${response.statusText}`)
       }
-      const data: LevelData = await response.json()
-
-      // Validate basic structure
-      if (!data.objects || !Array.isArray(data.objects)) {
-        throw new Error('Invalid level format: missing or invalid objects array')
-      }
+      const raw: unknown = await response.json()
+      const data = parseLevelFileJson(raw)
 
       set({ levelData: data, loading: false, error: null })
     } catch (err) {
