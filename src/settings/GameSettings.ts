@@ -4,7 +4,7 @@ import type {
   PaletteEntry,
   PaletteVariant,
   Settings,
-} from './GameSettings.types'
+} from '@/settings/GameSettings.types'
 
 export {
   CAMERA_MODES,
@@ -14,7 +14,7 @@ export {
   RENDER_STYLES,
   SMAA_PRESET_NAMES,
   STREAMING_CENTER_SOURCES,
-} from './GameSettings.types'
+} from '@/settings/GameSettings.types'
 
 export type {
   AxisMask,
@@ -31,7 +31,7 @@ export type {
   SMAAPresetName,
   StreamingCenterSource,
   Vec3,
-} from './GameSettings.types'
+} from '@/settings/GameSettings.types'
 
 export const SETTINGS: Settings = {
   // --- RENDER STYLE ---

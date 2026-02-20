@@ -1,12 +1,12 @@
 import * as THREE from 'three'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 import type { ThreeElements } from '@react-three/fiber'
-import { C4DMaterial } from '../Materials'
-import type { MaterialColorIndex, Vec3 } from '../GameSettings'
-import type { PositionTargetHandle } from '../PositionTargetHandle'
-import { toRadians, useSurfaceId } from '../SceneHelpers'
-import { PhysicsWrapper, type PhysicsProps } from './PhysicsWrapper'
-import { getAlignOffset, type Align3 } from './anchor'
+import { C4DMaterial } from '@/render/Materials'
+import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
+import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
+import { toRadians, useSurfaceId } from '@/scene/SceneHelpers'
+import { PhysicsWrapper, type PhysicsProps } from '@/physics/PhysicsWrapper'
+import { getAlignOffset, type Align3 } from '@/geometry/align'
 
 type MeshElementProps = Omit<ThreeElements['mesh'], 'position' | 'rotation'>
 

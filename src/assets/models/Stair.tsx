@@ -8,9 +8,9 @@ import { useRef, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { ConvexHullCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
-import { C4DMesh, C4DMaterial, GameRigidBody } from '../../SceneComponents'
-import type { GamePhysicsBodyType } from '../../SceneComponents'
-import type { MaterialColorIndex } from '../../GameSettings'
+import { C4DMesh, C4DMaterial, GameRigidBody } from '@/scene/SceneComponents'
+import type { GamePhysicsBodyType } from '@/scene/SceneComponents'
+import type { MaterialColorIndex } from '@/settings/GameSettings'
 import modelUrl from './stair.glb?url'
 
 type GeneratedRigidBodySettings = {

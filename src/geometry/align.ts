@@ -1,4 +1,4 @@
-import type { Vec3 } from '../GameSettings'
+import type { Vec3 } from '@/settings/GameSettings'
 
 export type AlignPercent = number
 

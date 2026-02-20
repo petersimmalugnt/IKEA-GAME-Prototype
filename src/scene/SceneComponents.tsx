@@ -5,11 +5,11 @@ import { CuboidCollider, type RigidBodyProps } from '@react-three/rapier'
 import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
-import { C4DMaterial } from './Materials'
-import { SETTINGS, type Vec3 } from './GameSettings'
-import { GameRigidBody } from './physics/GameRigidBody'
-import type { GamePhysicsBodyType } from './physics/physicsTypes'
-import { toRadians, useSurfaceId } from './SceneHelpers'
+import { C4DMaterial } from '@/render/Materials'
+import { SETTINGS, type Vec3 } from '@/settings/GameSettings'
+import { GameRigidBody } from '@/physics/GameRigidBody'
+import type { GamePhysicsBodyType } from '@/physics/physicsTypes'
+import { toRadians, useSurfaceId } from '@/scene/SceneHelpers'
 
 type PhysicsBodyType = GamePhysicsBodyType
 

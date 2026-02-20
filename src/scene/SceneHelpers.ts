@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { useId, useMemo } from 'react'
-import type { Vec3 } from './GameSettings'
+import type { Vec3 } from '@/settings/GameSettings'
 
 function hashToSurfaceHex(input: string): number {
   let hash = 0

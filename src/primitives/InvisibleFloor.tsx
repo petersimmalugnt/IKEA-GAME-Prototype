@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { CuboidCollider, RigidBody } from '@react-three/rapier'
-import { SETTINGS } from '../GameSettings'
+import { SETTINGS } from '@/settings/GameSettings'
 
 // InvisibleFloor — inkluderar statisk fysik-collider för golvet
 export function InvisibleFloor({ shadowColor = SETTINGS.colors.shadow }: { shadowColor?: string }) {

@@ -8,7 +8,7 @@ import {
   type RigidBodyProps,
   type RapierCollider,
 } from '@react-three/rapier'
-import type { Vec3 } from '../GameSettings'
+import type { Vec3 } from '@/settings/GameSettings'
 import { GameRigidBody } from '../physics/GameRigidBody'
 import type { GamePhysicsBodyType } from '../physics/physicsTypes'
 

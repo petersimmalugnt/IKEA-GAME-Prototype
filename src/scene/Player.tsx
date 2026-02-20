@@ -2,11 +2,11 @@ import { useKeyboardControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, BallCollider, useRapier, type RapierRigidBody } from '@react-three/rapier'
 import { useRef, forwardRef, useImperativeHandle } from 'react'
-import { SphereElement } from './primitives/SphereElement'
-import type { GameControlName } from './GameKeyboardControls'
-import { SETTINGS, type ControlInputSource, type Vec3 } from './GameSettings'
-import type { PositionTargetHandle } from './PositionTargetHandle'
-import { getExternalAbsoluteTarget, getExternalDigitalState, type DigitalControlState } from './control/ExternalControlStore'
+import { SphereElement } from '@/primitives/SphereElement'
+import type { GameControlName } from '@/input/GameKeyboardControls'
+import { SETTINGS, type ControlInputSource, type Vec3 } from '@/settings/GameSettings'
+import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
+import { getExternalAbsoluteTarget, getExternalDigitalState, type DigitalControlState } from '@/input/control/ExternalControlStore'
 
 export type PlayerHandle = PositionTargetHandle
 

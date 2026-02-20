@@ -42,34 +42,36 @@ graph TD
 | Fil | Ansvar |
 |-----|--------|
 | `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
-| `GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
-| `GameSettings.types.ts` | Delade typer för settings och core-konfig (`Settings`, `Vec3`, palette/control/camera-typer) |
-| `Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
-| `TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale (auto-loop när `positionRange` finns) |
-| `GridCloner.tsx` | Grid-baserad cloner för att duplicera valfria scenelement med valfri cloner-fysik |
-| `GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
-| `Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
-| `PositionTargetHandle.ts` | Delad ref-handle-typ (`getPosition`) för player/primitives |
-| `control/ExternalControlBridge.tsx` | Adapterlager för extern styrdata (window API, custom events, valfri WebSocket-klient) |
-| `control/ExternalControlStore.ts` | Transport-oberoende in-memory store för digital/absolute kontrollframes |
-| `primitives/*` | Primitive-komponenter (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`, `InvisibleFloor`) + gemensam physics-wrapper + align-hjälpare |
-| `SceneComponents.tsx` | Shared scene-byggstenar för konverterade modeller (`C4DMesh`, `C4DMaterial`, `SplineElement`) |
-| `CameraSystem.tsx` | Kapslar target-registry + kamera + streaming-center, kopplas in via provider i `Scene` |
-| `CameraSystemContext.ts` | Delad context/hook för target-registry och streaming-center |
-| `TargetAnchor.tsx` | Enkel wrapper för att ge valfritt scenelement ett `targetId` som kamera/streaming kan följa |
+| `src/settings/GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
+| `src/settings/GameSettings.types.ts` | Delade typer + options-unions för settings/core-konfig |
+| `src/scene/Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
+| `src/scene/TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale |
+| `src/scene/GridCloner.tsx` | Grid-baserad cloner för att duplicera valfria scenelement med valfri cloner-fysik |
+| `src/input/GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
+| `src/scene/Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
+| `src/scene/PositionTargetHandle.ts` | Delad ref-handle-typ (`getPosition`) för player/primitives |
+| `src/input/control/ExternalControlBridge.tsx` | Adapterlager för extern styrdata (window API, custom events, valfri WebSocket-klient) |
+| `src/input/control/ExternalControlStore.ts` | Transport-oberoende in-memory store för digital/absolute kontrollframes |
+| `src/primitives/*` | Primitive-komponenter (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`, `InvisibleFloor`) |
+| `src/physics/PhysicsWrapper.tsx` | Gemensam physics/collider-wrapper för primitives |
+| `src/geometry/align.ts` | Align-hjälpare (percent → offset) |
+| `src/scene/SceneComponents.tsx` | Shared scene-byggstenar för konverterade modeller (`C4DMesh`, `C4DMaterial`, `SplineElement`) |
+| `src/camera/CameraSystem.tsx` | Kapslar target-registry + kamera + streaming-center, kopplas in via provider i `Scene` |
+| `src/camera/CameraSystemContext.ts` | Delad context/hook för target-registry och streaming-center |
+| `src/scene/TargetAnchor.tsx` | Enkel wrapper för att ge valfritt scenelement ett `targetId` som kamera/streaming kan följa |
 | `streaming/ChunkStreamingSystem.ts` | Kärnlogik för chunk-aktivering (preload/render/physics) |
 | `debug/BenchmarkDebugContent.tsx` | Debug/benchmark-objekt som använder streamingsystemet |
 | `debug/StreamingDebugOverlay.tsx` | Visuell streaming-debug (ringar och chunk-bounds) |
-| `Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
-| `Lights.tsx` | DirectionalLight med shadow-konfiguration |
-| `CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow |
-| `Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
-| `RetroPixelatedEffects.tsx` | Egen three.js composer-kedja för retro-läget (pixelpass + outputpass) |
-| `postprocessing/ConfigurableRenderPixelatedPass.ts` | Anpassad pixelpass med styrbar depth-edge-threshold |
-| `SurfaceIdEffect.tsx` | Custom outline-effekt: surface-ID + normal-baserade kanter |
-| `GltfConverter.tsx` | FBX/GLB → TSX-konverterare (drag & drop) |
-| `DocsPage.tsx` | Visar `DOCS.md` i browser med sidebar + Mermaid-diagram |
-| `PhysicsStepper.ts` | Manuell physics-stepping (oanvänd för tillfället) |
+| `src/render/Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
+| `src/render/Lights.tsx` | DirectionalLight med shadow-konfiguration |
+| `src/camera/CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow |
+| `src/render/Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
+| `src/render/RetroPixelatedEffects.tsx` | Egen three.js composer-kedja för retro-läget (pixelpass + outputpass) |
+| `src/render/postprocessing/ConfigurableRenderPixelatedPass.ts` | Anpassad pixelpass med styrbar depth-edge-threshold |
+| `src/render/SurfaceIdEffect.tsx` | Custom outline-effekt: surface-ID + normal-baserade kanter |
+| `src/tools/GltfConverter.tsx` | FBX/GLB → TSX-konverterare (drag & drop) |
+| `src/ui/docs/DocsPage.tsx` | Visar `DOCS.md` i browser med sidebar + Mermaid-diagram |
+| `src/physics/PhysicsStepper.ts` | Manuell physics-stepping (oanvänd för tillfället) |
 
 ---
 
@@ -123,9 +125,9 @@ palette: {
 
 Fasta val i settings och komponentprops är nu centraliserade som union-typer/konstanter för bättre IntelliSense:
 
-- `src/GameSettings.types.ts` exporterar options-konstanter för t.ex. `render.style`, `camera.mode`, `lines.smaaPreset`, input-källor och externa kontrollägen.
+- `src/settings/GameSettings.types.ts` exporterar options-konstanter för t.ex. `render.style`, `camera.mode`, `lines.smaaPreset`, input-källor och externa kontrollägen.
 - `src/physics/physicsTypes.ts` exporterar explicita physics-mode-listor (`fixed`, `dynamic`, `kinematicPosition`, `kinematicVelocity`, `noneToDynamicOnCollision`, `solidNoneToDynamicOnCollision`, `animNoneToDynamicOnCollision`).
-- `src/GridCloner.tsx`, `src/TransformMotion.tsx`, `src/SceneComponents.tsx` och `src/primitives/BlockElement.tsx` använder explicita unions för props med fasta alternativ (t.ex. `loopMode`, `transformMode`, `curveType`, `plane`, presets).
+- `src/scene/GridCloner.tsx`, `src/scene/TransformMotion.tsx`, `src/scene/SceneComponents.tsx` och `src/primitives/BlockElement.tsx` använder explicita unions för props med fasta alternativ (t.ex. `loopMode`, `transformMode`, `curveType`, `plane`, presets).
 - Konverterade modellkomponenter använder typed `animation`-props (literal union per modell) istället för fri `string`.
 
 ### Renderlägen (`SETTINGS.render.style`)
@@ -173,8 +175,8 @@ Streaming är uppdelat så att debug/benchmark kan tas bort utan att röra kärn
 - `src/streaming/ChunkStreamingSystem.ts` — neutral kärna (chunk-state + aktiveringslogik)
 - `src/debug/BenchmarkDebugContent.tsx` — auto-genererad benchmark-content för test
 - `src/debug/StreamingDebugOverlay.tsx` — visuell debug-overlay
-- `src/CameraSystem.tsx` levererar center-position till både kamera och streaming
-- `src/Scene.tsx` kopplar in debugdelen via en enda komponent (`BenchmarkDebugContent`)
+- `src/camera/CameraSystem.tsx` levererar center-position till både kamera och streaming
+- `src/scene/Scene.tsx` kopplar in debugdelen via en enda komponent (`BenchmarkDebugContent`)
 
 ---
 
@@ -182,10 +184,10 @@ Streaming är uppdelat så att debug/benchmark kan tas bort utan att röra kärn
 
 Input är uppdelat i keyboard + extern pipeline:
 
-- `src/GameKeyboardControls.tsx` innehåller `KeyboardControls` + keymap
-- `src/control/ExternalControlStore.ts` är en transport-oberoende store för externa kontrollframes
-- `src/control/ExternalControlBridge.tsx` kopplar in valfri WebSocket-klient + browser API
-- `src/Player.tsx` läser och kombinerar input enligt `SETTINGS.controls`
+- `src/input/GameKeyboardControls.tsx` innehåller `KeyboardControls` + keymap
+- `src/input/control/ExternalControlStore.ts` är en transport-oberoende store för externa kontrollframes
+- `src/input/control/ExternalControlBridge.tsx` kopplar in valfri WebSocket-klient + browser API
+- `src/scene/Player.tsx` läser och kombinerar input enligt `SETTINGS.controls`
 
 `SETTINGS.controls.inputSource` styr källa:
 
@@ -308,7 +310,7 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 | `BlockElement` | `CuboidCollider` (via `CubeElement`) | Modulära storlekspresets + `plane` (`x | y | z`) |
 | `InvisibleFloor` | `CuboidCollider` | Fast golv med skugg-plan |
 
-### SceneComponents (`src/SceneComponents.tsx`)
+### SceneComponents (`src/scene/SceneComponents.tsx`)
 
 | Komponent | Collider-typ | Noteringar |
 |-----------|-------------|------------|
@@ -317,14 +319,35 @@ Wrapper runt `<mesh>` som auto-genererar ett unikt `surfaceId` för outline-dete
 | `C4DMaterial` | - | Re-export av material-komponenten från `Materials.tsx` |
 
 ### Physics-props (alla element)
-```jsx
+
+| Prop | Typ | Gäller | Effekt |
+|------|-----|--------|--------|
+| `physics` | `GamePhysicsBodyType` | primitives + cloner + genererade modeller | Väljer body-läge |
+| `mass` | `number` | dynamic/kinematic | Massa till Rapier-body |
+| `friction` | `number` | alla med collider | Friktion |
+| `lockRotations` | `boolean` | body-baserade element | Låser rotation |
+| `position` | `Vec3` | alla | World-position |
+| `rotation` | `Vec3` i grader | alla | Konverteras internt till radianer |
+| `hidden` | `boolean` | primitives/modeller | Döljer visuell mesh men kan behålla collider |
+
+| `physics`-värde | Pre-collision | Vid träff | Typisk användning |
+|------------------|--------------|----------|-------------------|
+| `fixed` | Fixed body | Oförändrad | Statisk geometri |
+| `dynamic` | Dynamic body | Oförändrad | Vanliga dynamiska objekt |
+| `kinematicPosition` | Kinematic position | Oförändrad | Extern/skriptad position |
+| `kinematicVelocity` | Kinematic velocity | Oförändrad | Velocity-styrda kinematic-objekt |
+| `noneToDynamicOnCollision` | Bodyless arm/sensor beroende på collider | Byter till `dynamic` | Max prestanda för många inaktiva objekt |
+| `solidNoneToDynamicOnCollision` | Bodyless + solid trigger-collider | Byter till `dynamic` | Omedelbar “solid” träffkänsla |
+| `animNoneToDynamicOnCollision` | Solid pre-collision-body | Byter till `dynamic` | Animerade objekt som ska falla ihop vid träff |
+
+```tsx
 <CubeElement
-  physics="dynamic"     // "dynamic" | "fixed" | "kinematicPosition" | "kinematicVelocity" | "noneToDynamicOnCollision" | "solidNoneToDynamicOnCollision" | "animNoneToDynamicOnCollision"
+  physics="dynamic"
   mass={0.3}
   friction={3}
-  lockRotations={true}
+  lockRotations
   position={[0, 0.5, 0]}
-  rotation={[-61, 0, 0]}  // I GRADER (konverteras internt)
+  rotation={[-61, 0, 0]}
 />
 ```
 
@@ -359,7 +382,7 @@ const targetRef = useRef<PositionTargetHandle | null>(null)
 
 `targetRef.current?.getPosition()` returnerar world-position och kan användas för kamera-/streamingtargets.
 
-### Spelaren (`Player.tsx`)
+### Spelaren (`src/scene/Player.tsx`)
 - `RigidBody` med `BallCollider` (r=0.1)
 - Densitet beräknas från `SETTINGS.player.mass`
 - Digitalt läge: impulse-baserad rörelse (keyboard och/eller extern triggerdata)
@@ -450,52 +473,54 @@ Detta håller modellkomponenterna "dumma" (render-only), men ger enkel authoring
 
 ## GridCloner
 
-`GridCloner.tsx` är en ny wrapper för C4D-lik grid-distribution av valfria barn.
+`src/scene/GridCloner.tsx` ger C4D-lik grid-distribution av valfria barn.
 
-- Duplicerar `children` i ett 3D-grid via:
-  - `count={[x, y, z]}`
-  - `spacing={[x, y, z]}`
-  - `offset={[x, y, z]}`
-  - `position`, `rotation`, `scale` på själva clonern
-  - `gridUnit` (optional): skalar positionsrelaterade värden med blocksteg
-    - presets: `lg=0.2`, `md=0.1`, `sm=0.05`, `xs=0.025`
-    - kan även vara ett eget tal (meter per "1")
-  - `centered`:
-    - `true`: griden centreras runt `position`
-    - `false`: griden startar i `position` (hörn/startpunkt)
-- `transformMode`:
-  - `cloner` (default): barnets top-level transform nollställs och cloner styr transform
-  - `child`: barnens transform behålls
-- Enkel linjär index-offset via `stepOffset` (adderas per klonindex).
-- Ordered effectors kan skrivas som children via:
-  - `<LinearFieldEffector />` (C4D-lik linear field)
-    - Direction/falloff: `axis`, `center`, `size`, `invert`
-    - Remap/contour: `enableRemap`, `innerOffset`, `remapMin`, `remapMax`, `clampMin`, `clampMax`, `contourMode`, `contourSteps`, `contourMultiplier`, `contourCurve`
-      - `contourMode` kan vara både klassiska lägen (`none`, `quadratic`, `step`, `quantize`, `curve`) och easing-namn (`easeInOutExpo`, `easeOutBounce`, osv)
-    - Applicering: `position`, `rotation`, `scale`, `hidden`, `color`, `materialColors`
-  - `<RandomEffector />` (deterministisk jitter via seed)
-  - `<NoiseEffector />` (spatialt sammanhängande 3D-noise)
-  - `<TimeEffector />` (tidsdriven modulation med `loopMode`, `duration`, `speed`, `timeOffset`, `cloneOffset`)
-    - `easing` använder gemensam easings.net-katalog (`linear`, `easeInSine`, `easeOutSine`, `easeInOutSine`, `easeInQuad` ... `easeInOutBounce`)
-    - Legacy-alias finns kvar: `smooth`, `easeIn`, `easeOut`, `easeInOut`
-  - Körs i child-ordning och appliceras relativt (position/rotation/scale/hidden/färg)
-  - Positionsrelaterade effector-värden (t.ex. `position`, plane `center/size`, noise `offset`) skalas också av `gridUnit`
-- Legacy: `effectors`-prop fungerar fortfarande.
-- Barnens egen `physics`-prop stripas automatiskt när clonern har fysik aktiv.
-- `GridCloner.rotation` och alla effector-`rotation` värden anges i **grader** (konverteras internt till radianer).
-- Valfri cloner-fysik per klon:
-  - enkel syntax som primitives: `physics="fixed|dynamic|kinematicPosition|kinematicVelocity|noneToDynamicOnCollision|solidNoneToDynamicOnCollision|animNoneToDynamicOnCollision"` + `mass`, `friction`, `lockRotations`
-  - default om du sätter `physics`: Rapier auto-collider från clone-meshen (ingen manuell collider krävs)
-  - undantag: `noneToDynamicOnCollision`, `solidNoneToDynamicOnCollision` och `TimeEffector` med `scale` använder infererad manuell collider
-  - `noneToDynamicOnCollision`: bodyless arming när explicit collider finns (ingen rigidbody före första trigger) och collidern ligger kvar i pre-collision-läge för bästa prestanda
-  - `solidNoneToDynamicOnCollision`: bodyless arming med solid pre-collision collider (ingen rigidbody före första trigger), sedan `dynamic` vid första kollision
-  - `animNoneToDynamicOnCollision`: pre-collision är solid (fixed) och följer animation visuellt; vid första kollision byter kroppen till `dynamic`
-  - om en aktiv `<TimeEffector />` animerar `scale` byter clonern automatiskt till infererad manuell collider (från första barnet) så collider-shape kan synkas korrekt över tid
-  - för exakt kontroll kan du override:a med `collider` + `colliderOffset`
-  - collider-former: `cuboid` (`halfExtents`), `ball` (`radius`), `cylinder` (`halfHeight`, `radius`), `auto`
-  - `collider: { shape: 'auto' }` försöker inferera collider från första barnet (`CubeElement`, `SphereElement`, `CylinderElement`, `BlockElement`) inkl. align-offset
-- Känd begränsning: vid `TimeEffector` med animerad `scale` + alignade children kan collider-geo avvika från visuell align (särskilt vid icke-centrerad align). Använd explicit `collider`/`colliderOffset` om du behöver exakt match i dessa fall.
-- `showDebugEffectors` (default följer `SETTINGS.debug.enabled`) visar linear field med två plan + riktning (linje/pil) i scenen.
+### Core props
+
+| Prop | Typ | Default | Beskrivning |
+|------|-----|---------|-------------|
+| `count` | `[x,y,z]` | `[1,1,1]` | Antal kloner per axel |
+| `spacing` | `Vec3` | `[1,1,1]` | Avstånd mellan kloner |
+| `offset` | `Vec3` | `[0,0,0]` | Globalt offset för klonpositioner |
+| `position/rotation/scale` | `Vec3` | `[0,0,0] / [0,0,0] / [1,1,1]` | Transform på clonern |
+| `centered` | `boolean` | `true` | `true` = grid centrerad runt `position`, `false` = start i hörn |
+| `transformMode` | `'cloner' \| 'child'` | `'cloner'` | `cloner` nollställer barnens top-level transform, `child` behåller |
+| `stepOffset` | `Vec3` | `[0,0,0]` | Linjär offset per klonindex |
+| `gridUnit` | `'lg' \| 'md' \| 'sm' \| 'xs' \| number` | `1` | Skalar positionsrelaterade värden (`lg=0.2`, `md=0.1`, `sm=0.05`, `xs=0.025`) |
+| `showDebugEffectors` | `boolean` | `SETTINGS.debug.enabled` | Visar linear-field debug-gizmos |
+
+### Effectors
+
+| Effector | Viktiga props | Funktion |
+|----------|----------------|----------|
+| `LinearFieldEffector` | `axis`, `center`, `size`, `invert`, `enableRemap`, `contourMode`, `position/rotation/scale` | C4D-lik linear field med remap/contour |
+| `RandomEffector` | `seed`, `strength`, `position/rotation/scale`, `color` | Deterministisk jitter |
+| `NoiseEffector` | `seed`, `frequency`, `offset`, `position/rotation/scale` | Spatialt sammanhängande 3D-noise |
+| `TimeEffector` | `loopMode`, `duration`, `speed`, `timeOffset`, `cloneOffset`, `easing` | Tidsdriven modulation |
+
+- Effectors körs i child-ordning och appliceras relativt.
+- `GridCloner.rotation` och alla effector-`rotation` anges i **grader**.
+- Positionsrelaterade effector-värden skalas av `gridUnit`.
+- `contourMode` stöder både klassiska lägen (`none`, `quadratic`, `step`, `quantize`, `curve`) och easing-namn.
+
+### Physics i GridCloner
+
+| Del | Beteende |
+|-----|----------|
+| Enkel syntax | `physics="..."` + `mass`, `friction`, `lockRotations` |
+| Default collider | Rapier auto-collider från clone-mesh |
+| Manuell collider | Sätt `collider` + `colliderOffset` (`cuboid`, `ball`, `cylinder`, `auto`) |
+| Auto→manual fallback | Används automatiskt för `noneToDynamicOnCollision`, `solidNoneToDynamicOnCollision` och `TimeEffector` med `scale` |
+| Child physics | Barnens egen `physics` stripas automatiskt när clonern har fysik |
+
+| Collision-aktiverad mode | Pre-collision | Vid träff |
+|--------------------------|--------------|----------|
+| `noneToDynamicOnCollision` | Bodyless/sensor-arm beroende på collider | Byter till `dynamic` |
+| `solidNoneToDynamicOnCollision` | Bodyless + solid trigger-collider | Byter till `dynamic` |
+| `animNoneToDynamicOnCollision` | Solid pre-collision-body som följer animation | Byter till `dynamic` |
+
+Känd begränsning:
+- Vid `TimeEffector` med animerad `scale` + alignade children kan collider-geo avvika från visuell align. Använd explicit `collider`/`colliderOffset` för exakt match.
 
 Exempel:
 
@@ -682,56 +707,72 @@ npm run typecheck
 
 ```
 src/
-├── App.tsx                 # Routing & Canvas
-├── main.tsx                # React entry point
-├── GameSettings.ts         # Central konfiguration
-├── GameSettings.types.ts   # Delade typer för settings/core config
-├── GameKeyboardControls.tsx # Input-wrapper + keymap
-├── Scene.tsx               # Spelscen
-├── TransformMotion.tsx     # Centralt motionsystem + wrapper (linjär rörelse, loop/pingpong)
-├── GridCloner.tsx          # Grid-cloner (count/spacing/offset + valfri cloner-fysik)
-├── Player.tsx              # Spelarlogik
-├── PositionTargetHandle.ts # Delad ref-handle-typ (getPosition)
-├── control/
-│   ├── ExternalControlBridge.tsx # Extern input-adapter (window API + optional WS)
-│   └── ExternalControlStore.ts   # Transport-oberoende kontrollstore (digital/absolute)
-├── primitives/
-│   ├── PhysicsWrapper.tsx  # Gemensam physics/collider-wrapper för primitives
-│   ├── CubeElement.tsx     # Cube primitive (hidden + optional physics)
-│   ├── SphereElement.tsx   # Sphere primitive (hidden + optional physics)
-│   ├── CylinderElement.tsx # Cylinder primitive (hidden + optional physics)
-│   ├── BlockElement.tsx    # Modulär block-primitive (presets + plane + default bottom align)
-│   ├── anchor.ts           # Align-hjälpare (percent -> offset)
-│   └── InvisibleFloor.tsx  # Osynligt golv + shadow plane + fast collider
-├── SceneComponents.tsx     # Shared components för konverterade modeller (C4DMesh, C4DMaterial, SplineElement)
-├── SceneHelpers.ts         # Delade hjälpare (surfaceId-hash + grader→radianer)
-├── CameraSystem.tsx        # Camera provider: target-registry + streaming-center
-├── CameraSystemContext.ts  # Context/hook för camerasystemet
-├── TargetAnchor.tsx        # Target-ID wrapper för scenelement
-├── streaming/
-│   └── ChunkStreamingSystem.ts   # Chunk-streaming core
-├── debug/
-│   ├── BenchmarkDebugContent.tsx # Benchmark-testcontent
-│   └── StreamingDebugOverlay.tsx # Streaming debug-visualisering
-├── Materials.tsx           # Toon shader & C4DMaterial
-├── Lights.tsx              # Ljus & skuggor
-├── CameraFollow.tsx        # Kamerarigg (follow/static, lock rotation/axes)
-├── Effects.tsx             # Render-lägesväxel + postprocessing wrapper
-├── RetroPixelatedEffects.tsx # Retro pixel-kedja (custom pass + output pass)
-├── SurfaceIdEffect.tsx     # Custom outline-effekt
-├── postprocessing/
-│   └── ConfigurableRenderPixelatedPass.ts # Anpassad RenderPixelatedPass med depth-threshold settings
-├── PhysicsStepper.ts       # Manuell physics step (oanvänd)
-├── GltfConverter.tsx       # FBX/GLB → TSX konverterare
-├── DocsPage.tsx            # Browser-renderad dokumentation
-├── DocsPage.css            # Stil för docs-sidan
+├── App.tsx
+├── main.tsx
 ├── assets/
-│   ├── models/             # Genererade GLB + TSX filer
-│   └── splineAndAnimTest.glb
+│   └── models/             # Genererade GLB + TSX filer
+├── settings/
+│   ├── GameSettings.ts
+│   ├── GameSettings.types.ts
+│   ├── settingsStore.ts
+│   └── presets.ts
+├── scene/
+│   ├── Scene.tsx
+│   ├── Player.tsx
+│   ├── GridCloner.tsx
+│   ├── TransformMotion.tsx
+│   ├── SceneComponents.tsx
+│   ├── SceneHelpers.ts
+│   ├── TargetAnchor.tsx
+│   └── PositionTargetHandle.ts
+├── camera/
+│   ├── CameraSystem.tsx
+│   ├── CameraSystemContext.ts
+│   └── CameraFollow.tsx
+├── input/
+│   ├── GameKeyboardControls.tsx
+│   └── control/
+│       ├── ExternalControlBridge.tsx
+│       └── ExternalControlStore.ts
+├── primitives/
+│   ├── CubeElement.tsx
+│   ├── SphereElement.tsx
+│   ├── CylinderElement.tsx
+│   ├── BlockElement.tsx
+│   └── InvisibleFloor.tsx
+├── physics/
+│   ├── PhysicsWrapper.tsx
+│   ├── GameRigidBody.tsx
+│   ├── physicsTypes.ts
+│   └── PhysicsStepper.ts
+├── geometry/
+│   └── align.ts
+├── render/
+│   ├── Materials.tsx
+│   ├── Lights.tsx
+│   ├── Effects.tsx
+│   ├── RetroPixelatedEffects.tsx
+│   ├── SurfaceIdEffect.tsx
+│   └── postprocessing/
+│       └── ConfigurableRenderPixelatedPass.ts
+├── streaming/
+│   └── ChunkStreamingSystem.ts
+├── debug/
+│   ├── BenchmarkDebugContent.tsx
+│   └── StreamingDebugOverlay.tsx
+├── tools/
+│   └── GltfConverter.tsx
+├── ui/
+│   ├── ControlCenter.tsx
+│   └── docs/
+│       ├── DocsPage.tsx
+│       └── DocsPage.css
+├── utils/
+│   └── easing.ts
 └── types/
-    └── culori.d.ts         # Lokala typer för culori
+    └── culori.d.ts
 ```
 
 ---
 
-*Senast uppdaterad: 2026-02-19*
+*Senast uppdaterad: 2026-02-20*

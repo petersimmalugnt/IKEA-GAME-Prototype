@@ -50,7 +50,7 @@ export function GltfConverter() {
     // Settings - Default to Source Import implies src/ folder usage
     const [useSourceImport, setUseSourceImport] = useState(true)
     const [modelPath, setModelPath] = useState('/models/')
-    const [componentPath, setComponentPath] = useState('../../SceneComponents')
+    const [componentPath, setComponentPath] = useState('@/scene/SceneComponents')
 
     // Modal State
     const [showModal, setShowModal] = useState(false)
@@ -426,7 +426,7 @@ export function GltfConverter() {
                             checked={useSourceImport}
                             onChange={(e) => {
                                 setUseSourceImport(e.target.checked)
-                                setComponentPath(e.target.checked ? '../../SceneComponents' : '../SceneComponents')
+                                setComponentPath(e.target.checked ? '@/scene/SceneComponents' : '@/scene/SceneComponents')
                             }}
                             style={{ width: 18, height: 18 }}
                         />
@@ -1056,7 +1056,7 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     if (rigidBodySlots.length > 0) {
         output += `import type { GamePhysicsBodyType } from '${componentPath}'\n`
     }
-    output += `import type { MaterialColorIndex } from '../../GameSettings'\n`
+    output += `import type { MaterialColorIndex } from '@/settings/GameSettings'\n`
     if (importStr) output += `${importStr}\n`
     output += `\n`
 

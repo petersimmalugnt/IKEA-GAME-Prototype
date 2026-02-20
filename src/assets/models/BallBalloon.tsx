@@ -8,8 +8,8 @@ import { useRef, useEffect } from 'react'
 import { useGLTF, useAnimations } from '@react-three/drei'
 
 import type { ThreeElements } from '@react-three/fiber'
-import { C4DMesh, C4DMaterial, SplineElement } from '../../SceneComponents'
-import type { MaterialColorIndex } from '../../GameSettings'
+import { C4DMesh, C4DMaterial, SplineElement } from '@/scene/SceneComponents'
+import type { MaterialColorIndex } from '@/settings/GameSettings'
 import modelUrl from './ballBalloon.glb?url'
 
 type MaterialColorSlot = 'materialColor0' | 'materialColor1'

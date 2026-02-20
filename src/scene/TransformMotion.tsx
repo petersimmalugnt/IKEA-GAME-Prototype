@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { Vec3 } from './GameSettings'
+import type { Vec3 } from '@/settings/GameSettings'
 
 export const TRANSFORM_MOTION_AXES = ['x', 'y', 'z'] as const
 export const TRANSFORM_MOTION_LOOP_MODES = ['none', 'loop', 'pingpong'] as const

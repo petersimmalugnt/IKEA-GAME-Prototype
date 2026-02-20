@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import { forwardRef, useMemo, type ComponentPropsWithoutRef } from 'react'
-import type { Vec3 } from '../GameSettings'
-import type { PositionTargetHandle } from '../PositionTargetHandle'
+import type { Vec3 } from '@/settings/GameSettings'
+import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
 import { CubeElement } from './CubeElement'
-import type { Align3 } from './anchor'
+import type { Align3 } from '@/geometry/align'
 
 type CubeElementProps = ComponentPropsWithoutRef<typeof CubeElement>
 

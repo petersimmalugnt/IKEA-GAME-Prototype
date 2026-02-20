@@ -1,31 +1,31 @@
 import { useRef } from 'react'
 import { Physics } from '@react-three/rapier'
 import { Stats } from '@react-three/drei'
-import { CubeElement } from './primitives/CubeElement'
-import { CylinderElement } from './primitives/CylinderElement'
-import { InvisibleFloor } from './primitives/InvisibleFloor'
-import { Player, type PlayerHandle } from './Player'
-import { GameEffects } from './Effects'
-import { CameraSystemProvider } from './CameraSystem'
-import { BenchmarkDebugContent } from './debug/BenchmarkDebugContent'
-import { GameKeyboardControls } from './GameKeyboardControls'
-import { SETTINGS } from './GameSettings'
-import { useSettingsVersion } from './settingsStore'
-import { Laddertest } from './assets/models/Laddertest'
-import { VaultStairs } from './assets/models/VaultStairs'
-import { Stair } from './assets/models/Stair'
-import { ExternalControlBridge } from './control/ExternalControlBridge'
-import { BrickBalloon } from './assets/models/BrickBalloon'
-import { BallBalloon } from './assets/models/BallBalloon'
-import { MotionSystemProvider, TransformMotion } from './TransformMotion'
-import { BlockElement } from './primitives/BlockElement'
+import { CubeElement } from '@/primitives/CubeElement'
+import { CylinderElement } from '@/primitives/CylinderElement'
+import { InvisibleFloor } from '@/primitives/InvisibleFloor'
+import { Player, type PlayerHandle } from '@/scene/Player'
+import { GameEffects } from '@/render/Effects'
+import { CameraSystemProvider } from '@/camera/CameraSystem'
+import { BenchmarkDebugContent } from '@/debug/BenchmarkDebugContent'
+import { GameKeyboardControls } from '@/input/GameKeyboardControls'
+import { SETTINGS } from '@/settings/GameSettings'
+import { useSettingsVersion } from '@/settings/settingsStore'
+import { Laddertest } from '@/assets/models/Laddertest'
+import { VaultStairs } from '@/assets/models/VaultStairs'
+import { Stair } from '@/assets/models/Stair'
+import { ExternalControlBridge } from '@/input/control/ExternalControlBridge'
+import { BrickBalloon } from '@/assets/models/BrickBalloon'
+import { BallBalloon } from '@/assets/models/BallBalloon'
+import { MotionSystemProvider, TransformMotion } from '@/scene/TransformMotion'
+import { BlockElement } from '@/primitives/BlockElement'
 import {
   GridCloner,
   LinearFieldEffector,
   NoiseEffector,
   RandomEffector,
   TimeEffector,
-} from './GridCloner'
+} from '@/scene/GridCloner'
 
 export function Scene() {
   useSettingsVersion()
@@ -121,12 +121,12 @@ export function Scene() {
             </GridCloner> */}
 
             <GridCloner
-              position={[0, 1.5, 0]}
-              count={[10, 2, 5]}
+              position={[0, 3, 0]}
+              count={[1, 4, 1]}
               spacing={[1.5, 2.1, 1.1]}
               gridUnit="md"
               centered
-              physics="solidNoneToDynamicOnCollision"
+              physics="dynamic"
             >
 
               {/* <TimeEffector
