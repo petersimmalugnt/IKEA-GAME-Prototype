@@ -106,7 +106,7 @@ export const SETTINGS: Settings = {
 
   // --- FÄRGPALETT (Toon Material) ---
   palette: {
-    active: "classic",
+    active: "green",
     variants: {
       classic: {
         background: '#3D2C23',
@@ -234,6 +234,14 @@ export const SETTINGS: Settings = {
     angularDamping: 2.0, // Rotationsmotstånd (bromsar rullandet)
     mass: 0.1, // Bollens tyngd
     friction: 1.5, // Grepp mot underlaget
+  },
+
+  // --- GAMEPLAY ---
+  gameplay: {
+    contagion: {
+      enabled: true,
+      scorePerInfection: 1,
+    },
   },
 
   // --- LEVEL LOADING ---

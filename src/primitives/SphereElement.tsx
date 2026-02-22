@@ -1,16 +1,15 @@
 import * as THREE from 'three'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
-import type { ThreeElements } from '@react-three/fiber'
 import { C4DMaterial } from '@/render/Materials'
 import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
 import { toRadians, useSurfaceId } from '@/scene/SceneHelpers'
 import { PhysicsWrapper, type PhysicsProps } from '@/physics/PhysicsWrapper'
 import { getAlignOffset, type Align3 } from '@/geometry/align'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import type { ElementRenderProps, ElementTransformProps, Simplify } from './ElementBaseProps'
 
-type MeshElementProps = Omit<ThreeElements['mesh'], 'position' | 'rotation'>
-
-export type SphereElementProps = MeshElementProps & PhysicsProps & {
+export type SphereElementProps = Simplify<ElementTransformProps & ElementRenderProps & PhysicsProps & {
   radius?: number
   segments?: number
   color?: MaterialColorIndex
@@ -18,7 +17,7 @@ export type SphereElementProps = MeshElementProps & PhysicsProps & {
   flatShading?: boolean
   hidden?: boolean
   align?: Align3
-}
+}>
 
 export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps>(function SphereElement({
   radius = 0.5,
@@ -28,15 +27,23 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
   flatShading = false,
   hidden = false,
   visible = true,
+  castShadow = true,
+  receiveShadow = true,
   align,
   scale,
   physics,
   mass,
   friction,
   lockRotations,
+  entityId,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
   position,
   rotation = [0, 0, 0],
-  ...props
+  name,
+  renderOrder,
+  frustumCulled,
 }, ref) {
   const meshRef = useRef<THREE.Mesh | null>(null)
   const worldPos = useMemo(() => new THREE.Vector3(), [])
@@ -47,6 +54,8 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
     [radius, align?.x, align?.y, align?.z],
   )
   const colliderArgs = useMemo<[number]>(() => [radius], [radius])
+  const contagionColorOverride = useContagionColorOverride(entityId)
+  const resolvedColor = contagionColorOverride ?? color
 
   useImperativeHandle(ref, () => ({
     getPosition: () => {
@@ -59,17 +68,19 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
 
   const mesh = (
     <mesh
-      {...props}
       ref={meshRef}
+      {...(name !== undefined ? { name } : {})}
+      {...(renderOrder !== undefined ? { renderOrder } : {})}
+      {...(frustumCulled !== undefined ? { frustumCulled } : {})}
       position={anchorOffset}
       {...(physics && scale !== undefined ? { scale } : {})}
       visible={visible && !hidden}
-      castShadow
-      receiveShadow
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
       userData={{ surfaceId }}
     >
       <sphereGeometry args={[radius, segments, segments]} />
-      <C4DMaterial color={color} singleTone={singleTone} flatShading={flatShading} />
+      <C4DMaterial color={resolvedColor} singleTone={singleTone} flatShading={flatShading} />
     </mesh>
   )
 
@@ -92,6 +103,10 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
       mass={mass}
       friction={friction}
       lockRotations={lockRotations}
+      entityId={entityId}
+      contagionCarrier={contagionCarrier}
+      contagionInfectable={contagionInfectable}
+      contagionColor={contagionColor ?? resolvedColor}
     >
       {mesh}
     </PhysicsWrapper>

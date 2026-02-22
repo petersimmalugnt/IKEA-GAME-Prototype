@@ -10,6 +10,7 @@ import { Scene } from '@/scene/Scene'
 import { GltfConverter } from '@/tools/GltfConverter'
 import { DocsPage } from '@/ui/docs/DocsPage'
 import { ControlCenter } from '@/ui/ControlCenter'
+import { ScoreHud } from '@/ui/ScoreHud'
 
 export default function App() {
   const isConverter = window.location.pathname === '/converter'
@@ -38,6 +39,7 @@ function GameApp() {
     <div style={{ width: '100vw', height: '100vh', background: backgroundColor }}>
       <Leva collapsed />
       <ControlCenter />
+      <ScoreHud />
       <Canvas
         shadows={{ type: THREE.BasicShadowMap }}
         dpr={[1, 2]}

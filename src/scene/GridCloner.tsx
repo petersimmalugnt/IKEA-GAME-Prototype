@@ -1,9 +1,7 @@
-import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
-import type { RigidBodyProps } from '@react-three/rapier'
-import { SETTINGS, type Vec3 } from '@/settings/GameSettings'
+import { SETTINGS, type MaterialColorIndex, type Vec3 } from '@/settings/GameSettings'
 import { applyEasing, clamp01, type EasingName } from '@/utils/easing'
-import { GameRigidBody } from '@/physics/GameRigidBody'
 import { isCollisionActivatedPhysicsType, type GamePhysicsBodyType } from '@/physics/physicsTypes'
 import { getAlignOffset, type Align3 } from '@/geometry/align'
 import { BlockElement, resolveBlockSize, type BlockHeightPreset, type BlockPlane, type BlockSizePreset } from '@/primitives/BlockElement'
@@ -16,6 +14,7 @@ import { SeededImprovedNoise } from '@/utils/seededNoise'
 
 export const GRID_CLONER_AXES = ['x', 'y', 'z'] as const
 export const GRID_CLONER_TRANSFORM_MODES = ['child', 'cloner'] as const
+export const GRID_CLONER_CHILD_DISTRIBUTIONS = ['iterate', 'random'] as const
 export const GRID_CLONER_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
 export const GRID_CLONER_UNIT_PRESETS = ['lg', 'md', 'sm', 'xs'] as const
 export const GRID_CLONER_CONTOUR_BASE_MODES = ['none', 'quadratic', 'step', 'quantize'] as const
@@ -24,6 +23,7 @@ export const GRID_CLONER_STEP_PROFILES = ['ramp', 'hump'] as const
 export type GridCount = [number, number, number]
 export type AxisName = (typeof GRID_CLONER_AXES)[number]
 export type TransformMode = (typeof GRID_CLONER_TRANSFORM_MODES)[number]
+export type ChildDistribution = (typeof GRID_CLONER_CHILD_DISTRIBUTIONS)[number]
 export type LoopMode = (typeof GRID_CLONER_LOOP_MODES)[number]
 type PhysicsBodyType = GamePhysicsBodyType
 export type GridUnitPreset = (typeof GRID_CLONER_UNIT_PRESETS)[number]
@@ -60,8 +60,6 @@ export type GridPhysicsConfig = {
   mass?: number
   friction?: number
   lockRotations?: boolean
-  collider?: GridCollider
-  colliderOffset?: Vec3
 }
 export type GridPhysics = PhysicsBodyType | GridPhysicsConfig
 
@@ -163,10 +161,13 @@ export type GridClonerProps = {
   centered?: boolean
   /** 'child' | 'cloner' */
   transformMode?: TransformMode
+  /** 'iterate' | 'random' for multi-child template selection. */
+  childDistribution?: ChildDistribution
+  /** Seed used only when childDistribution === 'random'. */
+  childRandomSeed?: number
   enabled?: boolean
   /** Grid size preset ('lg' | 'md' | 'sm' | 'xs') or explicit multiplier. */
   gridUnit?: GridUnit
-  effectors?: GridEffector[]
   /**
    * Either a physics mode string or a physics config object.
    * String modes:
@@ -174,31 +175,23 @@ export type GridClonerProps = {
    * | 'noneToDynamicOnCollision' | 'solidNoneToDynamicOnCollision' | 'animNoneToDynamicOnCollision'
    */
   physics?: GridPhysics
+  showDebugEffectors?: boolean
+  entityPrefix?: string
+  /**
+   * Optional contagion defaults for all generated clone rigid bodies.
+   * If omitted, values are inferred from the template child props.
+   */
+  contagionCarrier?: boolean
+  contagionInfectable?: boolean
+  contagionColor?: MaterialColorIndex
+}
+
+type ResolvedGridPhysics = {
+  type: PhysicsBodyType
   mass?: number
   friction?: number
   lockRotations?: boolean
-  collider?: GridCollider
-  colliderOffset?: Vec3
-  showDebugEffectors?: boolean
 }
-
-type ResolvedGridPhysics =
-  | {
-      mode: 'auto'
-      type: PhysicsBodyType
-      mass?: number
-      friction?: number
-      lockRotations?: boolean
-    }
-  | {
-      mode: 'manual'
-      type: PhysicsBodyType
-      mass?: number
-      friction?: number
-      lockRotations?: boolean
-      collider: Exclude<GridCollider, { shape: 'auto' }>
-      colliderOffset: Vec3
-    }
 
 type CloneTransform = {
   key: string
@@ -210,6 +203,18 @@ type CloneTransform = {
   hidden: boolean
   color?: number
   materialColors?: Record<string, number>
+}
+
+type TemplateCloneChild = {
+  element: ReactElement<Record<string, unknown>>
+  props: Record<string, unknown>
+  baseColor: number
+  contagionCarrier: boolean
+  contagionInfectable: boolean
+  inferredCollider: {
+    collider: Exclude<GridCollider, { shape: 'auto' }>
+    colliderOffset: Vec3
+  }
 }
 
 const IDENTITY_POSITION: Vec3 = [0, 0, 0]
@@ -265,8 +270,7 @@ function isGridPhysicsConfig(value: unknown): value is GridPhysicsConfig {
   return true
 }
 
-function toColliderType(collider: GridCollider): 'cuboid' | 'ball' | 'cylinder' {
-  if (collider.shape === 'auto') return 'cuboid'
+function toColliderType(collider: Exclude<GridCollider, { shape: 'auto' }>): 'cuboid' | 'ball' | 'cylinder' {
   if (collider.shape === 'ball') return 'ball'
   if (collider.shape === 'cylinder') return 'cylinder'
   return 'cuboid'
@@ -515,6 +519,19 @@ function randomSigned(seed: number, a: number, b = 0, c = 0): number {
   return (random01(seed, a, b, c) * 2) - 1
 }
 
+function resolveDistributedChildIndex(
+  distribution: ChildDistribution,
+  randomSeed: number,
+  flatIndex: number,
+  childCount: number,
+): number {
+  if (childCount <= 1) return 0
+  if (distribution === 'random') {
+    return Math.floor(random01(randomSeed, flatIndex, 17, 71) * childCount)
+  }
+  return flatIndex % childCount
+}
+
 function isVec3(value: unknown): value is Vec3 {
   return Array.isArray(value)
     && value.length === 3
@@ -549,22 +566,44 @@ function isPrimitiveType(type: unknown): boolean {
     || type === BlockElement
 }
 
+function resolveChildBaseColorIndex(
+  child: ReactElement<Record<string, unknown>> | null,
+): number {
+  if (!child) return 0
+  const props = (child.props ?? {}) as Record<string, unknown>
+  if (typeof props.color === 'number') return props.color
+  if (typeof props.materialColor0 === 'number') return props.materialColor0
+  return 0
+}
+
+function resolveCloneEntityId(entityPrefix: string | undefined, cloneKey: string): string | undefined {
+  if (!entityPrefix) return undefined
+  return `${entityPrefix}::${cloneKey}`
+}
+
+let autoGridClonerEntityCounter = 0
+
+function createAutoGridClonerEntityPrefix(): string {
+  autoGridClonerEntityCounter += 1
+  return `gridcloner-auto-${autoGridClonerEntityCounter}`
+}
+
 function resolveAutoColliderFromChild(
-  primaryChild: ReactElement<Record<string, unknown>> | null,
+  templateChild: ReactElement<Record<string, unknown>> | null,
   transformMode: TransformMode,
   childLocalPosition: Vec3,
 ): { collider: Exclude<GridCollider, { shape: 'auto' }>; colliderOffset: Vec3 } {
-  if (!primaryChild) {
+  if (!templateChild) {
     return {
       collider: { shape: 'cuboid', halfExtents: [0.5, 0.5, 0.5] },
       colliderOffset: transformMode === 'child' ? childLocalPosition : IDENTITY_POSITION,
     }
   }
 
-  const props = (primaryChild.props ?? {}) as Record<string, unknown>
+  const props = (templateChild.props ?? {}) as Record<string, unknown>
   const includeChildPosition = transformMode === 'child'
 
-  if (primaryChild.type === CubeElement) {
+  if (templateChild.type === CubeElement) {
     const size: Vec3 = isVec3(props.size) ? props.size : [1, 1, 1]
     const align = isAlign3(props.align) ? props.align : undefined
     const alignOffset = getAlignOffset(size, align)
@@ -574,7 +613,7 @@ function resolveAutoColliderFromChild(
     }
   }
 
-  if (primaryChild.type === SphereElement) {
+  if (templateChild.type === SphereElement) {
     const radius = typeof props.radius === 'number' ? props.radius : 0.5
     const align = isAlign3(props.align) ? props.align : undefined
     const alignOffset = getAlignOffset([radius * 2, radius * 2, radius * 2] as Vec3, align)
@@ -584,7 +623,7 @@ function resolveAutoColliderFromChild(
     }
   }
 
-  if (primaryChild.type === CylinderElement) {
+  if (templateChild.type === CylinderElement) {
     const radius = typeof props.radius === 'number' ? props.radius : 0.5
     const height = typeof props.height === 'number' ? props.height : 1
     const align = isAlign3(props.align) ? props.align : undefined
@@ -595,7 +634,7 @@ function resolveAutoColliderFromChild(
     }
   }
 
-  if (primaryChild.type === BlockElement) {
+  if (templateChild.type === BlockElement) {
     const sizePreset = isBlockSizePreset(props.sizePreset) ? props.sizePreset : 'lg'
     const heightPreset = isBlockHeightPreset(props.heightPreset) ? props.heightPreset : 'sm'
     const plane = isBlockPlane(props.plane) ? props.plane : 'y'
@@ -651,7 +690,7 @@ function evaluateLinearFieldWeight(localPosition: Vec3, effector: LinearFieldEff
   const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
   const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
   const fieldLocalPosition = rotateVec3InverseXYZ(subVec3(localPosition, fieldPosition), fieldRotation)
-  const axis = effector.axis ?? 'y'
+  const axis = effector.axis ?? 'x'
   const axisIndex = axisToIndex(axis)
   const center = effector.center ?? 0
   const size = Math.max(0.00001, Math.abs(effector.size ?? 1))
@@ -782,17 +821,19 @@ export function GridCloner({
   scale = [1, 1, 1],
   centered = true,
   transformMode = 'cloner',
+  childDistribution = 'iterate',
+  childRandomSeed = 1337,
   enabled = true,
   gridUnit,
-  effectors = [],
   physics,
-  mass,
-  friction,
-  lockRotations,
-  collider,
-  colliderOffset,
   showDebugEffectors,
+  entityPrefix,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
 }: GridClonerProps) {
+  const autoEntityPrefixRef = useRef<string>(createAutoGridClonerEntityPrefix())
+  const resolvedEntityPrefix = entityPrefix ?? autoEntityPrefixRef.current
   const unitMultiplier = useMemo(
     () => resolveGridUnitMultiplier(gridUnit),
     [gridUnit],
@@ -800,10 +841,6 @@ export function GridCloner({
   const scaledSpacing = useMemo(() => scaleVec3(spacing, unitMultiplier), [spacing, unitMultiplier])
   const scaledOffset = useMemo(() => scaleVec3(offset, unitMultiplier), [offset, unitMultiplier])
   const scaledPosition = useMemo(() => scaleVec3(position, unitMultiplier), [position, unitMultiplier])
-  const scaledColliderOffset = useMemo(
-    () => scaleOptionalVec3(colliderOffset, unitMultiplier),
-    [colliderOffset, unitMultiplier],
-  )
   const baseRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
 
   const normalizedCount = useMemo<GridCount>(() => [
@@ -814,18 +851,17 @@ export function GridCloner({
 
   const allChildren = useMemo(() => Children.toArray(children), [children])
   const parsedChildren = useMemo(() => {
-    const cloneChildren: ReactNode[] = []
+    const cloneChildren: ReactElement<Record<string, unknown>>[] = []
     const childEffectors: GridEffector[] = []
 
     allChildren.forEach((child) => {
       if (!isValidElement(child)) {
-        cloneChildren.push(child)
         return
       }
 
       const effectorType = getEffectorComponentType(child.type)
       if (!effectorType) {
-        cloneChildren.push(child)
+        cloneChildren.push(child as ReactElement<Record<string, unknown>>)
         return
       }
 
@@ -874,13 +910,24 @@ export function GridCloner({
     }
   }, [allChildren])
 
-  const activeEffectors = useMemo(
-    () => [...parsedChildren.childEffectors, ...effectors],
-    [parsedChildren.childEffectors, effectors],
-  )
+  const templateChildren = useMemo<TemplateCloneChild[]>(() => {
+    return parsedChildren.cloneChildren.map((element) => {
+      const props = (element.props ?? {}) as Record<string, unknown>
+      const localPosition: Vec3 = isVec3(props.position) ? props.position : IDENTITY_POSITION
+      return {
+        element,
+        props,
+        baseColor: resolveChildBaseColorIndex(element),
+        contagionCarrier: props.contagionCarrier === true,
+        contagionInfectable: props.contagionInfectable !== false,
+        inferredCollider: resolveAutoColliderFromChild(element, transformMode, localPosition),
+      }
+    })
+  }, [parsedChildren.cloneChildren, transformMode])
+
   const scaledEffectors = useMemo(
-    () => activeEffectors.map((effector) => scaleEffectorByUnit(effector, unitMultiplier)),
-    [activeEffectors, unitMultiplier],
+    () => parsedChildren.childEffectors.map((effector) => scaleEffectorByUnit(effector, unitMultiplier)),
+    [parsedChildren.childEffectors, unitMultiplier],
   )
   const normalizedEffectors = useMemo(
     () => scaledEffectors.map((effector) => {
@@ -949,109 +996,36 @@ export function GridCloner({
 
   const shouldShowDebugEffectors = showDebugEffectors ?? SETTINGS.debug.enabled
 
-  const primaryChild = useMemo<ReactElement<Record<string, unknown>> | null>(() => {
-    for (const child of parsedChildren.cloneChildren) {
-      if (!isValidElement(child)) continue
-      return child as ReactElement<Record<string, unknown>>
-    }
-    return null
-  }, [parsedChildren.cloneChildren])
-
-  const primaryChildLocalPosition = useMemo<Vec3>(() => {
-    for (const child of parsedChildren.cloneChildren) {
-      if (!isValidElement(child)) continue
-      const props = (child.props ?? {}) as Record<string, unknown>
-      if (isVec3(props.position)) return props.position
-    }
-    return [0, 0, 0]
-  }, [parsedChildren.cloneChildren])
+  const resolvedChildDistribution = useMemo<ChildDistribution>(
+    () => (childDistribution === 'random' ? 'random' : 'iterate'),
+    [childDistribution],
+  )
+  const resolvedChildRandomSeed = useMemo(
+    () => (Number.isFinite(childRandomSeed) ? Math.trunc(childRandomSeed) : 1337),
+    [childRandomSeed],
+  )
 
   const resolvedPhysics = useMemo<ResolvedGridPhysics | null>(() => {
     if (!physics) return null
 
-    let type: PhysicsBodyType = 'fixed'
-    let resolvedMass = mass
-    let resolvedFriction = friction
-    let resolvedLockRotations = lockRotations
-    let resolvedCollider = collider
-    let resolvedColliderOffset = scaledColliderOffset
-
     if (isPhysicsBodyType(physics)) {
-      type = physics
-    } else if (isGridPhysicsConfig(physics)) {
-      type = physics.type ?? 'fixed'
-      if (physics.mass !== undefined) resolvedMass = physics.mass
-      if (physics.friction !== undefined) resolvedFriction = physics.friction
-      if (physics.lockRotations !== undefined) resolvedLockRotations = physics.lockRotations
-      if (physics.collider !== undefined) resolvedCollider = physics.collider
-      if (physics.colliderOffset !== undefined) {
-        resolvedColliderOffset = scaleVec3(physics.colliderOffset, unitMultiplier)
-      }
-    }
-
-    const forceInferredManualCollider = hasTimeScaleEffector
-      || type === 'noneToDynamicOnCollision'
-      || type === 'solidNoneToDynamicOnCollision'
-
-    // Default: låt Rapier auto-skapa colliders från clone-meshen.
-    if (!resolvedCollider) {
-      if (forceInferredManualCollider) {
-        const inferred = resolveAutoColliderFromChild(primaryChild, transformMode, primaryChildLocalPosition)
-        return {
-          mode: 'manual',
-          type,
-          mass: resolvedMass,
-          friction: resolvedFriction,
-          lockRotations: resolvedLockRotations,
-          collider: inferred.collider,
-          colliderOffset: resolvedColliderOffset ?? inferred.colliderOffset,
-        }
-      }
-
       return {
-        mode: 'auto',
-        type,
-        mass: resolvedMass,
-        friction: resolvedFriction,
-        lockRotations: resolvedLockRotations,
+        type: physics,
       }
     }
 
-    if (resolvedCollider.shape === 'auto') {
-      const inferred = resolveAutoColliderFromChild(primaryChild, transformMode, primaryChildLocalPosition)
+    if (isGridPhysicsConfig(physics)) {
       return {
-        mode: 'manual',
-        type,
-        mass: resolvedMass,
-        friction: resolvedFriction,
-        lockRotations: resolvedLockRotations,
-        collider: inferred.collider,
-        colliderOffset: resolvedColliderOffset ?? inferred.colliderOffset,
+        type: physics.type ?? 'fixed',
+        mass: physics.mass,
+        friction: physics.friction,
+        lockRotations: physics.lockRotations,
       }
     }
 
-    return {
-      mode: 'manual',
-      type,
-      mass: resolvedMass,
-      friction: resolvedFriction,
-      lockRotations: resolvedLockRotations,
-      collider: resolvedCollider,
-      colliderOffset: resolvedColliderOffset
-        ?? (transformMode === 'child' ? primaryChildLocalPosition : IDENTITY_POSITION),
-    }
+    return null
   }, [
     physics,
-    mass,
-    friction,
-    lockRotations,
-    collider,
-    scaledColliderOffset,
-    unitMultiplier,
-    primaryChild,
-    transformMode,
-    primaryChildLocalPosition,
-    hasTimeScaleEffector,
   ])
   const shouldStripChildPhysics = Boolean(resolvedPhysics)
   const collisionActivatedPhysics = useMemo(
@@ -1363,49 +1337,73 @@ export function GridCloner({
   return (
     <group>
       {transforms.map((clone) => {
-        const cloneChildren = parsedChildren.cloneChildren.map((child, childIndex) => {
-          if (!isValidElement(child)) return child
+        if (templateChildren.length === 0) return null
+        const selectedChildIndex = resolveDistributedChildIndex(
+          resolvedChildDistribution,
+          resolvedChildRandomSeed,
+          clone.index,
+          templateChildren.length,
+        )
+        const selectedTemplateChild = templateChildren[selectedChildIndex]
+        const cloneEntityId = resolveCloneEntityId(resolvedEntityPrefix, clone.key)
+        const cloneBaseColor = clone.color
+          ?? (typeof clone.materialColors?.materialColor0 === 'number' ? clone.materialColors.materialColor0 : undefined)
+          ?? selectedTemplateChild.baseColor
+        const cloneVisualColor = clone.color
+        const resolvedCloneContagionColor = contagionColor ?? cloneBaseColor
+        const resolvedCloneContagionCarrier = contagionCarrier ?? selectedTemplateChild.contagionCarrier
+        const resolvedCloneContagionInfectable = contagionInfectable ?? selectedTemplateChild.contagionInfectable
 
-          const childElement = child as ReactElement<Record<string, unknown>>
-          const childProps = (childElement.props ?? {}) as Record<string, unknown>
-          const nextProps: Record<string, unknown> = {
-            key: `grid-${clone.index}-${childIndex}`,
-          }
+        const childElement = selectedTemplateChild.element
+        const childProps = selectedTemplateChild.props
+        const nextProps: Record<string, unknown> = {
+          key: `grid-${clone.index}-${selectedChildIndex}`,
+        }
 
-          if (shouldStripChildPhysics && Object.prototype.hasOwnProperty.call(childProps, 'physics')) {
-            nextProps.physics = undefined
-          }
-
-          if (transformMode === 'cloner') {
-            nextProps.position = IDENTITY_POSITION
-            nextProps.rotation = IDENTITY_ROTATION
-            nextProps.scale = IDENTITY_SCALE
-          }
-
-          if (clone.hidden) {
-            if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'hidden')) {
-              nextProps.hidden = true
+        if (shouldStripChildPhysics) {
+          Object.keys(childProps).forEach((key) => {
+            if (key === 'physics' || key.startsWith('rigidBody')) {
+              nextProps[key] = undefined
             }
-            nextProps.visible = false
-          }
+          })
+        }
 
-          if (clone.color !== undefined) {
-            if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'color')) {
-              nextProps.color = clone.color
-            } else {
-              nextProps.materialColor0 = clone.color
-            }
-          }
+        if (transformMode === 'cloner') {
+          nextProps.position = IDENTITY_POSITION
+          nextProps.rotation = IDENTITY_ROTATION
+          nextProps.scale = IDENTITY_SCALE
+        }
 
-          if (clone.materialColors) {
-            Object.entries(clone.materialColors).forEach(([key, value]) => {
-              if (isPrimitiveType(childElement.type) && key.startsWith('materialColor')) return
-              nextProps[key] = value
-            })
+        if (clone.hidden) {
+          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'hidden')) {
+            nextProps.hidden = true
           }
+          nextProps.visible = false
+        }
 
-          return cloneElement(childElement, nextProps)
-        })
+        if (cloneVisualColor !== undefined) {
+          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'color')) {
+            nextProps.color = cloneVisualColor
+          } else {
+            nextProps.materialColor0 = cloneVisualColor
+          }
+        }
+
+        if (clone.materialColors) {
+          Object.entries(clone.materialColors).forEach(([key, value]) => {
+            if (isPrimitiveType(childElement.type) && key.startsWith('materialColor')) return
+            nextProps[key] = value
+          })
+        }
+
+        if (cloneEntityId) {
+          nextProps.entityId = cloneEntityId
+          if (isPrimitiveType(childElement.type) && resolvedCloneContagionColor !== undefined) {
+            nextProps.contagionColor = resolvedCloneContagionColor
+          }
+        }
+
+        const renderedChild = cloneElement(childElement, nextProps)
 
         if (!resolvedPhysics) {
           return (
@@ -1415,42 +1413,23 @@ export function GridCloner({
               rotation={clone.rotation}
               scale={clone.scale}
             >
-              {cloneChildren}
+              {renderedChild}
             </group>
           )
         }
 
-        if (resolvedPhysics.mode === 'auto') {
-          return (
-            <GameRigidBody
-              key={clone.key}
-              type={resolvedPhysics.type}
-              position={clone.position}
-              rotation={clone.rotation}
-              onCollisionActivated={collisionActivatedPhysics ? () => freezeCloneTransform(clone) : undefined}
-              {...(resolvedPhysics.mass !== undefined ? { mass: resolvedPhysics.mass } : {})}
-              {...(resolvedPhysics.friction !== undefined ? { friction: resolvedPhysics.friction } : {})}
-              {...(resolvedPhysics.lockRotations ? { lockRotations: true } : {})}
-            >
-              <group scale={clone.scale}>
-                {cloneChildren}
-              </group>
-            </GameRigidBody>
-          )
-        }
-
-        const colliderArgs = scaleColliderArgs(resolvedPhysics.collider, clone.scale)
+        const colliderArgs = scaleColliderArgs(selectedTemplateChild.inferredCollider.collider, clone.scale)
         const scaledColliderPosition: Vec3 = [
-          resolvedPhysics.colliderOffset[0] * clone.scale[0],
-          resolvedPhysics.colliderOffset[1] * clone.scale[1],
-          resolvedPhysics.colliderOffset[2] * clone.scale[2],
+          selectedTemplateChild.inferredCollider.colliderOffset[0] * clone.scale[0],
+          selectedTemplateChild.inferredCollider.colliderOffset[1] * clone.scale[1],
+          selectedTemplateChild.inferredCollider.colliderOffset[2] * clone.scale[2],
         ]
 
         return (
           <PhysicsWrapper
             key={clone.key}
             physics={resolvedPhysics.type}
-            colliderType={toColliderType(resolvedPhysics.collider)}
+            colliderType={toColliderType(selectedTemplateChild.inferredCollider.collider)}
             colliderArgs={colliderArgs}
             colliderPosition={scaledColliderPosition}
             position={clone.position}
@@ -1458,11 +1437,15 @@ export function GridCloner({
             mass={resolvedPhysics.mass}
             friction={resolvedPhysics.friction}
             lockRotations={resolvedPhysics.lockRotations}
+            entityId={cloneEntityId}
+            contagionCarrier={resolvedCloneContagionCarrier}
+            contagionInfectable={resolvedCloneContagionInfectable}
+            contagionColor={resolvedCloneContagionColor}
             syncColliderShape={hasTimeScaleEffector}
             onCollisionActivated={collisionActivatedPhysics ? () => freezeCloneTransform(clone) : undefined}
           >
             <group scale={clone.scale}>
-              {cloneChildren}
+              {renderedChild}
             </group>
           </PhysicsWrapper>
         )
@@ -1471,7 +1454,7 @@ export function GridCloner({
       {shouldShowDebugEffectors && normalizedEffectors
         .filter((effector): effector is LinearFieldEffectorConfig => isLinearEffector(effector) && effector.enabled !== false)
         .map((effector, index) => {
-          const axis = effector.axis ?? 'y'
+          const axis = effector.axis ?? 'x'
           const center = effector.center ?? 0
           const size = Math.max(0.001, Math.abs(effector.size ?? 1))
           const half = size / 2

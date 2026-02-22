@@ -16,22 +16,22 @@ export type LevelNode = {
 }
 
 export type LevelData = {
-  version: 5
+  version: 6
   nodes: LevelNode[]
 }
 
 function parseLevelFileJson(raw: unknown): LevelData {
   const data = raw as Record<string, unknown>
 
-  if (data.version !== 5) {
-    throw new Error(`Unsupported level file version ${String(data.version)}, expected 5.`)
+  if (data.version !== 6) {
+    throw new Error(`Unsupported level file version ${String(data.version)}, expected 6.`)
   }
 
   if (!Array.isArray(data.nodes)) {
     throw new Error('Invalid level format: missing nodes array')
   }
 
-  return { version: 5, nodes: data.nodes as LevelNode[] }
+  return { version: 6, nodes: data.nodes as LevelNode[] }
 }
 
 type LevelStoreState = {

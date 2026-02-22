@@ -172,6 +172,12 @@ export type Settings = {
     mass: number
     friction: number
   }
+  gameplay: {
+    contagion: {
+      enabled: boolean
+      scorePerInfection: number
+    }
+  }
   level: {
     defaultFile: string
     liveSync: {

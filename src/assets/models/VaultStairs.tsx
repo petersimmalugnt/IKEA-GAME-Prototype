@@ -4,13 +4,14 @@ Model: VaultStairs.glb
 */
 
 import * as THREE from 'three'
-import { useRef, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { ConvexHullCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial, GameRigidBody } from '@/scene/SceneComponents'
 import type { GamePhysicsBodyType } from '@/scene/SceneComponents'
 import type { MaterialColorIndex } from '@/settings/GameSettings'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import type { ContagionProps } from '@/gameplay/contagionProps'
 import modelUrl from './VaultStairs.glb?url'
 
 type GeneratedRigidBodySettings = {
@@ -21,15 +22,27 @@ type GeneratedRigidBodySettings = {
   sensor?: boolean
 }
 
-type VaultStairsProps = ThreeElements['group'] & {
+type Simplify<T> = { [K in keyof T]: T[K] } & {}
+
+export type VaultStairsProps = Simplify<ThreeElements['group'] & ContagionProps & {
   materialColor0?: MaterialColorIndex
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
-}
+}>
 
-export function VaultStairs({ materialColor0 = 1, rigidBodyOne, ...props }: VaultStairsProps) {
+export function VaultStairs({
+  materialColor0 = 1,
+  entityId,
+  contagionCarrier = false,
+  contagionInfectable = true,
+  contagionColor,
+  rigidBodyOne,
+  ...props
+}: VaultStairsProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
+  const contagionColorOverride = useContagionColorOverride(entityId)
+  const resolvedMaterialColor0 = contagionColorOverride ?? materialColor0
   const materialColors: Record<'materialColor0', MaterialColorIndex> = {
-    materialColor0,
+    materialColor0: resolvedMaterialColor0,
   }
 
   const rigidBodies: Record<'rigidBodyOne', GeneratedRigidBodySettings> = {
@@ -49,7 +62,17 @@ export function VaultStairs({ materialColor0 = 1, rigidBodyOne, ...props }: Vaul
 
   return (
     <group {...props} dispose={null}>
-      <GameRigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false} position={[0, 0, 0.2636]}>
+      <GameRigidBody
+        {...getRigidBodyProps('rigidBodyOne')}
+        colliders={false}
+        position={[0, 0, 0.2636]}
+        contagion={{
+          entityId,
+          carrier: contagionCarrier,
+          infectable: contagionInfectable,
+          colorIndex: contagionColor ?? resolvedMaterialColor0,
+        }}
+      >
         <ConvexHullCollider args={[nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].geometry.attributes.position.array]} />
         <C4DMesh name={nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].name} geometry={nodes['VAULT_STAIRS_colorTwo_dynamic_collider'].geometry} castShadow receiveShadow>
           <C4DMaterial color={materialColors.materialColor0} />

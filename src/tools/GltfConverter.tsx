@@ -665,6 +665,8 @@ type ParsedPhysicsConfig = {
     friction?: number
     lockRotations?: boolean
     sensor?: boolean
+    contagionCarrier?: boolean
+    contagionInfectable?: boolean
 }
 
 const SLOT_WORDS = [
@@ -707,6 +709,8 @@ function parsePhysicsConfigFromName(name: string): ParsedPhysicsConfig | null {
     }
 
     if (lower.includes('_lockrot')) config.lockRotations = true
+    if (lower.includes('_carrier')) config.contagionCarrier = true
+    if (lower.includes('_infectable0')) config.contagionInfectable = false
     const hasAnimNoneToDynamicToken = lower.includes('_animnonetodynamic') || lower.includes('_anim_none_to_dynamic')
     const hasSolidNoneToDynamicToken = lower.includes('_solidnonetodynamic') || lower.includes('_solid_none_to_dynamic')
     const hasNoneToDynamicToken = lower.includes('_nonetodynamic') || lower.includes('_none_to_dynamic')
@@ -729,6 +733,8 @@ function getPhysicsConfigSignature(config: ParsedPhysicsConfig): string {
         `friction:${config.friction ?? ''}`,
         `lockRotations:${config.lockRotations ? '1' : '0'}`,
         `sensor:${config.sensor ? '1' : '0'}`,
+        `contagionCarrier:${config.contagionCarrier ? '1' : '0'}`,
+        `contagionInfectable:${config.contagionInfectable === false ? '0' : '1'}`,
     ].join('|')
 }
 
@@ -738,6 +744,8 @@ function formatPhysicsConfigLiteral(config: ParsedPhysicsConfig): string {
     if (config.friction !== undefined) parts.push(`friction: ${config.friction}`)
     if (config.lockRotations) parts.push('lockRotations: true')
     if (config.sensor) parts.push('sensor: true')
+    if (config.contagionCarrier) parts.push('contagionCarrier: true')
+    if (config.contagionInfectable === false) parts.push('contagionInfectable: false')
     return `{ ${parts.join(', ')} }`
 }
 
@@ -1074,6 +1082,8 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         output += `  friction?: number\n`
         output += `  lockRotations?: boolean\n`
         output += `  sensor?: boolean\n`
+        output += `  contagionCarrier?: boolean\n`
+        output += `  contagionInfectable?: boolean\n`
         output += `}\n`
         output += `type RigidBodySlot = ${rigidBodySlots.map(({ slot }) => `'${slot}'`).join(' | ')}\n`
     }
@@ -1095,6 +1105,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     hiddenSlots.forEach(({ slot }) => {
         output += `  ${slot}?: boolean\n`
     })
+    if (rigidBodySlots.length > 0) {
+        output += `  entityId?: string\n`
+        output += `  contagionCarrier?: boolean\n`
+        output += `  contagionInfectable?: boolean\n`
+        output += `  contagionColor?: MaterialColorIndex\n`
+    }
     rigidBodySlots.forEach(({ slot }) => {
         output += `  ${slot}?: Partial<GeneratedRigidBodySettings>\n`
     })
@@ -1111,6 +1127,12 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     hiddenSlots.forEach(({ slot, hiddenValue }) => {
         componentParams.push(`${slot} = ${hiddenValue}`)
     })
+    if (rigidBodySlots.length > 0) {
+        componentParams.push('entityId')
+        componentParams.push('contagionCarrier')
+        componentParams.push('contagionInfectable')
+        componentParams.push('contagionColor')
+    }
     rigidBodySlots.forEach(({ slot }) => {
         componentParams.push(slot)
     })
@@ -1157,9 +1179,17 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
     }
 
     if (rigidBodySlots.length > 0) {
+        const defaultContagionColorExpression = firstColorSlot
+            ? `contagionColor ?? materialColors.${firstColorSlot}`
+            : 'contagionColor ?? 0'
         output += `\n  const rigidBodies: Record<RigidBodySlot, GeneratedRigidBodySettings> = {\n`
         rigidBodySlots.forEach(({ slot, profile }) => {
-            output += `    ${slot}: { ...${formatPhysicsConfigLiteral(profile)}, ...(${slot} ?? {}) },\n`
+            output += `    ${slot}: {\n`
+            output += `      ...${formatPhysicsConfigLiteral(profile)},\n`
+            output += `      ...(${slot} ?? {}),\n`
+            output += `      ...(contagionCarrier !== undefined ? { contagionCarrier } : {}),\n`
+            output += `      ...(contagionInfectable !== undefined ? { contagionInfectable } : {}),\n`
+            output += `    },\n`
         })
         output += `  }\n\n`
         output += `  const getRigidBodyProps = (slot: RigidBodySlot): GeneratedRigidBodySettings => {\n`
@@ -1170,8 +1200,11 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
         output += `      ...(body.friction !== undefined ? { friction: body.friction } : {}),\n`
         output += `      ...(body.lockRotations ? { lockRotations: true } : {}),\n`
         output += `      ...(body.sensor ? { sensor: true } : {}),\n`
+        output += `      contagionCarrier: body.contagionCarrier === true,\n`
+        output += `      contagionInfectable: body.contagionInfectable !== false,\n`
         output += `    }\n`
         output += `  }\n`
+        output += `  const resolvedContagionColor = ${defaultContagionColorExpression}\n`
     }
 
     output += `\n`
@@ -1292,7 +1325,14 @@ function generateJsxFromScene(scene: THREE.Object3D, originalFileName: string, s
             const disableAutoColliders = hasExplicitColliders || useSelfMeshCollider || hasFallbackCollider
             const collidersAttr = disableAutoColliders ? ' colliders={false}' : ''
 
-            str += `${spaces}<GameRigidBody {...getRigidBodyProps('${physicsSlot}')}${collidersAttr}${transformProps}>\n`
+            str += `${spaces}<GameRigidBody {...getRigidBodyProps('${physicsSlot}')}${collidersAttr}${transformProps}\n`
+            str += `${spaces}  contagion={{\n`
+            str += `${spaces}    entityId,\n`
+            str += `${spaces}    carrier: getRigidBodyProps('${physicsSlot}').contagionCarrier,\n`
+            str += `${spaces}    infectable: getRigidBodyProps('${physicsSlot}').contagionInfectable,\n`
+            str += `${spaces}    colorIndex: resolvedContagionColor,\n`
+            str += `${spaces}  }}\n`
+            str += `${spaces}>\n`
 
             if (hasExplicitColliders) {
                 explicitColliderMeshes.forEach((c: any) => {

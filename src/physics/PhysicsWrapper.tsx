@@ -10,11 +10,14 @@ import {
 } from '@react-three/rapier'
 import type { Vec3 } from '@/settings/GameSettings'
 import { GameRigidBody } from '../physics/GameRigidBody'
+import type { GameRigidBodyContagion } from '../physics/GameRigidBody'
 import type { GamePhysicsBodyType } from '../physics/physicsTypes'
+import type { ContagionProps } from '@/gameplay/contagionProps'
 
 type PhysicsBodyType = GamePhysicsBodyType
+export type { ContagionProps } from '@/gameplay/contagionProps'
 
-export type PhysicsProps = {
+export type PhysicsProps = ContagionProps & {
   physics?: PhysicsBodyType
   mass?: number
   friction?: number
@@ -25,7 +28,7 @@ export type PhysicsProps = {
 
 type ColliderType = 'cuboid' | 'cylinder' | 'ball'
 
-type PhysicsWrapperProps = Omit<RigidBodyProps, 'type' | 'position' | 'rotation' | 'mass' | 'friction'> & {
+type PhysicsWrapperProps = Omit<RigidBodyProps, 'type' | 'position' | 'rotation' | 'mass' | 'friction'> & ContagionProps & {
   physics?: PhysicsBodyType
   colliderType?: ColliderType
   colliderArgs: [number] | [number, number] | [number, number, number]
@@ -51,6 +54,10 @@ export function PhysicsWrapper({
   mass,
   friction,
   lockRotations,
+  entityId,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
   onCollisionActivated,
   children,
   ...rigidBodyProps
@@ -123,8 +130,20 @@ export function PhysicsWrapper({
     onCollisionActivated?.(payload)
   }
 
+  const contagion: GameRigidBodyContagion = {
+    entityId,
+    carrier: contagionCarrier === true,
+    infectable: contagionInfectable !== false,
+    colorIndex: contagionColor ?? 0,
+  }
+
   return (
-    <GameRigidBody {...rbProps} type={physics} onCollisionActivated={handleCollisionActivated}>
+    <GameRigidBody
+      {...rbProps}
+      type={physics}
+      contagion={contagion}
+      onCollisionActivated={handleCollisionActivated}
+    >
       {collider}
       {children}
     </GameRigidBody>

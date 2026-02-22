@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { CubeElement } from '@/primitives/CubeElement'
 import { SphereElement } from '@/primitives/SphereElement'
 import { CylinderElement } from '@/primitives/CylinderElement'
@@ -14,10 +15,10 @@ import {
   NoiseEffector,
   TimeEffector,
   StepEffector,
-  type GridEffector,
 } from '@/scene/GridCloner'
 import { useLevelStore, type LevelNode } from './levelStore'
 import type { Vec3 } from '@/settings/GameSettings'
+import { useGameplayStore } from '@/gameplay/gameplayStore'
 
 function toRadians(rotation: Vec3): Vec3 {
   return [
@@ -44,14 +45,6 @@ const COMPONENT_REGISTRY: Record<string, ComponentRegistryEntry> = {
   BallBalloon: { component: BallBalloon, needsRotationConversion: true },
 }
 
-const EFFECTOR_TYPE_MAP: Record<string, string> = {
-  LinearFieldEffector: 'linear',
-  RandomEffector: 'random',
-  NoiseEffector: 'noise',
-  TimeEffector: 'time',
-  StepEffector: 'step',
-}
-
 const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
   LinearFieldEffector,
   RandomEffector,
@@ -60,11 +53,24 @@ const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
   StepEffector,
 }
 
+const CONTAGION_CAPABLE_OBJECT_TYPES = new Set([
+  'CubeElement',
+  'SphereElement',
+  'CylinderElement',
+  'BlockElement',
+  'Stair',
+  'Laddertest',
+  'VaultStairs',
+])
+
 function isNodeHiddenInBuilder(node: LevelNode): boolean {
   return Boolean(node.builder?.hiddenInBuilder)
 }
 
-function renderObjectNode(node: LevelNode) {
+function renderObjectNode(
+  node: LevelNode,
+  asClonerTemplate: boolean,
+) {
   const entry = COMPONENT_REGISTRY[node.type]
   if (!entry) {
     console.warn(`Unknown object type: ${node.type} (id: ${node.id})`)
@@ -75,11 +81,23 @@ function renderObjectNode(node: LevelNode) {
   const rotation = needsRotationConversion && node.rotation
     ? toRadians(node.rotation)
     : node.rotation
+  const nodeProps = (node.props ?? {}) as Record<string, unknown>
+  const nextProps: Record<string, unknown> = { ...nodeProps }
+
+  if (!asClonerTemplate) {
+    if (CONTAGION_CAPABLE_OBJECT_TYPES.has(node.type)) {
+      nextProps.entityId = node.id
+      nextProps.contagionCarrier = nodeProps.contagionCarrier === true
+      if (nodeProps.contagionInfectable === false) {
+        nextProps.contagionInfectable = false
+      }
+    }
+  }
 
   return (
     <Component
       key={node.id}
-      {...node.props}
+      {...nextProps}
       position={node.position}
       rotation={rotation}
     />
@@ -95,7 +113,10 @@ function renderEffectorNode(node: LevelNode) {
   return <Component key={node.id} {...node.props} />
 }
 
-function renderNullNode(node: LevelNode) {
+function renderNullNode(
+  node: LevelNode,
+  asClonerTemplate: boolean,
+) {
   const children = (node.children ?? []).filter((child) => child.nodeType === 'object')
   const rotation: Vec3 = node.rotation ? toRadians(node.rotation) : [0, 0, 0]
 
@@ -105,45 +126,32 @@ function renderNullNode(node: LevelNode) {
       position={node.position}
       rotation={rotation}
     >
-      {children.map((child) => renderNode(child))}
+      {children.map((child) => renderNode(child, asClonerTemplate))}
     </group>
   )
 }
 
 function renderGridClonerNode(node: LevelNode) {
   const children = node.children ?? []
-
-  const effectors: GridEffector[] = []
-  const objectChildren: LevelNode[] = []
-
-  for (const child of children) {
-    if (isNodeHiddenInBuilder(child)) continue
-    if (child.nodeType === 'effector') {
-      const effectorType = EFFECTOR_TYPE_MAP[child.type]
-      if (effectorType) {
-        effectors.push({ type: effectorType, ...child.props } as GridEffector)
-      }
-    } else if (child.nodeType === 'object') {
-      objectChildren.push(child)
-    }
-  }
-
   const { position, rotation, ...restProps } = node.props as Record<string, unknown>
 
   return (
     <GridCloner
       key={node.id}
+      {...restProps}
       position={node.position}
       rotation={node.rotation}
-      effectors={effectors}
-      {...restProps}
+      entityPrefix={node.id}
     >
-      {objectChildren.map((child) => renderNode(child))}
+      {children.map((child) => renderNode(child, true))}
     </GridCloner>
   )
 }
 
-function renderNode(node: LevelNode) {
+function renderNode(
+  node: LevelNode,
+  asClonerTemplate = false,
+) {
   if (isNodeHiddenInBuilder(node)) {
     return null
   }
@@ -153,19 +161,24 @@ function renderNode(node: LevelNode) {
   }
 
   if (node.type === 'Null') {
-    return renderNullNode(node)
+    return renderNullNode(node, asClonerTemplate)
   }
 
   if (node.type === 'GridCloner') {
     return renderGridClonerNode(node)
   }
 
-  return renderObjectNode(node)
+  return renderObjectNode(node, asClonerTemplate)
 }
 
 export function LevelRenderer() {
   const levelData = useLevelStore((state) => state.levelData)
   const levelReloadKey = useLevelStore((state) => state.levelReloadKey)
+  const resetGameplay = useGameplayStore((state) => state.reset)
+
+  useEffect(() => {
+    resetGameplay()
+  }, [levelReloadKey, levelData, resetGameplay])
 
   if (!levelData) {
     return null

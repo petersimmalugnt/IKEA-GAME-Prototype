@@ -1,18 +1,39 @@
 import { useKeyboardControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, BallCollider, useRapier, type RapierRigidBody } from '@react-three/rapier'
-import { useRef, forwardRef, useImperativeHandle } from 'react'
+import { useMemo, useRef, forwardRef, useImperativeHandle, type ForwardRefExoticComponent, type RefAttributes } from 'react'
 import { SphereElement } from '@/primitives/SphereElement'
 import type { GameControlName } from '@/input/GameKeyboardControls'
-import { SETTINGS, type ControlInputSource, type Vec3 } from '@/settings/GameSettings'
+import { SETTINGS, type ControlInputSource, type MaterialColorIndex, type Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
 import { getExternalAbsoluteTarget, getExternalDigitalState, type DigitalControlState } from '@/input/control/ExternalControlStore'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
 
 export type PlayerHandle = PositionTargetHandle
 
-type PlayerProps = {
-  position: Vec3
+let autoPlayerEntityCounter = 0
+
+function createAutoPlayerEntityId(): string {
+  autoPlayerEntityCounter += 1
+  return `player-auto-${autoPlayerEntityCounter}`
 }
+
+export type PlayerProps = {
+  /** Player start position in world coordinates. */
+  position: Vec3
+  /** Optional stable id for contagion tracking. Auto-generated when omitted. */
+  entityId?: string
+  /** Starts the player as an active contagion carrier. */
+  contagionCarrier?: boolean
+  /** If false, player cannot be overwritten by incoming contagion. */
+  contagionInfectable?: boolean
+  /** Initial contagion color for this carrier lineage. */
+  contagionColor?: MaterialColorIndex
+}
+
+export type PlayerComponent = ForwardRefExoticComponent<
+  PlayerProps & RefAttributes<PlayerHandle>
+>
 
 const EMPTY_DIGITAL: DigitalControlState = {
   forward: false,
@@ -39,15 +60,31 @@ function mergeDigitalInput(
   }
 }
 
-export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player({ position }, ref) {
+export const Player: PlayerComponent = forwardRef<PlayerHandle, PlayerProps>(function Player({
+  position,
+  entityId,
+  contagionCarrier = false,
+  contagionInfectable = true,
+  contagionColor = 0,
+}, ref) {
   const rb = useRef<RapierRigidBody | null>(null)
   const { rapier, world } = useRapier()
   const [, getKeys] = useKeyboardControls<GameControlName>()
   const smoothedAbsoluteTarget = useRef<{ x: number; z: number } | null>(null)
+  const autoEntityIdRef = useRef<string>(createAutoPlayerEntityId())
+  const resolvedEntityId = (entityId && entityId.trim()) || autoEntityIdRef.current
+  const contagionColorOverride = useContagionColorOverride(resolvedEntityId)
+  const resolvedColor = contagionColorOverride ?? contagionColor
 
   const controlSettings = SETTINGS.controls
   const useAbsoluteControl = controlSettings.inputSource === 'external'
     && controlSettings.external.mode === 'absolute'
+  const bodyUserData = useMemo(() => ({
+    entityId: resolvedEntityId,
+    contagionCarrier,
+    contagionInfectable,
+    contagionColorIndex: resolvedColor,
+  }), [resolvedEntityId, contagionCarrier, contagionInfectable, resolvedColor])
 
   // Exponera spelarens position till parent (CameraFollow)
   useImperativeHandle(ref, () => ({
@@ -156,9 +193,10 @@ export const Player = forwardRef<PlayerHandle, PlayerProps>(function Player({ po
       friction={SETTINGS.player.friction}
       // CCD stoppar bollen från att åka igenom objekt (Tunneling)
       ccd
+      userData={bodyUserData}
     >
       <BallCollider args={[0.1]} density={targetDensity} />
-      <SphereElement radius={0.1} />
+      <SphereElement radius={0.1} color={resolvedColor} />
     </RigidBody>
   )
 })

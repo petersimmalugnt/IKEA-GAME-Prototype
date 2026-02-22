@@ -4,13 +4,14 @@ Model: laddertest.glb
 */
 
 import * as THREE from 'three'
-import { useRef, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { CuboidCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial, GameRigidBody } from '@/scene/SceneComponents'
 import type { GamePhysicsBodyType } from '@/scene/SceneComponents'
 import type { MaterialColorIndex } from '@/settings/GameSettings'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import type { ContagionProps } from '@/gameplay/contagionProps'
 import modelUrl from './laddertest.glb?url'
 
 type GeneratedRigidBodySettings = {
@@ -21,15 +22,27 @@ type GeneratedRigidBodySettings = {
   sensor?: boolean
 }
 
-type LaddertestProps = ThreeElements['group'] & {
+type Simplify<T> = { [K in keyof T]: T[K] } & {}
+
+export type LaddertestProps = Simplify<ThreeElements['group'] & ContagionProps & {
   materialColor0?: MaterialColorIndex
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
-}
+}>
 
-export function Laddertest({ materialColor0 = 0, rigidBodyOne, ...props }: LaddertestProps) {
+export function Laddertest({
+  materialColor0 = 0,
+  entityId,
+  contagionCarrier = false,
+  contagionInfectable = true,
+  contagionColor,
+  rigidBodyOne,
+  ...props
+}: LaddertestProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
+  const contagionColorOverride = useContagionColorOverride(entityId)
+  const resolvedMaterialColor0 = contagionColorOverride ?? materialColor0
   const materialColors: Record<'materialColor0', MaterialColorIndex> = {
-    materialColor0,
+    materialColor0: resolvedMaterialColor0,
   }
 
   const rigidBodies: Record<'rigidBodyOne', GeneratedRigidBodySettings> = {
@@ -49,7 +62,16 @@ export function Laddertest({ materialColor0 = 0, rigidBodyOne, ...props }: Ladde
 
   return (
     <group {...props} dispose={null}>
-      <GameRigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false}>
+      <GameRigidBody
+        {...getRigidBodyProps('rigidBodyOne')}
+        colliders={false}
+        contagion={{
+          entityId,
+          carrier: contagionCarrier,
+          infectable: contagionInfectable,
+          colorIndex: contagionColor ?? resolvedMaterialColor0,
+        }}
+      >
         <CuboidCollider args={[0.075, 0.345, 0.015]} position={[0, 0.345, 0]} />
         <C4DMesh name={nodes['HORIZONTALS'].name} geometry={nodes['HORIZONTALS'].geometry} castShadow receiveShadow>
           <C4DMaterial color={materialColors.materialColor0} />

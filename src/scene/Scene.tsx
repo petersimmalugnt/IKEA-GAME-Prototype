@@ -19,6 +19,7 @@ import { BrickBalloon } from '@/assets/models/BrickBalloon'
 import { BallBalloon } from '@/assets/models/BallBalloon'
 import { MotionSystemProvider, TransformMotion } from '@/scene/TransformMotion'
 import { BlockElement } from '@/primitives/BlockElement'
+import { ContagionRuntime } from '@/gameplay/ContagionRuntime'
 import {
   GridCloner,
   LinearFieldEffector,
@@ -40,11 +41,12 @@ export function Scene() {
       <ExternalControlBridge />
       <LiveLevelSync />
       <Physics gravity={[0, -9.81, 0]} debug={isDebug && SETTINGS.debug.showColliders}>
+        <ContagionRuntime />
         <GameEffects />
         <CameraSystemProvider playerRef={playerRef}>
           <MotionSystemProvider>
             {/* SPELAREN */}
-            <Player position={[0, 3, 0]} />
+            <Player contagionCarrier contagionColor={8} position={[0, 3, 0]} />
 
             {/* --- NIVÅN --- */}
 
@@ -141,7 +143,7 @@ export function Scene() {
                 rotation={[45, -45, 45]}
               // color={[2, 5]}
               /> */}
-              <BlockElement sizePreset="sm" heightPreset="sm" color={4} align={{ x: 50, y: 50, z: 50 }} />
+              <BlockElement sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 50, z: 50 }} />
             </GridCloner>
 
             {/* <CubeElement

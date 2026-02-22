@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
-import type { ThreeElements } from '@react-three/fiber'
 import { ConvexHullCollider, type RigidBodyProps } from '@react-three/rapier'
 import { C4DMaterial } from '@/render/Materials'
 import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
@@ -9,10 +8,10 @@ import { toRadians, useSurfaceId } from '@/scene/SceneHelpers'
 import { GameRigidBody } from '../physics/GameRigidBody'
 import type { PhysicsProps } from '@/physics/PhysicsWrapper'
 import { getAlignOffset, type Align3 } from '@/geometry/align'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import type { ElementRenderProps, ElementTransformProps, Simplify } from './ElementBaseProps'
 
-type MeshElementProps = Omit<ThreeElements['mesh'], 'position' | 'rotation'>
-
-export type CylinderElementProps = MeshElementProps & PhysicsProps & {
+export type CylinderElementProps = Simplify<ElementTransformProps & ElementRenderProps & PhysicsProps & {
   radius?: number
   height?: number
   segments?: number
@@ -21,7 +20,7 @@ export type CylinderElementProps = MeshElementProps & PhysicsProps & {
   singleTone?: boolean
   hidden?: boolean
   align?: Align3
-}
+}>
 
 export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementProps>(function CylinderElement({
   radius = 0.5,
@@ -32,15 +31,23 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   singleTone = true,
   hidden = false,
   visible = true,
+  castShadow = true,
+  receiveShadow = true,
   align,
   scale,
   physics,
   mass,
   friction,
   lockRotations,
+  entityId,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
   position,
   rotation = [0, 0, 0],
-  ...props
+  name,
+  renderOrder,
+  frustumCulled,
 }, ref) {
   const meshRef = useRef<THREE.Mesh | null>(null)
   const worldPos = useMemo(() => new THREE.Vector3(), [])
@@ -50,6 +57,8 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
     () => getAlignOffset([radius * 2, height, radius * 2], align),
     [radius, height, align?.x, align?.y, align?.z],
   )
+  const contagionColorOverride = useContagionColorOverride(entityId)
+  const resolvedColor = contagionColorOverride ?? color
 
   // Generera cylinderformad konvex hull: topp- och bottenring med N sidor
   const hullVertices = useMemo(() => {
@@ -76,17 +85,19 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
 
   const mesh = (
     <mesh
-      {...props}
       ref={meshRef}
+      {...(name !== undefined ? { name } : {})}
+      {...(renderOrder !== undefined ? { renderOrder } : {})}
+      {...(frustumCulled !== undefined ? { frustumCulled } : {})}
       position={anchorOffset}
       {...(physics && scale !== undefined ? { scale } : {})}
       visible={visible && !hidden}
-      castShadow
-      receiveShadow
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
       userData={{ surfaceId }}
     >
       <cylinderGeometry args={[radius, radius, height, segments]} />
-      <C4DMaterial color={color} singleTone={singleTone} />
+      <C4DMaterial color={resolvedColor} singleTone={singleTone} />
     </mesh>
   )
 
@@ -110,6 +121,12 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
       {...rbProps}
       type={physics}
       colliders={false}
+      contagion={{
+        entityId,
+        carrier: contagionCarrier === true,
+        infectable: contagionInfectable !== false,
+        colorIndex: contagionColor ?? resolvedColor,
+      }}
     >
       <ConvexHullCollider args={[hullVertices]} position={anchorOffset} />
       {mesh}

@@ -1,22 +1,21 @@
 import * as THREE from 'three'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
-import type { ThreeElements } from '@react-three/fiber'
 import { C4DMaterial } from '@/render/Materials'
 import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
 import { toRadians, useSurfaceId } from '@/scene/SceneHelpers'
 import { PhysicsWrapper, type PhysicsProps } from '@/physics/PhysicsWrapper'
 import { getAlignOffset, type Align3 } from '@/geometry/align'
+import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import type { ElementRenderProps, ElementTransformProps, Simplify } from './ElementBaseProps'
 
-type MeshElementProps = Omit<ThreeElements['mesh'], 'position' | 'rotation'>
-
-export type CubeElementProps = MeshElementProps & PhysicsProps & {
+export type CubeElementProps = Simplify<ElementTransformProps & ElementRenderProps & PhysicsProps & {
   size?: Vec3
   color?: MaterialColorIndex
   singleTone?: boolean
   hidden?: boolean
   align?: Align3
-}
+}>
 
 export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(function CubeElement({
   size = [1, 1, 1],
@@ -24,15 +23,23 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
   singleTone = false,
   hidden = false,
   visible = true,
+  castShadow = true,
+  receiveShadow = true,
   align,
   scale,
   physics,
   mass,
   friction,
   lockRotations,
+  entityId,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
   position,
   rotation = [0, 0, 0],
-  ...props
+  name,
+  renderOrder,
+  frustumCulled,
 }, ref) {
   const meshRef = useRef<THREE.Mesh | null>(null)
   const worldPos = useMemo(() => new THREE.Vector3(), [])
@@ -46,6 +53,8 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
     () => [size[0] / 2, size[1] / 2, size[2] / 2],
     [size],
   )
+  const contagionColorOverride = useContagionColorOverride(entityId)
+  const resolvedColor = contagionColorOverride ?? color
 
   useImperativeHandle(ref, () => ({
     getPosition: () => {
@@ -58,17 +67,19 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
 
   const mesh = (
     <mesh
-      {...props}
       ref={meshRef}
+      {...(name !== undefined ? { name } : {})}
+      {...(renderOrder !== undefined ? { renderOrder } : {})}
+      {...(frustumCulled !== undefined ? { frustumCulled } : {})}
       position={anchorOffset}
       {...(physics && scale !== undefined ? { scale } : {})}
       visible={visible && !hidden}
-      castShadow
-      receiveShadow
+      castShadow={castShadow}
+      receiveShadow={receiveShadow}
       userData={{ surfaceId }}
     >
       <boxGeometry args={size} />
-      <C4DMaterial color={color} singleTone={singleTone} />
+      <C4DMaterial color={resolvedColor} singleTone={singleTone} />
     </mesh>
   )
 
@@ -91,6 +102,10 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
       mass={mass}
       friction={friction}
       lockRotations={lockRotations}
+      entityId={entityId}
+      contagionCarrier={contagionCarrier}
+      contagionInfectable={contagionInfectable}
+      contagionColor={contagionColor ?? resolvedColor}
     >
       {mesh}
     </PhysicsWrapper>

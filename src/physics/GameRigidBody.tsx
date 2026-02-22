@@ -7,6 +7,8 @@ import {
   type RapierRigidBody,
   type RigidBodyProps,
 } from '@react-three/rapier'
+import { SETTINGS } from '@/settings/GameSettings'
+import { useGameplayStore, type ContagionCollisionEntity } from '@/gameplay/gameplayStore'
 import {
   isCollisionActivatedPhysicsType,
   isNoneActivatedPhysicsType,
@@ -15,11 +17,19 @@ import {
   type GamePhysicsBodyType,
 } from './physicsTypes'
 
+export type GameRigidBodyContagion = {
+  entityId?: string
+  carrier?: boolean
+  infectable?: boolean
+  colorIndex?: number
+}
+
 export type GameRigidBodyProps = Omit<RigidBodyProps, 'type' | 'onCollisionEnter' | 'onIntersectionEnter'> & {
   type: GamePhysicsBodyType
   onCollisionEnter?: (payload: CollisionEnterPayload) => void
   onIntersectionEnter?: (payload: IntersectionEnterPayload) => void
   onCollisionActivated?: (payload: CollisionEnterPayload | IntersectionEnterPayload) => void
+  contagion?: GameRigidBodyContagion
 }
 
 function isColliderElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
@@ -29,13 +39,40 @@ function isColliderElement(node: ReactNode): node is ReactElement<Record<string,
   return typeof name === 'string' && name.toLowerCase().includes('collider')
 }
 
+let autoContagionEntityCounter = 0
+
+function createAutoContagionEntityId(): string {
+  autoContagionEntityCounter += 1
+  return `auto-contagion-${autoContagionEntityCounter}`
+}
+
+function resolveCollisionEntity(payload: CollisionEnterPayload, key: 'target' | 'other'): ContagionCollisionEntity | null {
+  const collisionTarget = payload[key]
+  const rawUserData = (collisionTarget.rigidBodyObject?.userData ?? {}) as Record<string, unknown>
+  const entityId = typeof rawUserData.entityId === 'string' ? rawUserData.entityId : undefined
+  if (!entityId) return null
+
+  const colorIndex = typeof rawUserData.contagionColorIndex === 'number'
+    ? rawUserData.contagionColorIndex
+    : undefined
+
+  return {
+    entityId,
+    contagionCarrier: rawUserData.contagionCarrier === true,
+    contagionInfectable: rawUserData.contagionInfectable !== false,
+    colorIndex,
+  }
+}
+
 export function GameRigidBody({
   type,
   onCollisionEnter,
   onIntersectionEnter,
   onCollisionActivated,
+  contagion,
   sensor: sensorOverride,
   children,
+  userData,
   position,
   rotation,
   quaternion,
@@ -49,6 +86,9 @@ export function GameRigidBody({
   const solidNoneActivated = isSolidNoneActivatedPhysicsType(type)
   const [activated, setActivated] = useState(false)
   const activationFiredRef = useRef(false)
+  const enqueueContagionPair = useGameplayStore((state) => state.enqueueCollisionPair)
+  const contagionEnabled = SETTINGS.gameplay.contagion.enabled
+  const autoContagionEntityIdRef = useRef<string>(createAutoContagionEntityId())
   const childArray = useMemo(() => Children.toArray(children), [children])
   const hasExplicitColliderChildren = useMemo(
     () => childArray.some((child) => isColliderElement(child)),
@@ -57,6 +97,29 @@ export function GameRigidBody({
   const hasBodylessVariant = noneActivated || solidNoneActivated
   const canBodylessArm = hasBodylessVariant && hasExplicitColliderChildren
   const sensorPreCollision = noneActivated && !canBodylessArm
+  const mergedUserData = useMemo(() => {
+    const baseUserData = (userData && typeof userData === 'object')
+      ? userData as Record<string, unknown>
+      : {}
+
+    if (!contagion) return baseUserData
+
+    const explicitEntityId = typeof contagion.entityId === 'string'
+      ? contagion.entityId.trim()
+      : ''
+    const baseEntityId = typeof baseUserData.entityId === 'string'
+      ? baseUserData.entityId.trim()
+      : ''
+    const resolvedEntityId = explicitEntityId || baseEntityId || autoContagionEntityIdRef.current
+
+    return {
+      ...baseUserData,
+      entityId: resolvedEntityId,
+      contagionCarrier: contagion.carrier === true,
+      contagionInfectable: contagion.infectable !== false,
+      contagionColorIndex: contagion.colorIndex ?? 0,
+    }
+  }, [userData, contagion?.entityId, contagion?.carrier, contagion?.infectable, contagion?.colorIndex])
 
   useEffect(() => {
     activationFiredRef.current = false
@@ -127,10 +190,20 @@ export function GameRigidBody({
     onCollisionActivated?.(payload)
   }, [collisionActivated, onCollisionActivated, sensorPreCollision, setAttachedCollidersSensor, promoteToDynamicImmediately])
 
+  const dispatchCollisionEnter = useCallback((payload: CollisionEnterPayload) => {
+    if (contagionEnabled) {
+      enqueueContagionPair(
+        resolveCollisionEntity(payload, 'target'),
+        resolveCollisionEntity(payload, 'other'),
+      )
+    }
+    onCollisionEnter?.(payload)
+  }, [contagionEnabled, enqueueContagionPair, onCollisionEnter])
+
   const handleCollisionEnter = useCallback((payload: CollisionEnterPayload) => {
     activate(payload)
-    onCollisionEnter?.(payload)
-  }, [activate, onCollisionEnter])
+    dispatchCollisionEnter(payload)
+  }, [activate, dispatchCollisionEnter])
 
   const handleIntersectionEnter = useCallback((payload: IntersectionEnterPayload) => {
     if (sensorPreCollision) {
@@ -154,7 +227,7 @@ export function GameRigidBody({
           ? undefined
           : (payload: CollisionEnterPayload) => {
             activate(payload)
-            onCollisionEnter?.(payload)
+            dispatchCollisionEnter(payload)
             childOnCollisionEnter?.(payload)
           },
         onIntersectionEnter: noneActivated
@@ -166,7 +239,7 @@ export function GameRigidBody({
           : childOnIntersectionEnter,
       })
     })
-  }, [canBodylessArm, activated, childArray, activate, onIntersectionEnter, onCollisionEnter, noneActivated])
+  }, [canBodylessArm, activated, childArray, activate, onIntersectionEnter, dispatchCollisionEnter, noneActivated])
 
   if (canBodylessArm && !activated) {
     return (
@@ -191,6 +264,7 @@ export function GameRigidBody({
       {...(rotation !== undefined ? { rotation } : {})}
       {...(quaternion !== undefined ? { quaternion } : {})}
       {...(scale !== undefined ? { scale } : {})}
+      userData={mergedUserData}
       sensor={sensor}
       onCollisionEnter={handleCollisionEnter}
       onIntersectionEnter={handleIntersectionEnter}

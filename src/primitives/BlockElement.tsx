@@ -1,11 +1,10 @@
 import * as THREE from 'three'
-import { forwardRef, useMemo, type ComponentPropsWithoutRef } from 'react'
+import { forwardRef, useMemo, type ForwardRefExoticComponent, type RefAttributes } from 'react'
 import type { Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
-import { CubeElement } from './CubeElement'
+import { CubeElement, type CubeElementProps } from './CubeElement'
 import type { Align3 } from '@/geometry/align'
-
-type CubeElementProps = ComponentPropsWithoutRef<typeof CubeElement>
+import type { Simplify } from './ElementBaseProps'
 
 export const BLOCK_SIZE_PRESETS = ['lg', 'md', 'sm', 'xs', 'xxs'] as const
 export const BLOCK_HEIGHT_PRESETS = ['sm', 'md', 'lg'] as const
@@ -15,12 +14,16 @@ export type BlockSizePreset = (typeof BLOCK_SIZE_PRESETS)[number]
 export type BlockHeightPreset = (typeof BLOCK_HEIGHT_PRESETS)[number]
 export type BlockPlane = (typeof BLOCK_PLANES)[number]
 
-export type BlockElementProps = Omit<CubeElementProps, 'size' | 'align'> & {
+export type BlockElementProps = Simplify<Omit<CubeElementProps, 'size' | 'align'> & {
   sizePreset?: BlockSizePreset
   heightPreset?: BlockHeightPreset
   plane?: BlockPlane
   align?: Align3
-}
+}>
+
+export type BlockElementComponent = ForwardRefExoticComponent<
+  BlockElementProps & RefAttributes<PositionTargetHandle>
+>
 
 const BLOCK_FOOTPRINTS_M: Record<BlockSizePreset, [number, number]> = {
   // [x, z] i meter
@@ -52,7 +55,7 @@ export function resolveBlockSize(
 
 // Modulär byggkloss med måttpresets.
 // Align/fysik/render hanteras av CubeElement.
-export const BlockElement = forwardRef<PositionTargetHandle, BlockElementProps>(function BlockElement({
+export const BlockElement: BlockElementComponent = forwardRef<PositionTargetHandle, BlockElementProps>(function BlockElement({
   sizePreset = 'lg',
   heightPreset = 'sm',
   plane = 'y',
