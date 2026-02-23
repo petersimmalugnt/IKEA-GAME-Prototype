@@ -267,7 +267,7 @@ export const SETTINGS: Settings = {
   spawner: {
     enabled: true,
     spawnIntervalMs: 800,
-    speed: 1.5,
+    speed: 1,
     speedVariance: 0.3,
     radius: 0.25,
     maxItems: 40,

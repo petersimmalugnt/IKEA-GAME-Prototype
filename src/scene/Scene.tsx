@@ -42,7 +42,7 @@ export function Scene() {
               contagionColor={8}
               position={[-1.4, 0.4, 0.4]}
             />
-            <TransformMotion positionVelocity={{ z: -1.5 }}>
+            <TransformMotion positionVelocity={{ z: -0.5 }}>
               <BlockElement ref={playerRef} hidden />
             </TransformMotion>
             {/* ENDLESS TILED LEVELS */}
