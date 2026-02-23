@@ -16,6 +16,7 @@ import {
   TimeEffector,
   StepEffector,
 } from '@/scene/GridCloner'
+import { TransformMotion } from '@/scene/TransformMotion'
 import { useLevelStore, type LevelNode } from './levelStore'
 import type { Vec3 } from '@/settings/GameSettings'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
@@ -131,6 +132,26 @@ function renderNullNode(
   )
 }
 
+function renderTransformMotionNode(
+  node: LevelNode,
+  asClonerTemplate: boolean,
+) {
+  const children = (node.children ?? []).filter((child) => child.nodeType === 'object')
+  const rotation: Vec3 = node.rotation ? toRadians(node.rotation) : [0, 0, 0]
+  const motionProps = (node.props ?? {}) as Record<string, unknown>
+
+  return (
+    <TransformMotion
+      key={node.id}
+      position={node.position}
+      rotation={rotation}
+      {...motionProps}
+    >
+      {children.map((child) => renderNode(child, asClonerTemplate))}
+    </TransformMotion>
+  )
+}
+
 function renderGridClonerNode(node: LevelNode) {
   const children = node.children ?? []
   const { position, rotation, ...restProps } = node.props as Record<string, unknown>
@@ -162,6 +183,10 @@ function renderNode(
 
   if (node.type === 'Null') {
     return renderNullNode(node, asClonerTemplate)
+  }
+
+  if (node.type === 'TransformMotion') {
+    return renderTransformMotionNode(node, asClonerTemplate)
   }
 
   if (node.type === 'GridCloner') {

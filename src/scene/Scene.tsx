@@ -49,10 +49,19 @@ export function Scene() {
             <Player contagionCarrier contagionColor={8} position={[-1.4, .4, .4]} />
 
             {/* --- NIVÅN --- */}
-
             <TransformMotion positionVelocity={{ z: 0 }} positionRange={{ z: [0, -4] }}>
               <BlockElement ref={playerRef} hidden />
             </TransformMotion>
+
+            <TransformMotion position={[0, 1.3, 0]} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
+              <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} />
+              <BlockElement position={[0, -0.275, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="x" />
+            </TransformMotion>
+
+            <TransformMotion position={[-0.5, 1.3, 0]} offset={0.5} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
+              <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} />
+            </TransformMotion>
+
 
             <TransformMotion positionVelocity={{ z: 0.22 }} positionRange={{ z: [0, 4] }}>
               <BrickBalloon position={[-2, 1, -3]} animation="moving" materialColor1={8} materialColor0={8} />
