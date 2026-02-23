@@ -31,6 +31,7 @@ export function DebugCameraPiP() {
     if (!cam) return
 
     cam.position.set(0, TOP_DOWN_HEIGHT, 0)
+    cam.up.set(Math.SQRT1_2, 0, -Math.SQRT1_2)
     cam.lookAt(0, 0, 0)
     cam.updateMatrixWorld()
 
