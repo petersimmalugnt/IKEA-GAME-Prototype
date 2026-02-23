@@ -10,6 +10,11 @@ import { LevelTileManager } from "@/levels/LevelTileManager";
 import { LiveLevelSync } from "@/LiveLevelSync";
 import { BlockElement } from "@/primitives/BlockElement";
 import { InvisibleFloor } from "@/primitives/InvisibleFloor";
+import { SplineElement } from "@/primitives/SplineElement";
+import { BallBalloon } from "@/assets/models/BallBalloon";
+import { BrickBalloon } from "@/assets/models/BrickBalloon";
+import { GridCloner } from "@/scene/GridCloner";
+import { LevelRenderer } from "@/LevelRenderer";
 import { GameEffects } from "@/render/Effects";
 import { Player, type PlayerHandle } from "@/scene/Player";
 import { MotionSystemProvider, TransformMotion } from "@/scene/TransformMotion";
@@ -48,13 +53,168 @@ export function Scene() {
             {/* ENDLESS TILED LEVELS */}
             <LevelTileManager />
 
-            {/* ITEM SPAWNER (top/right spawn, left/bottom cull) */}
-            <ItemSpawner />
+
+            <TransformMotion position={[0, 1.3, 0]} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
+              {/* <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} /> */}
+              <SplineElement points={[[0, -.3, 0], [0, 0, 0], [.3, 0, 0]]} segments={2} />
+              <BlockElement position={[0, -0.275, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="z" />
+            </TransformMotion>
+
+            <TransformMotion position={[-0.5, 1.3, 0]} offset={0.5} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
+              <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} />
+            </TransformMotion>
+
+
+            <TransformMotion positionVelocity={{ z: 0.22 }} positionRange={{ z: [0, 4] }}>
+              <BrickBalloon position={[-2, 1, -3]} animation="moving" materialColor1={8} materialColor0={8} />
+            </TransformMotion>
+
+            <TransformMotion positionVelocity={{ z: 0.2 }} positionRange={{ z: [0, 4] }}>
+              <BallBalloon position={[.75, 1, -5]} animation="moving" materialColor1={6} materialColor0={6} />
+            </TransformMotion>
+
+            <TransformMotion positionVelocity={{ z: 0.2 }} positionRange={{ z: [0, 4] }}>
+              <BallBalloon position={[0, 1, -4]} animation="moving" materialColor1={7} materialColor0={7} />
+            </TransformMotion>
+
+            <TransformMotion positionVelocity={{ z: 0.22 }} positionRange={{ z: [0, 4] }}>
+              <BallBalloon position={[-1, 1, 0]} animation="moving2" materialColor1={5} materialColor0={5} />
+            </TransformMotion>
+
+            <TransformMotion positionVelocity={{ z: 0.25 }} positionRange={{ z: [0, 4] }}>
+              <BrickBalloon position={[1.3, 1, 2]} animation="moving3" materialColor1={8} materialColor0={8} />
+            </TransformMotion>
+
+            <TransformMotion positionVelocity={{ z: 0.18 }} positionRange={{ z: [0, 4] }} >
+              <BrickBalloon position={[1.5, 1, -1]} animation="moving" materialColor1={4} materialColor0={4} />
+            </TransformMotion>
+
+            {/* GRIDCLONER DEMOS */}
+            {/* <GridCloner
+              position={[-3.4, 0, 3.2]}
+              count={[7, 1, 2]}
+              spacing={[1, 0, 1]}
+              gridUnit="md"
+              centered
+              physics="fixed"
+              showDebugEffectors={isDebug}
+            >
+              <LinearFieldEffector
+                axis="x"
+                center={0}
+                size={7}
+                enableRemap
+                contourMode="easeInOutCubic"
+                position={[0, 2.2, 0]}
+              />
+              <BlockElement sizePreset="md" heightPreset="sm" color={2} />
+            </GridCloner>
+
+            <GridCloner
+              position={[0.2, 0, 3.2]}
+              count={[7, 1, 2]}
+              spacing={[1, 0, 1]}
+              gridUnit="md"
+              centered
+              physics="fixed"
+            >
+              <RandomEffector
+                seed={19}
+                strength={0.8}
+                position={[0, 0.65, 0]}
+                rotation={[0, 0.35, 0]}
+                scale={[0.1, 0.35, 0.1]}
+                color={[2, 3, 4, 5]}
+              />
+              <NoiseEffector
+                seed={42}
+                strength={0.7}
+                frequency={[0.9, 0.9, 0.9]}
+                position={[0, 0.45, 0]}
+              />
+              <BlockElement sizePreset="sm" heightPreset="sm" color={1} />
+            </GridCloner> */}
+
+            <GridCloner
+              position={[.4, .42, .4]}
+              count={[10, 4, 10]}
+              spacing={[1.5, 2.1, 1.1]}
+              gridUnit="md"
+              centered
+              physics="dynamic"
+            >
+
+              {/* <TimeEffector
+                loopMode="pingpong"
+                duration={1}
+                cloneOffset={0.1}
+                easing="easeInOutCubic"
+                position={[0, 3, 0]}
+                // scale={[0, 0, 1]}
+                rotation={[45, -45, 45]}
+              // color={[2, 5]}
+              /> */}
+              <BlockElement sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 50, z: 50 }} />
+            </GridCloner>
+
+            {/* <CubeElement
+              size={[0.5, 2, 0.03]}
+              color={2}
+              physics="dynamic"
+              position={[0.1, 0.5, 0.75]}
+              rotation={[-61, 0, 0]}
+              mass={0.3}
+              friction={3}
+            />
+
+            <CubeElement
+              size={[1.1, 0.48, 0.03]}
+              color={1}
+              physics="dynamic"
+              position={[0.2, 0.24, 0.65]}
+              mass={0.2}
+              friction={0.5}
+              lockRotations
+            />
+
+            <CubeElement
+              size={[0.5, 1, 0.03]}
+              color={1}
+              physics="dynamic"
+              position={[0.8, 0.5, 0]}
+              mass={0.3}
+            />
+
+            <CylinderElement
+              radius={0.3}
+              height={0.2}
+              color={1}
+              physics="dynamic"
+              position={[2, 0.5, 0]}
+              rotation={[90, 0, 0]}
+              colliderSegments={16}
+            />
+
+            <Laddertest
+              position={[-1, 0, 2]}
+              materialColor0={1}
+              rotation={[0, Math.PI / -1.25, 0]}
+            />
+
+            <Laddertest position={[1.5, 0, 1.5]} materialColor0={1} />
+            <VaultStairs position={[0, 0, 2.5]} materialColor0={1} />
+            <VaultStairs position={[-.5, 0, -2.5]} rotation={[0, Math.PI / -1, 0]} materialColor0={1} />
+            <Stair position={[1, 0, 2]} materialColor0={2} />
+            <Stair position={[-2, 0, 0]} materialColor0={1} /> */}
+
+            {/* LEVEL FROM STORE (file or live sync) */}
+            <LevelRenderer />
+
 
             {/* DEBUG BENCHMARK + STREAMING */}
             <BenchmarkDebugContent />
             {(isDebug && SETTINGS.debug.showCameraFrustum) ||
-            (isDebug && SETTINGS.debug.showDebugCamera) ? (
+              (isDebug && SETTINGS.debug.showDebugCamera) ? (
               <CameraFrustumOverlay />
             ) : null}
             {isDebug && SETTINGS.debug.showDebugCamera && <DebugCameraPiP />}
