@@ -20,6 +20,7 @@ import { BallBalloon } from '@/assets/models/BallBalloon'
 import { MotionSystemProvider, TransformMotion } from '@/scene/TransformMotion'
 import { BlockElement } from '@/primitives/BlockElement'
 import { ContagionRuntime } from '@/gameplay/ContagionRuntime'
+import { SplineElement } from '@/scene/SceneComponents'
 import {
   GridCloner,
   LinearFieldEffector,
@@ -54,8 +55,9 @@ export function Scene() {
             </TransformMotion>
 
             <TransformMotion position={[0, 1.3, 0]} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
-              <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} />
-              <BlockElement position={[0, -0.275, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="x" />
+              {/* <BrickBalloon position={[0, -0.3, 0]} materialColor1={8} materialColor0={8} /> */}
+              <SplineElement points={[[0, -.3, 0], [0, 0, 0], [.3, 0, 0]]} segments={2} />
+              <BlockElement position={[0, -0.275, 0]} sizePreset="lg" heightPreset="lg" color={2} align={{ x: 50, y: 100, z: 50 }} plane="z" />
             </TransformMotion>
 
             <TransformMotion position={[-0.5, 1.3, 0]} offset={0.5} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>

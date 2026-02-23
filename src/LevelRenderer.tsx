@@ -3,6 +3,7 @@ import { CubeElement } from '@/primitives/CubeElement'
 import { SphereElement } from '@/primitives/SphereElement'
 import { CylinderElement } from '@/primitives/CylinderElement'
 import { BlockElement } from '@/primitives/BlockElement'
+import { SplineElement } from '@/primitives/SplineElement'
 import { Stair } from './assets/models/Stair'
 import { VaultStairs } from './assets/models/VaultStairs'
 import { Laddertest } from './assets/models/Laddertest'
@@ -44,6 +45,7 @@ const COMPONENT_REGISTRY: Record<string, ComponentRegistryEntry> = {
   Laddertest: { component: Laddertest, needsRotationConversion: true },
   BrickBalloon: { component: BrickBalloon, needsRotationConversion: true },
   BallBalloon: { component: BallBalloon, needsRotationConversion: true },
+  SplineElement: { component: SplineElement, needsRotationConversion: false },
 }
 
 const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
