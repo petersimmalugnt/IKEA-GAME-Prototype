@@ -1,0 +1,30 @@
+{
+  "version": 6,
+  "nodes": [
+    {
+      "id": "3d634386-aa19-48b9-b71d-b04f32132cd9",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 0,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    }
+  ],
+  "unitSize": 0.1,
+  "gridSize": [128, 128],
+  "builderSettings": {
+    "palette": {
+      "source": "gameActive",
+      "override": "green"
+    }
+  }
+}

@@ -18,6 +18,10 @@ export function InvisibleFloor({ shadowColor = SETTINGS.colors.shadow }: { shado
         <planeGeometry args={[100, 100]} />
         <shadowMaterial color={shadowColor} opacity={1} blending={THREE.NormalBlending} />
       </mesh>
+
+      {SETTINGS.debug.enabled && SETTINGS.debug.showGrid && (
+        <gridHelper args={[128, 128, '#888888', '#444444']} position={[0, 0.002, 0]} />
+      )}
     </group>
   )
 }

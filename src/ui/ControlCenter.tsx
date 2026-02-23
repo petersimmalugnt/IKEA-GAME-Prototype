@@ -250,6 +250,10 @@ function useDebugControls() {
       value: SETTINGS.debug.showStats,
       onChange: (v: boolean) => { SETTINGS.debug.showStats = v; bump() },
     },
+    showGrid: {
+      value: SETTINGS.debug.showGrid,
+      onChange: (v: boolean) => { SETTINGS.debug.showGrid = v; bump() },
+    },
     streaming: folder({
       enabled: {
         value: SETTINGS.debug.streaming.enabled,

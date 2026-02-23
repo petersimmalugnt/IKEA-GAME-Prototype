@@ -63,6 +63,7 @@ export const SETTINGS: Settings = {
     enabled: false, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
+    showGrid: false, // Visa 128x128 rutnät på marken
     streaming: {
       enabled: false, // Visa streaming-debug i scenen
       showRadii: true, // Visar preload/render/physics-radier runt spelaren
@@ -246,7 +247,7 @@ export const SETTINGS: Settings = {
 
   // --- LEVEL LOADING ---
   level: {
-    defaultFile: "level.json", // filename inside public/levels/
+    defaultFile: "default.json", // filename inside public/levels/
     liveSync: {
       enabled: false,
       url: "ws://localhost:5174/ws/level",

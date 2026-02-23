@@ -66,6 +66,7 @@ export type Settings = {
     enabled: boolean
     showColliders: boolean
     showStats: boolean
+    showGrid: boolean
     streaming: {
       enabled: boolean
       showRadii: boolean
