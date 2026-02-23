@@ -62,7 +62,7 @@
         "sizePreset": "lg",
         "heightPreset": "sm",
         "plane": "y",
-        "color": 0,
+        "color": 1,
         "singleTone": false,
         "hidden": false,
         "contagionCarrier": false,
@@ -74,6 +74,23 @@
       "nodeType": "object",
       "type": "BlockElement",
       "position": [2, 0, -6.3],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 5,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "194e8bcb-99c7-40da-aa4b-4bcda7d7a72a",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [3, 0, -6.3],
       "rotation": [0, 0, 0],
       "props": {
         "sizePreset": "lg",

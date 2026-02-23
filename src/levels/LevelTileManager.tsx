@@ -60,7 +60,8 @@ export function LevelTileManager() {
     }
 
     currentSegments.forEach((segment) => {
-      if (segment.zOffset > viewCenterZ + cullBehindDistance) {
+      const segmentFarEdge = segment.zOffset - getTileDepth(segment.data)
+      if (segmentFarEdge > viewCenterZ + cullBehindDistance) {
         cullSegment(segment.id)
       }
     })
