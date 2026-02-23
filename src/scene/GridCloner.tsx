@@ -34,21 +34,21 @@ export type StepProfile = (typeof GRID_CLONER_STEP_PROFILES)[number]
 
 export type GridCollider =
   | {
-      shape: 'cuboid'
-      halfExtents: Vec3
-    }
+    shape: 'cuboid'
+    halfExtents: Vec3
+  }
   | {
-      shape: 'ball'
-      radius: number
-    }
+    shape: 'ball'
+    radius: number
+  }
   | {
-      shape: 'cylinder'
-      halfHeight: number
-      radius: number
-    }
+    shape: 'cylinder'
+    halfHeight: number
+    radius: number
+  }
   | {
-      shape: 'auto'
-    }
+    shape: 'auto'
+  }
 
 export type GridPhysicsConfig = {
   /**
@@ -780,35 +780,35 @@ export function LinearFieldEffector(_props: LinearFieldEffectorProps) {
   return null
 }
 
-;(LinearFieldEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'linear'
+; (LinearFieldEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'linear'
 
 /** Deterministisk random-effector. */
 export function RandomEffector(_props: RandomEffectorProps) {
   return null
 }
 
-;(RandomEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'random'
+; (RandomEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'random'
 
 /** Spatialt sammanhängande 3D-noise-effector. */
 export function NoiseEffector(_props: NoiseEffectorProps) {
   return null
 }
 
-;(NoiseEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'noise'
+; (NoiseEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'noise'
 
 /** Tidsdriven effector med loop/pingpong och clone-offset. */
 export function TimeEffector(_props: TimeEffectorProps) {
   return null
 }
 
-;(TimeEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'time'
+; (TimeEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'time'
 
 /** Indexbaserad step-effector med ramp/hump-profiler. */
 export function StepEffector(_props: StepEffectorProps) {
   return null
 }
 
-;(StepEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'step'
+; (StepEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'step'
 
 /** GridCloner duplicerar valfria barn i ett 3D-grid med optional effectors/fysik. */
 export function GridCloner({
@@ -1200,17 +1200,17 @@ export function GridCloner({
               return
             }
 
-              if (effector.type === 'time') {
-                const strength = clamp01(effector.strength ?? 1)
-                if (strength <= 0) return
+            if (effector.type === 'time') {
+              const strength = clamp01(effector.strength ?? 1)
+              if (strength <= 0) return
 
-                const weight = evaluateTimeWeight(frameTime, flatIndex, effector)
-                const amount = weight * strength
-                if (amount <= 0) return
-                const clampedAmount = clamp01(amount)
+              const weight = evaluateTimeWeight(frameTime, flatIndex, effector)
+              const amount = weight * strength
+              if (amount <= 0) return
+              const clampedAmount = clamp01(amount)
 
-                if (effector.position) {
-                  finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+              if (effector.position) {
+                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
               }
 
               if (effector.rotation) {
