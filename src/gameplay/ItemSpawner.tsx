@@ -46,7 +46,8 @@ export function ItemSpawner() {
         cfg.spawnEdgeInset,
         Math.random(),
         Math.random(),
-        _spawnPos
+        _spawnPos,
+        cfg.spawnPadding
       )
       getMovementDirection(corners, _moveDir)
       const speed =
@@ -72,7 +73,10 @@ export function ItemSpawner() {
     const currentItems = useSpawnerStore.getState().items
     currentItems.forEach((item) => {
       const [x, , z] = item.position
-      if (isPastLeftEdge(corners, x, z) || isPastBottomEdge(corners, x, z)) {
+      if (
+        isPastLeftEdge(corners, x, z, cfg.cullPadding) ||
+        isPastBottomEdge(corners, x, z, cfg.cullPadding)
+      ) {
         removeItem(item.id)
       }
     })

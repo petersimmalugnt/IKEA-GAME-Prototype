@@ -89,6 +89,8 @@ const _topMid = new THREE.Vector3()
 const _rightMid = new THREE.Vector3()
 const _bottomMid = new THREE.Vector3()
 const _leftMid = new THREE.Vector3()
+const _center = new THREE.Vector3()
+const _outward = new THREE.Vector3()
 
 /**
  * Unit direction from the spawn region (top-right) toward the kill region (bottom-left).
@@ -110,27 +112,43 @@ export function getMovementDirection(corners: FrustumCorners, out: THREE.Vector3
  * Check if a point (x, z) is past the left edge (corner 3 to 0).
  * Left edge: from top-left to bottom-left. "Past" = in the negative screen-x direction.
  * Use a half-plane test: cross product from edge vector to point.
+ * @param cullPadding when set, require point to be at least this many world units past the edge before returning true
  */
-export function isPastLeftEdge(corners: FrustumCorners, x: number, z: number): boolean {
+export function isPastLeftEdge(
+  corners: FrustumCorners,
+  x: number,
+  z: number,
+  cullPadding = 0
+): boolean {
   const ax = corners[3].x
   const az = corners[3].z
   const bx = corners[0].x
   const bz = corners[0].z
   const cross = (bx - ax) * (z - az) - (bz - az) * (x - ax)
-  return cross > 0
+  if (cullPadding <= 0) return cross > 0
+  const edgeLen = Math.hypot(bx - ax, bz - az)
+  return edgeLen > 0 && cross > cullPadding * edgeLen
 }
 
 /**
  * Check if a point (x, z) is past the bottom edge (corner 0 to 1).
  * Bottom edge: from bottom-left to bottom-right. "Past" = in the negative screen-y (down) direction.
+ * @param cullPadding when set, require point to be at least this many world units past the edge before returning true
  */
-export function isPastBottomEdge(corners: FrustumCorners, x: number, z: number): boolean {
+export function isPastBottomEdge(
+  corners: FrustumCorners,
+  x: number,
+  z: number,
+  cullPadding = 0
+): boolean {
   const ax = corners[0].x
   const az = corners[0].z
   const bx = corners[1].x
   const bz = corners[1].z
   const cross = (bx - ax) * (z - az) - (bz - az) * (x - ax)
-  return cross > 0
+  if (cullPadding <= 0) return cross > 0
+  const edgeLen = Math.hypot(bx - ax, bz - az)
+  return edgeLen > 0 && cross > cullPadding * edgeLen
 }
 
 /**
@@ -146,8 +164,22 @@ export function writeFrustumPositions(corners: FrustumCorners, y: number, positi
 }
 
 /**
+ * Frustum center in x/z at floor level (for outward normal).
+ */
+function getFrustumCenterXZ(corners: FrustumCorners, out: THREE.Vector3): void {
+  out.set(0, FLOOR_Y, 0)
+  for (let i = 0; i < 4; i++) {
+    out.x += corners[i].x
+    out.z += corners[i].z
+  }
+  out.x /= 4
+  out.z /= 4
+}
+
+/**
  * Random point on either the top edge (3→2) or right edge (2→1), with inset from corners.
  * @param inset 0..0.5; segment used is [inset, 1-inset] along the chosen edge
+ * @param spawnPadding world units to push the point outward from the FOV so spawns are clearly outside view
  * @param random uniform random in [0,1]; use two values: first picks edge, second picks t
  */
 export function getRandomSpawnPointOnEdges(
@@ -155,14 +187,29 @@ export function getRandomSpawnPointOnEdges(
   inset: number,
   randomEdge: number,
   randomT: number,
-  out: THREE.Vector3
+  out: THREE.Vector3,
+  spawnPadding = 0
 ): void {
   const lo = inset
   const hi = 1 - inset
   const t = lo + (hi - lo) * randomT
   if (randomEdge < 0.5) {
     pointOnSegment(corners[3], corners[2], t, out)
+    if (spawnPadding > 0) {
+      getTopEdgeMidpoint(corners, _topMid)
+      getFrustumCenterXZ(corners, _center)
+      _outward.subVectors(_topMid, _center).setY(0).normalize()
+      out.x += _outward.x * spawnPadding
+      out.z += _outward.z * spawnPadding
+    }
   } else {
     pointOnSegment(corners[2], corners[1], t, out)
+    if (spawnPadding > 0) {
+      getRightEdgeMidpoint(corners, _rightMid)
+      getFrustumCenterXZ(corners, _center)
+      _outward.subVectors(_rightMid, _center).setY(0).normalize()
+      out.x += _outward.x * spawnPadding
+      out.z += _outward.z * spawnPadding
+    }
   }
 }

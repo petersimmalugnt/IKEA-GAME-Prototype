@@ -266,6 +266,8 @@ export const SETTINGS: Settings = {
     radius: 0.25,
     maxItems: 40,
     spawnEdgeInset: 0.1,
+    spawnPadding: 0.2,
+    cullPadding: 1.0,
   },
 };
 
