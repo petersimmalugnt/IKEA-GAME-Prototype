@@ -1,0 +1,115 @@
+{
+  "version": 6,
+  "nodes": [
+    {
+      "id": "3d634386-aa19-48b9-b71d-b04f32132cd9",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [0, 0, 0],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 0,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "81d16209-557c-434f-b750-ea4343ac06a3",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [0, 0.2, 0],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 4,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "10c6b043-4222-44ac-ba76-6dc9a9a55460",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [0, 0.4, 0],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 7,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "9cfafbc4-a7ac-487d-8d74-df5f85873584",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [1, 0, 6.2],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 1,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "6de8ba54-f0a1-4808-a6d5-0fdf0c0b1f13",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [2, 0, -6.3],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 5,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    },
+    {
+      "id": "194e8bcb-99c7-40da-aa4b-4bcda7d7a72a",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [3, 0, -6.3],
+      "rotation": [0, 0, 0],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 5,
+        "singleTone": false,
+        "hidden": false,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
+    }
+  ],
+  "unitSize": 0.1,
+  "gridSize": [128, 128],
+  "builderSettings": {
+    "palette": {
+      "source": "gameActive",
+      "override": "green"
+    }
+  }
+}

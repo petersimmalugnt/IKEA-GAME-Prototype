@@ -1,10 +1,10 @@
-import * as THREE from "three";
 import type {
   MaterialColorIndex,
   PaletteEntry,
   PaletteVariant,
   Settings,
-} from '@/settings/GameSettings.types'
+} from "@/settings/GameSettings.types";
+import * as THREE from "three";
 
 export {
   CAMERA_MODES,
@@ -14,7 +14,7 @@ export {
   RENDER_STYLES,
   SMAA_PRESET_NAMES,
   STREAMING_CENTER_SOURCES,
-} from '@/settings/GameSettings.types'
+} from "@/settings/GameSettings.types";
 
 export type {
   AxisMask,
@@ -31,7 +31,7 @@ export type {
   SMAAPresetName,
   StreamingCenterSource,
   Vec3,
-} from '@/settings/GameSettings.types'
+} from "@/settings/GameSettings.types";
 
 export const SETTINGS: Settings = {
   // --- RENDER STYLE ---
@@ -60,9 +60,12 @@ export const SETTINGS: Settings = {
 
   // --- DEBUG ---
   debug: {
-    enabled: false, // Master-toggle för allt debug
+    enabled: true, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
+    showGrid: false, // Visa rutnät på marken
+    showCameraFrustum: false, // Visa kamerans synliga område projicerat på golvet
+    showDebugCamera: true, // PiP top-down view som visar default-kamerans FOV
     streaming: {
       enabled: false, // Visa streaming-debug i scenen
       showRadii: true, // Visar preload/render/physics-radier runt spelaren
@@ -84,11 +87,11 @@ export const SETTINGS: Settings = {
 
   // --- STREAMING (Automatisk chunk-aktivering) ---
   streaming: {
-    enabled: false,        // Master-toggle för streaming av auto-genererade/world-objekt
-    cellSize: 1,           // Storlek på varje chunk-cell i world-units
+    enabled: false, // Master-toggle för streaming av auto-genererade/world-objekt
+    cellSize: 1, // Storlek på varje chunk-cell i world-units
     updateIntervalMs: 120, // Hur ofta chunk-aktivering uppdateras
-    preloadRadius: 2.6,     // Chunks inom denna radie markeras som preload
-    renderLoadRadius: 2.0,  // Chunks laddas in visuellt inom denna radie
+    preloadRadius: 2.6, // Chunks inom denna radie markeras som preload
+    renderLoadRadius: 2.0, // Chunks laddas in visuellt inom denna radie
     renderUnloadRadius: 2.4, // Chunks tas bort visuellt först utanför denna radie
     physicsLoadRadius: 1.4, // Physics aktiveras inom denna radie
     physicsUnloadRadius: 1.8, // Physics stängs av först utanför denna radie
@@ -109,43 +112,43 @@ export const SETTINGS: Settings = {
     active: "green",
     variants: {
       classic: {
-        background: '#3D2C23',
+        background: "#3D2C23",
         colors: [
-          { base: '#D9B5A3' },
-          { base: '#45253A' },
-          { base: '#558DCE' },
-          { base: '#665747' },
-          { base: '#FF2D19' },
+          { base: "#D9B5A3" },
+          { base: "#45253A" },
+          { base: "#558DCE" },
+          { base: "#665747" },
+          { base: "#FF2D19" },
         ],
       },
       greyscale: {
-        background: '#191919',
+        background: "#191919",
         colors: [
-          { base: '#E1D4BD' },
-          { base: '#606060' },
-          { base: '#3b3b3b' },
-          { base: '#669E10' },
-          { base: '#006B18' },
-          { base: '#007FB5' },
-          { base: '#003889' },
-          { base: '#D2BE27' },
-          { base: '#C96C05' },
-          { base: '#BE0D64' },
-          { base: '#A00003' },
+          { base: "#E1D4BD" },
+          { base: "#606060" },
+          { base: "#3b3b3b" },
+          { base: "#669E10" },
+          { base: "#006B18" },
+          { base: "#007FB5" },
+          { base: "#003889" },
+          { base: "#D2BE27" },
+          { base: "#C96C05" },
+          { base: "#BE0D64" },
+          { base: "#A00003" },
         ],
       },
       green: {
-        background: '#0E3420',
+        background: "#0E3420",
         colors: [
-          { base: '#E1D4BD' },
-          { base: '#669E10' },
-          { base: '#006B18' },
-          { base: '#BE0D64' },
-          { base: '#A00003' },
-          { base: '#007FB5' },
-          { base: '#003889' },
-          { base: '#D2BE27' },
-          { base: '#C96C05' },
+          { base: "#E1D4BD" },
+          { base: "#669E10" },
+          { base: "#006B18" },
+          { base: "#BE0D64" },
+          { base: "#A00003" },
+          { base: "#007FB5" },
+          { base: "#003889" },
+          { base: "#D2BE27" },
+          { base: "#C96C05" },
         ],
       },
     },
@@ -160,12 +163,12 @@ export const SETTINGS: Settings = {
   // --- LINJER (Outlines & Creases) ---
   lines: {
     enabled: true,
-    thickness: 1,     // Tjocklek i pixlar
-    creaseAngle: 30,    // Vinkel i grader för inre linjer (30 = teknisk look)
-    threshold: 0.005,    // Känslighet för surface-ID edge-detektion
+    thickness: 1, // Tjocklek i pixlar
+    creaseAngle: 30, // Vinkel i grader för inre linjer (30 = teknisk look)
+    threshold: 0.005, // Känslighet för surface-ID edge-detektion
     composerMultisampling: 4, // MSAA i postprocess-composer (0 stanger av)
-    smaaEnabled: true,  // SMAA efter outline-pass (bra mot trappsteg)
-    smaaPreset: 'ultra', // low | medium | high | ultra
+    smaaEnabled: true, // SMAA efter outline-pass (bra mot trappsteg)
+    smaaPreset: "ultra", // low | medium | high | ultra
   },
 
   // --- PIXELATION (Pixelart-test via postprocess-pass) ---
@@ -185,7 +188,7 @@ export const SETTINGS: Settings = {
 
   // --- KAMERA ---
   camera: {
-    mode: 'follow', // 'follow' eller 'static'
+    mode: "follow", // 'follow' eller 'static'
     base: {
       zoom: 300,
       near: 0.1,
@@ -246,12 +249,31 @@ export const SETTINGS: Settings = {
 
   // --- LEVEL LOADING ---
   level: {
-    defaultFile: "level.json", // filename inside public/levels/
+    defaultFile: "default.json", // filename inside public/levels/
+    tiling: {
+      enabled: true,
+      files: ["default.json", "1.json", "2.json"],
+      lookAheadDistance: 15,
+      cullBehindDistance: 3,
+    },
     liveSync: {
       enabled: false,
       url: "ws://localhost:5174/ws/level",
       reconnectMs: 1000,
     },
+  },
+
+  // --- ITEM SPAWNER (FOV edges) ---
+  spawner: {
+    enabled: true,
+    spawnIntervalMs: 800,
+    speed: 1,
+    speedVariance: 0.3,
+    radius: 0.25,
+    maxItems: 40,
+    spawnEdgeInset: 0.1,
+    spawnPadding: 0.2,
+    cullPadding: 1.0,
   },
 };
 
@@ -260,30 +282,37 @@ export const getLightDir = () => {
   return new THREE.Vector3(...SETTINGS.light.position).normalize();
 };
 
-const FALLBACK_PALETTE_ENTRY: PaletteEntry = { base: '#ffffff' }
+const FALLBACK_PALETTE_ENTRY: PaletteEntry = { base: "#ffffff" };
 
 export const getActivePalette = (): PaletteVariant => {
-  return SETTINGS.palette.variants[SETTINGS.palette.active]
-}
+  return SETTINGS.palette.variants[SETTINGS.palette.active];
+};
 
 export const getActiveBackground = (): string => {
-  return SETTINGS.palette.variants[SETTINGS.palette.active].background
-}
+  return SETTINGS.palette.variants[SETTINGS.palette.active].background;
+};
 
-export const normalizePaletteIndex = (index: number, paletteLength: number): number => {
-  if (paletteLength <= 0) return 0
-  if (!Number.isFinite(index)) return 0
-  const truncated = Math.trunc(index)
-  return ((truncated % paletteLength) + paletteLength) % paletteLength
-}
+export const normalizePaletteIndex = (
+  index: number,
+  paletteLength: number,
+): number => {
+  if (paletteLength <= 0) return 0;
+  if (!Number.isFinite(index)) return 0;
+  const truncated = Math.trunc(index);
+  return ((truncated % paletteLength) + paletteLength) % paletteLength;
+};
 
-export const resolveMaterialColorIndex = (index: MaterialColorIndex | null | undefined): number => {
-  const palette = getActivePalette()
-  return normalizePaletteIndex(index ?? 0, palette.colors.length)
-}
+export const resolveMaterialColorIndex = (
+  index: MaterialColorIndex | null | undefined,
+): number => {
+  const palette = getActivePalette();
+  return normalizePaletteIndex(index ?? 0, palette.colors.length);
+};
 
-export const getPaletteEntry = (index: MaterialColorIndex | null | undefined): PaletteEntry => {
-  const palette = getActivePalette()
-  if (palette.colors.length === 0) return FALLBACK_PALETTE_ENTRY
-  return palette.colors[resolveMaterialColorIndex(index)]
-}
+export const getPaletteEntry = (
+  index: MaterialColorIndex | null | undefined,
+): PaletteEntry => {
+  const palette = getActivePalette();
+  if (palette.colors.length === 0) return FALLBACK_PALETTE_ENTRY;
+  return palette.colors[resolveMaterialColorIndex(index)];
+};

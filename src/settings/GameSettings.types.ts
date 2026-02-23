@@ -66,6 +66,9 @@ export type Settings = {
     enabled: boolean
     showColliders: boolean
     showStats: boolean
+    showGrid: boolean
+    showCameraFrustum: boolean
+    showDebugCamera: boolean
     streaming: {
       enabled: boolean
       showRadii: boolean
@@ -180,10 +183,29 @@ export type Settings = {
   }
   level: {
     defaultFile: string
+    tiling: {
+      enabled: boolean
+      files: string[]
+      lookAheadDistance: number
+      cullBehindDistance: number
+    }
     liveSync: {
       enabled: boolean
       url: string
       reconnectMs: number
     }
+  }
+  spawner: {
+    enabled: boolean
+    spawnIntervalMs: number
+    speed: number
+    speedVariance: number
+    radius: number
+    maxItems: number
+    spawnEdgeInset: number
+    /** World units to push spawn points outward from FOV so items spawn clearly outside view */
+    spawnPadding: number
+    /** World units past the left/bottom edge before culling so items are culled only when no longer visible */
+    cullPadding: number
   }
 }

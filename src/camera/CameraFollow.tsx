@@ -52,6 +52,7 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollow
   const lookAtCurrent = useRef(new THREE.Vector3(...SETTINGS.camera.static.lookAt))
   const previousMode = useRef<'static' | 'follow' | null>(null)
   const previousTargetId = useRef<string | null>(null)
+  const minCameraZ = useRef(Infinity)
 
   useFrame((_state, delta) => {
     // Hitta ljuset en gång
@@ -109,6 +110,8 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollow
       followSettings.lookAtAxes.z ? targetPos.z + followSettings.lookAtOffset[2] : staticSettings.lookAt[2],
     )
 
+    _cameraTarget.z = Math.min(_cameraTarget.z, minCameraZ.current)
+
     const modeChanged = previousMode.current !== 'follow'
     const targetChanged = previousTargetId.current !== followSettings.targetId
 
@@ -128,6 +131,7 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollow
     } else {
       camera.lookAt(lookAtCurrent.current)
     }
+    minCameraZ.current = Math.min(minCameraZ.current, camera.position.z)
     updateFocusRef(cameraFocusRef, lookAtCurrent.current)
 
     // Flytta DirectionalLight + shadow target med spelaren
