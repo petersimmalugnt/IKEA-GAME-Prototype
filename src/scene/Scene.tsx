@@ -46,7 +46,7 @@ export function Scene() {
         <CameraSystemProvider playerRef={playerRef}>
           <MotionSystemProvider>
             {/* SPELAREN */}
-            <Player contagionCarrier contagionColor={8} position={[0, 3, 0]} />
+            <Player contagionCarrier contagionColor={8} position={[-1.4, .4, .4]} />
 
             {/* --- NIVÅN --- */}
 
@@ -125,7 +125,7 @@ export function Scene() {
             </GridCloner> */}
 
             <GridCloner
-              position={[0, 3, 0]}
+              position={[.4, .42, .4]}
               count={[10, 4, 10]}
               spacing={[1.5, 2.1, 1.1]}
               gridUnit="md"

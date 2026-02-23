@@ -733,7 +733,7 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
       ...effector,
       center: effector.center !== undefined ? effector.center * unitMultiplier : undefined,
       size: effector.size !== undefined ? effector.size * unitMultiplier : undefined,
-      fieldPosition: scaleOptionalVec3(effector.fieldPosition, unitMultiplier),
+      fieldPosition: effector.fieldPosition,
       position: scaleOptionalVec3(effector.position, unitMultiplier),
     }
   }
@@ -840,7 +840,7 @@ export function GridCloner({
   )
   const scaledSpacing = useMemo(() => scaleVec3(spacing, unitMultiplier), [spacing, unitMultiplier])
   const scaledOffset = useMemo(() => scaleVec3(offset, unitMultiplier), [offset, unitMultiplier])
-  const scaledPosition = useMemo(() => scaleVec3(position, unitMultiplier), [position, unitMultiplier])
+  const clonerPosition = useMemo<Vec3>(() => [...position], [position])
   const baseRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
 
   const normalizedCount = useMemo<GridCount>(() => [
@@ -1071,7 +1071,7 @@ export function GridCloner({
             startZ + (z * sz) + oz,
           ]
 
-          let finalPosition = addVec3(localPosition, scaledPosition)
+          let finalPosition = addVec3(localPosition, clonerPosition)
           let finalRotation: Vec3 = [...baseRotation]
           let finalScale: Vec3 = [...scale]
           let hidden = false
@@ -1322,7 +1322,7 @@ export function GridCloner({
     scaledSpacing,
     scaledOffset,
     centered,
-    scaledPosition,
+    clonerPosition,
     baseRotation,
     scale,
     normalizedEffectors,
@@ -1466,7 +1466,7 @@ export function GridCloner({
           const thin = Math.max(0.002, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.015)
           const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
           const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
-          const fieldOrigin = addVec3(scaledPosition, fieldPosition)
+          const fieldOrigin = addVec3(clonerPosition, fieldPosition)
           const planeSize = getPlaneDebugSize(axis, thin, debugBounds)
           const volumeSize = getPlaneDebugSize(axis, size, debugBounds)
 
