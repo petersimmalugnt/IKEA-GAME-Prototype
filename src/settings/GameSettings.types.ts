@@ -67,6 +67,8 @@ export type Settings = {
     showColliders: boolean
     showStats: boolean
     showGrid: boolean
+    showCameraFrustum: boolean
+    showDebugCamera: boolean
     streaming: {
       enabled: boolean
       showRadii: boolean

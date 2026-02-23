@@ -6,6 +6,8 @@ import { Player, type PlayerHandle } from '@/scene/Player'
 import { GameEffects } from '@/render/Effects'
 import { CameraSystemProvider } from '@/camera/CameraSystem'
 import { BenchmarkDebugContent } from '@/debug/BenchmarkDebugContent'
+import { CameraFrustumOverlay } from '@/debug/CameraFrustumOverlay'
+import { DebugCameraPiP } from '@/debug/DebugCameraPiP'
 import { GameKeyboardControls } from '@/input/GameKeyboardControls'
 import { SETTINGS } from '@/settings/GameSettings'
 import { useSettingsVersion } from '@/settings/settingsStore'
@@ -43,6 +45,10 @@ export function Scene() {
 
             {/* DEBUG BENCHMARK + STREAMING */}
             <BenchmarkDebugContent />
+            {(isDebug && SETTINGS.debug.showCameraFrustum) || (isDebug && SETTINGS.debug.showDebugCamera) ? (
+              <CameraFrustumOverlay />
+            ) : null}
+            {isDebug && SETTINGS.debug.showDebugCamera && <DebugCameraPiP />}
 
             <InvisibleFloor />
           </MotionSystemProvider>

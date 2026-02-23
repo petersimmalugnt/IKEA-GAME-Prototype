@@ -64,6 +64,8 @@ export const SETTINGS: Settings = {
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
     showGrid: false, // Visa rutnät på marken
+    showCameraFrustum: false, // Visa kamerans synliga område projicerat på golvet
+    showDebugCamera: false, // PiP top-down view som visar default-kamerans FOV
     streaming: {
       enabled: false, // Visa streaming-debug i scenen
       showRadii: true, // Visar preload/render/physics-radier runt spelaren

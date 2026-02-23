@@ -41,6 +41,9 @@ function syncLevaFromSettings() {
     enabled: SETTINGS.debug.enabled,
     showColliders: SETTINGS.debug.showColliders,
     showStats: SETTINGS.debug.showStats,
+    showGrid: SETTINGS.debug.showGrid,
+    showCameraFrustum: SETTINGS.debug.showCameraFrustum,
+    showDebugCamera: SETTINGS.debug.showDebugCamera,
     'streaming.enabled': SETTINGS.debug.streaming.enabled,
     'streaming.showRadii': SETTINGS.debug.streaming.showRadii,
     'streaming.showChunkBounds': SETTINGS.debug.streaming.showChunkBounds,
@@ -253,6 +256,14 @@ function useDebugControls() {
     showGrid: {
       value: SETTINGS.debug.showGrid,
       onChange: (v: boolean) => { SETTINGS.debug.showGrid = v; bump() },
+    },
+    showCameraFrustum: {
+      value: SETTINGS.debug.showCameraFrustum,
+      onChange: (v: boolean) => { SETTINGS.debug.showCameraFrustum = v; bump() },
+    },
+    showDebugCamera: {
+      value: SETTINGS.debug.showDebugCamera,
+      onChange: (v: boolean) => { SETTINGS.debug.showDebugCamera = v; bump() },
     },
     streaming: folder({
       enabled: {
