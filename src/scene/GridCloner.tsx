@@ -111,8 +111,8 @@ export type NoiseEffectorConfig = SharedEffectorBase & {
   seed?: number
   frequency?: number | Vec3
   offset?: Vec3
-  noisePosition?: number | Vec3
-  noisePositionSpeed?: number | Vec3
+  noisePosition?: Vec3
+  noisePositionSpeed?: Vec3
 }
 
 export type TimeEffectorConfig = SharedEffectorBase & {
@@ -298,12 +298,6 @@ function scaleOptionalVec3(value: Vec3 | undefined, multiplier: number): Vec3 | 
   return scaleVec3(value, multiplier)
 }
 
-function scaleNoiseMotion(value: number | Vec3 | undefined, multiplier: number): number | Vec3 | undefined {
-  if (value === undefined) return undefined
-  if (typeof value === 'number') return value * multiplier
-  return scaleVec3(value, multiplier)
-}
-
 function addScaledVec3(base: Vec3, delta: Vec3, amount: number): Vec3 {
   return [
     base[0] + (delta[0] * amount),
@@ -361,8 +355,7 @@ function pingPong01(value: number): number {
   return positive <= 1 ? positive : 2 - positive
 }
 
-function resolveNoiseMotion(value: number | Vec3 | undefined): Vec3 {
-  if (typeof value === 'number') return [value, value, value]
+function resolveNoiseMotion(value: Vec3 | undefined): Vec3 {
   if (isVec3(value)) return value
   return [0, 0, 0]
 }
@@ -749,8 +742,8 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
     return {
       ...effector,
       offset: scaleOptionalVec3(effector.offset, unitMultiplier),
-      noisePosition: scaleNoiseMotion(effector.noisePosition, unitMultiplier),
-      noisePositionSpeed: scaleNoiseMotion(effector.noisePositionSpeed, unitMultiplier),
+      noisePosition: effector.noisePosition,
+      noisePositionSpeed: effector.noisePositionSpeed,
       position: scaleOptionalVec3(effector.position, unitMultiplier),
     }
   }
