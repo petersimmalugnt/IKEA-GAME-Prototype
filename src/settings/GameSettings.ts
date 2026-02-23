@@ -256,6 +256,17 @@ export const SETTINGS: Settings = {
       reconnectMs: 1000,
     },
   },
+
+  // --- ITEM SPAWNER (FOV edges) ---
+  spawner: {
+    enabled: true,
+    spawnIntervalMs: 800,
+    speed: 1.5,
+    speedVariance: 0.3,
+    radius: 0.25,
+    maxItems: 40,
+    spawnEdgeInset: 0.1,
+  },
 };
 
 // Hjälpfunktion för att få ljusets position som en Vector3

@@ -14,6 +14,7 @@ import { useSettingsVersion } from '@/settings/settingsStore'
 import { ExternalControlBridge } from '@/input/control/ExternalControlBridge'
 import { MotionSystemProvider } from '@/scene/TransformMotion'
 import { ContagionRuntime } from '@/gameplay/ContagionRuntime'
+import { ItemSpawner } from '@/gameplay/ItemSpawner'
 import { LiveLevelSync } from '@/LiveLevelSync'
 import { LevelRenderer } from '@/LevelRenderer'
 import { useLevelStore } from '@/levelStore'
@@ -42,6 +43,9 @@ export function Scene() {
 
             {/* LEVEL FROM STORE (file or live sync) */}
             <LevelRenderer />
+
+            {/* ITEM SPAWNER (top/right spawn, left/bottom cull) */}
+            <ItemSpawner />
 
             {/* DEBUG BENCHMARK + STREAMING */}
             <BenchmarkDebugContent />

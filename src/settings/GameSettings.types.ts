@@ -189,4 +189,13 @@ export type Settings = {
       reconnectMs: number
     }
   }
+  spawner: {
+    enabled: boolean
+    spawnIntervalMs: number
+    speed: number
+    speedVariance: number
+    radius: number
+    maxItems: number
+    spawnEdgeInset: number
+  }
 }
