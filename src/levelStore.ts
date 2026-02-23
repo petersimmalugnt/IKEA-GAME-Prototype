@@ -18,6 +18,10 @@ export type LevelNode = {
 export type LevelData = {
   version: 6
   nodes: LevelNode[]
+  /** World units per grid cell; used for debug grid and level layout. */
+  unitSize?: number
+  /** Grid dimensions [width, height] in cells; used for debug grid. */
+  gridSize?: [number, number]
 }
 
 function parseLevelFileJson(raw: unknown): LevelData {
@@ -31,7 +35,12 @@ function parseLevelFileJson(raw: unknown): LevelData {
     throw new Error('Invalid level format: missing nodes array')
   }
 
-  return { version: 6, nodes: data.nodes as LevelNode[] }
+  const result: LevelData = { version: 6, nodes: data.nodes as LevelNode[] }
+  if (typeof data.unitSize === 'number') result.unitSize = data.unitSize
+  if (Array.isArray(data.gridSize) && data.gridSize.length >= 2 && typeof data.gridSize[0] === 'number' && typeof data.gridSize[1] === 'number') {
+    result.gridSize = [data.gridSize[0], data.gridSize[1]]
+  }
+  return result
 }
 
 type LevelStoreState = {
