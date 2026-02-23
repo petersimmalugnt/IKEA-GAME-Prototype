@@ -2,13 +2,14 @@ import { Hud, OrthographicCamera, useFBO } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { SETTINGS } from "@/settings/GameSettings";
 
 const PIP_SIZE = 320;
 const TOP_DOWN_HEIGHT = 40;
 const TOP_DOWN_HALF = 7;
 
 export function DebugCameraPiP() {
-  const { gl, scene, size } = useThree();
+  const { gl, scene, camera, size } = useThree();
   const fbo = useFBO(PIP_SIZE, PIP_SIZE, { depthBuffer: true });
   const topDownCam = useRef<THREE.OrthographicCamera | null>(null);
 
@@ -30,9 +31,12 @@ export function DebugCameraPiP() {
     const cam = topDownCam.current;
     if (!cam) return;
 
-    cam.position.set(0, TOP_DOWN_HEIGHT, 0);
+    const offset = SETTINGS.camera.mode === 'follow' ? SETTINGS.camera.follow.offset : [0, 0, 0];
+    const cx = camera.position.x - offset[0];
+    const cz = camera.position.z - offset[2];
+    cam.position.set(cx, TOP_DOWN_HEIGHT, cz);
     cam.up.set(-1, -1, -1);
-    cam.lookAt(0, 0, 0);
+    cam.lookAt(cx, 0, cz);
     cam.updateMatrixWorld();
 
     const oldTarget = gl.getRenderTarget();

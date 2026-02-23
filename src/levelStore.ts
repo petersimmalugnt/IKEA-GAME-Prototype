@@ -24,7 +24,7 @@ export type LevelData = {
   gridSize?: [number, number]
 }
 
-function parseLevelFileJson(raw: unknown): LevelData {
+export function parseLevelFileJson(raw: unknown): LevelData {
   const data = raw as Record<string, unknown>
 
   if (data.version !== 6) {

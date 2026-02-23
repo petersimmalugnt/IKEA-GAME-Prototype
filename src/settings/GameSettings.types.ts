@@ -183,6 +183,12 @@ export type Settings = {
   }
   level: {
     defaultFile: string
+    tiling: {
+      enabled: boolean
+      files: string[]
+      lookAheadDistance: number
+      cullBehindDistance: number
+    }
     liveSync: {
       enabled: boolean
       url: string

@@ -148,7 +148,7 @@ function renderGridClonerNode(node: LevelNode) {
   )
 }
 
-function renderNode(
+export function renderNode(
   node: LevelNode,
   asClonerTemplate = false,
 ) {

@@ -60,12 +60,12 @@ export const SETTINGS: Settings = {
 
   // --- DEBUG ---
   debug: {
-    enabled: false, // Master-toggle för allt debug
+    enabled: true, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
     showGrid: false, // Visa rutnät på marken
     showCameraFrustum: false, // Visa kamerans synliga område projicerat på golvet
-    showDebugCamera: false, // PiP top-down view som visar default-kamerans FOV
+    showDebugCamera: true, // PiP top-down view som visar default-kamerans FOV
     streaming: {
       enabled: false, // Visa streaming-debug i scenen
       showRadii: true, // Visar preload/render/physics-radier runt spelaren
@@ -250,6 +250,12 @@ export const SETTINGS: Settings = {
   // --- LEVEL LOADING ---
   level: {
     defaultFile: "default.json", // filename inside public/levels/
+    tiling: {
+      enabled: true,
+      files: ["default.json", "1.json", "2.json"],
+      lookAheadDistance: 15,
+      cullBehindDistance: 3,
+    },
     liveSync: {
       enabled: false,
       url: "ws://localhost:5174/ws/level",
