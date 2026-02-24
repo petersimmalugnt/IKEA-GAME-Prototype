@@ -181,8 +181,16 @@ export type Settings = {
       scorePerInfection: number
     }
     lives: {
-      startingLives: number
-      autoReset: boolean
+      initial: number
+      lossPerMiss: number
+      lockScoreOnGameOver: boolean
+    }
+    balloons: {
+      scorePerPop: number
+      sensors: {
+        lifeMargin: number
+        cleanupMargin: number
+      }
     }
   }
   level: {

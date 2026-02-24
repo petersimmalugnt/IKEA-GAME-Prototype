@@ -32,17 +32,34 @@ type PendingPair = {
 type GameplayState = {
   score: number
   lives: number
+  gameOver: boolean
   sequence: number
   contagionEpoch: number
   contagionColorsByEntityId: Record<string, number>
   reset: () => void
+  addScore: (delta: number) => void
   loseLife: () => void
+  loseLives: (delta: number) => void
+  setGameOver: (value: boolean) => void
   removeEntities: (ids: string[]) => void
   enqueueCollisionPair: (
     entityA: ContagionCollisionEntity | null | undefined,
     entityB: ContagionCollisionEntity | null | undefined,
   ) => void
   flushContagionQueue: () => void
+}
+
+function normalizeNonNegativeInt(value: number, fallback = 0): number {
+  if (!Number.isFinite(value)) return fallback
+  return Math.max(0, Math.trunc(value))
+}
+
+function isScoreLockedOnGameOver(): boolean {
+  return SETTINGS.gameplay.lives.lockScoreOnGameOver === true
+}
+
+function getInitialLives(): number {
+  return normalizeNonNegativeInt(SETTINGS.gameplay.lives.initial, 0)
 }
 
 function normalizeCollisionEntity(raw: ContagionCollisionEntity | null | undefined): NormalizedCollisionEntity | null {
@@ -91,9 +108,10 @@ function createContagionMaps(): ContagionMaps {
 
 let maps = createContagionMaps()
 
-export const useGameplayStore = create<GameplayState>((set) => ({
+export const useGameplayStore = create<GameplayState>((set, get) => ({
   score: 0,
-  lives: SETTINGS.gameplay.lives.startingLives,
+  lives: getInitialLives(),
+  gameOver: false,
   sequence: 0,
   contagionEpoch: 0,
   contagionColorsByEntityId: {},
@@ -102,20 +120,46 @@ export const useGameplayStore = create<GameplayState>((set) => ({
     maps = createContagionMaps()
     set({
       score: 0,
-      lives: SETTINGS.gameplay.lives.startingLives,
+      lives: getInitialLives(),
+      gameOver: false,
       sequence: 0,
       contagionEpoch: 0,
       contagionColorsByEntityId: {},
     })
   },
 
-  loseLife: () => {
+  addScore: (delta) => {
+    const normalizedDelta = normalizeNonNegativeInt(delta, 0)
+    if (normalizedDelta === 0) return
     set((state) => {
-      const next = state.lives - 1
-      if (next <= 0 && SETTINGS.gameplay.lives.autoReset) {
-        return { lives: SETTINGS.gameplay.lives.startingLives }
+      if (isScoreLockedOnGameOver() && state.gameOver) return state
+      return { score: state.score + normalizedDelta }
+    })
+  },
+
+  loseLife: () => {
+    useGameplayStore.getState().loseLives(SETTINGS.gameplay.lives.lossPerMiss)
+  },
+
+  loseLives: (delta) => {
+    const normalizedDelta = normalizeNonNegativeInt(delta, 0)
+    if (normalizedDelta === 0) return
+    set((state) => {
+      if (state.gameOver) return state
+      const nextLives = Math.max(0, state.lives - normalizedDelta)
+      return {
+        ...state,
+        lives: nextLives,
+        gameOver: nextLives <= 0,
       }
-      return { lives: Math.max(0, next) }
+    })
+  },
+
+  setGameOver: (value) => {
+    const nextValue = value === true
+    set((state) => {
+      if (state.gameOver === nextValue) return state
+      return { ...state, gameOver: nextValue }
     })
   },
 
@@ -140,6 +184,7 @@ export const useGameplayStore = create<GameplayState>((set) => ({
   enqueueCollisionPair: (rawA, rawB) => {
     const contagionSettings = SETTINGS.gameplay.contagion
     if (!contagionSettings.enabled) return
+    if (isScoreLockedOnGameOver() && get().gameOver) return
 
     const entityA = normalizeCollisionEntity(rawA)
     const entityB = normalizeCollisionEntity(rawB)
@@ -153,6 +198,10 @@ export const useGameplayStore = create<GameplayState>((set) => ({
   },
 
   flushContagionQueue: () => {
+    if (isScoreLockedOnGameOver() && get().gameOver) {
+      maps.pendingPairs.clear()
+      return
+    }
     if (maps.pendingPairs.size === 0) return
 
     const pendingPairs = Array.from(maps.pendingPairs.values())
@@ -161,6 +210,7 @@ export const useGameplayStore = create<GameplayState>((set) => ({
     set((state) => {
       const contagionSettings = SETTINGS.gameplay.contagion
       if (!contagionSettings.enabled) return state
+      if (isScoreLockedOnGameOver() && state.gameOver) return state
 
       let nextSequence = state.sequence
       let nextScore = state.score

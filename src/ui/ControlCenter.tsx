@@ -174,8 +174,8 @@ function syncLevaFromSettings() {
   })
 
   setters['Gameplay']?.({
-    'lives.startingLives': SETTINGS.gameplay.lives.startingLives,
-    'lives.autoReset': SETTINGS.gameplay.lives.autoReset,
+    'lives.initial': SETTINGS.gameplay.lives.initial,
+    'lives.lockScoreOnGameOver': SETTINGS.gameplay.lives.lockScoreOnGameOver,
   })
 
   setters['Spawner']?.({
@@ -752,13 +752,13 @@ function useLevelControls() {
 function useGameplayControls() {
   const [, set] = useControls('Gameplay', () => ({
     lives: folder({
-      startingLives: {
-        value: SETTINGS.gameplay.lives.startingLives, min: 1, max: 10, step: 1,
-        onChange: (v: number) => { SETTINGS.gameplay.lives.startingLives = v; bump() },
+      initial: {
+        value: SETTINGS.gameplay.lives.initial, min: 1, max: 10, step: 1,
+        onChange: (v: number) => { SETTINGS.gameplay.lives.initial = v; bump() },
       },
-      autoReset: {
-        value: SETTINGS.gameplay.lives.autoReset,
-        onChange: (v: boolean) => { SETTINGS.gameplay.lives.autoReset = v; bump() },
+      lockScoreOnGameOver: {
+        value: SETTINGS.gameplay.lives.lockScoreOnGameOver,
+        onChange: (v: boolean) => { SETTINGS.gameplay.lives.lockScoreOnGameOver = v; bump() },
       },
     }),
   }), { collapsed: true })

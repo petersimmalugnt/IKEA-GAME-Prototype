@@ -17,6 +17,13 @@ export type CubeElementProps = Simplify<ElementTransformProps & ElementRenderPro
   align?: Align3
 }>
 
+let autoCubeEntityIdCounter = 0
+
+function createAutoCubeEntityId(): string {
+  autoCubeEntityIdCounter += 1
+  return `auto-cube-${autoCubeEntityIdCounter}`
+}
+
 export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(function CubeElement({
   size = [1, 1, 1],
   color = 0,
@@ -31,6 +38,10 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
   mass,
   friction,
   lockRotations,
+  linearVelocity,
+  angularVelocity,
+  linearDamping,
+  angularDamping,
   entityId,
   contagionCarrier,
   contagionInfectable,
@@ -43,8 +54,12 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
 }, ref) {
   const meshRef = useRef<THREE.Mesh | null>(null)
   const worldPos = useMemo(() => new THREE.Vector3(), [])
+  const autoEntityIdRef = useRef<string>(createAutoCubeEntityId())
   const surfaceId = useSurfaceId()
   const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
+  const resolvedEntityId = typeof entityId === 'string' && entityId.trim().length > 0
+    ? entityId.trim()
+    : autoEntityIdRef.current
   const anchorOffset = useMemo<Vec3>(
     () => getAlignOffset(size, align),
     [size, align?.x, align?.y, align?.z],
@@ -53,7 +68,7 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
     () => [size[0] / 2, size[1] / 2, size[2] / 2],
     [size],
   )
-  const contagionColorOverride = useContagionColorOverride(entityId)
+  const contagionColorOverride = useContagionColorOverride(resolvedEntityId)
   const resolvedColor = contagionColorOverride ?? color
 
   useImperativeHandle(ref, () => ({
@@ -99,10 +114,14 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
       colliderPosition={anchorOffset}
       position={position}
       rotation={rotationRadians}
+      linearVelocity={linearVelocity}
+      angularVelocity={angularVelocity}
+      linearDamping={linearDamping}
+      angularDamping={angularDamping}
       mass={mass}
       friction={friction}
       lockRotations={lockRotations}
-      entityId={entityId}
+      entityId={resolvedEntityId}
       contagionCarrier={contagionCarrier}
       contagionInfectable={contagionInfectable}
       contagionColor={contagionColor ?? resolvedColor}
