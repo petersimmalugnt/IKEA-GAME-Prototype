@@ -71,6 +71,8 @@ graph TD
 | `src/render/Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
 | `src/entities/entityStore.ts` | Centralt entity-register med `register`/`unregister`/`getEntitiesByType`, auto-cleanup av contagion-state |
 | `src/game/gamePhaseStore.ts` | Spelloop-faser (`loading`/`playing`/`paused`/`gameOver`), gatar input/physics/motion |
+| `src/geometry/BalloonGroup.tsx` | LOD-ballong-komponent med pop-fysik, lifecycle-callbacks och detaljnivåer (`ultra`→`minimal`) |
+| `src/gameplay/BalloonLifecycleRuntime.tsx` | Frustum-baserad miss-detektion via registry-pattern — kallar `onMissed`/`onCleanupRequested` på registrerade ballonger |
 | `src/render/Lights.tsx` | DirectionalLight med shadow-konfiguration, accepterar extern `lightRef` |
 | `src/camera/CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow via ref |
 | `src/render/Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
@@ -128,6 +130,9 @@ palette: {
 | `light` | `position`, `shadowMapSize` (4096), `shadowBias` |
 | `material` | `highlightStep` (0.6), `midtoneStep` (0.1), `castMidtoneStep` (0.2), `castShadowStep` (0.6) |
 | `player` | `impulseStrength`, `jumpStrength`, `linearDamping`, `mass` |
+| `gameplay.lives` | `initial` (startliv), `lossPerMiss` (liv per missat item), `lockScoreOnGameOver` |
+| `gameplay.balloons` | `scorePerPop` (poäng vid pop), `sensors.lifeMargin`, `sensors.cleanupMargin` |
+| `spawner` | `enabled`, `spawnIntervalMs`, `speed`, `speedVariance`, `maxItems`, `spawnXRange`, `cullOffset` |
 
 ### IntelliSense för fasta val
 
@@ -444,6 +449,30 @@ När en entitet avregistreras rensas dess contagion-data automatiskt ur `gamepla
 
 ---
 
+## Gameplay Store
+
+`src/gameplay/gameplayStore.ts` hanterar spelpoäng, liv och game-over-tillstånd:
+
+| Action | Beskrivning |
+|--------|-------------|
+| `addScore(delta)` | Ökar poängen; no-op om `lockScoreOnGameOver` är aktivt och spelet är over |
+| `loseLife()` | Kallar `loseLives(SETTINGS.gameplay.lives.lossPerMiss)` |
+| `loseLives(delta)` | Minskar liv; sätter `gameOver = true` om liv når 0 |
+| `setGameOver(value)` | Sätter `gameOver` direkt |
+| `removeEntities(ids)` | Tar bort contagion-state för givna entity-IDs (anropas automatiskt av `onEntityUnregister`) |
+| `reset()` | Återställer poäng, liv och contagion-state |
+
+`gameOver`-flödet i `Scene.tsx`:
+```tsx
+const gameOver = useGameplayStore((state) => state.gameOver)
+useEffect(() => {
+  if (!gameOver) return
+  useSpawnerStore.getState().clearAll()
+}, [gameOver])
+```
+
+---
+
 ## Game Phase
 
 `src/game/gamePhaseStore.ts` hanterar spelloop-faser:
@@ -526,6 +555,70 @@ Positions- och hastighetsdata lagras i en modul-level `Map` (utanför Zustand-st
 - **Store:** Spårar enbart lifecycle (aktiv/inaktiv) och immutable properties (id, colorIndex, radius, templateIndex)
 - **Motion Map:** `getItemMotion(id)` ger direkt access till `position[]` och `velocity[]` som muteras per frame utan React-rerenders
 
+### BalloonGroup som spawn-template
+
+`ItemSpawner` renderar valfria barn som templates. I dag används `BalloonGroup` som enda template:
+
+```tsx
+<ItemSpawner spawnMarkerRef={spawnMarkerRef} cullMarkerRef={cullMarkerRef}>
+  <BalloonGroup />
+</ItemSpawner>
+```
+
+`SpawnedItemView` klonar templaten och injicerar:
+- `color` — palett-index från spawner (randomiserat per item)
+- `onPopped` — callback som anropas när ballongen poppas av spelaren; kallar `addScore(SETTINGS.gameplay.balloons.scorePerPop)` + `unregisterEntity` + `removeItem`
+
+`BalloonGroup` hanterar sin egen presentation (SplineElement-sträng, BlockElement-tag, intern rotation via `TransformMotion`). `SpawnedItemView` lägger inte till extra decorationer.
+
+Cull-hantering görs av `ItemSpawner`'s `useFrame` — när ett item passerar `cullZ` anropas `loseLife()` och `removeItem`.
+
+---
+
+## BalloonGroup + BalloonLifecycleRuntime
+
+### BalloonGroup (`src/geometry/BalloonGroup.tsx`)
+
+`BalloonGroup` är en självständig ballong-komponent med LOD, pop-fysik och lifecycle-callbacks:
+
+```tsx
+<BalloonGroup
+  color={3}
+  detailLevel="high"
+  onPopped={() => addScore(1)}
+  onMissed={() => loseLife()}
+  onCleanupRequested={() => removeFromScene()}
+/>
+```
+
+| Prop | Typ | Beskrivning |
+|------|-----|-------------|
+| `color` | `MaterialColorIndex` | Palettindex för ballongens färg |
+| `detailLevel` | `'ultra'\|'high'\|'medium'\|'low'\|'veryLow'\|'minimal'` | LOD-nivå, mappar till Balloon32→Balloon12 |
+| `paused` | `boolean` | Stänger av intern TransformMotion-animation |
+| `onPopped` | `() => void` | Anropas när spelaren poppar ballongen (physics-trigger) |
+| `onMissed` | `() => void` | Anropas av `BalloonLifecycleRuntime` när ballongen passerar kamerans kant |
+| `onCleanupRequested` | `() => void` | Anropas när ballongen är helt utanför scenen och kan tas bort |
+| `popReleaseTuning` | `BalloonPopReleaseTuning` | Tuning av pop-impulse (`linearScale`, `spinBoost`, etc.) |
+
+`BalloonGroup` inkluderar sin egen SplineElement-sträng och BlockElement-tag — inga extra decorationer behöver läggas till av föräldrar.
+
+**Ballonmodeller:** `Balloon12` (minimal) → `Balloon16` → `Balloon20` → `Balloon24` → `Balloon28` → `Balloon32` (ultra). Filer i `src/assets/models/`.
+
+### BalloonLifecycleRuntime (`src/gameplay/BalloonLifecycleRuntime.tsx`)
+
+En provider-komponent som omsluter scenen och övervakar alla registrerade `BalloonGroup`-instanser:
+
+```tsx
+<BalloonLifecycleRuntime>
+  {/* alla BalloonGroup-instanser */}
+</BalloonLifecycleRuntime>
+```
+
+- Varje `BalloonGroup` registrerar sig via `useBalloonLifecycleRegistry()` och exponerar `getWorldXZ`, `isPopped`, `onMissed`, `onCleanupRequested`.
+- Per frame kontrolleras om balllongen passerat frustumets kant (`lifeMargin`) eller cull-marginal (`cleanupMargin`) — konfigureras i `SETTINGS.gameplay.balloons.sensors`.
+- Används **inte** för items som spawnas av `ItemSpawner` (dessa hanteras av spawnerens interna cull-logik).
+
 ---
 
 ## SplineElement
@@ -558,17 +651,36 @@ Renderar kurviga linjer med konstant pixelbredd:
 
 `TransformMotion.tsx` introducerar ett lätt motionsystem för scenobjekt:
 
-- `MotionSystemProvider` kör en central `useFrame`-uppdatering för alla registrerade motion-wrappers.
+- `MotionSystemProvider` kör en central `useFrame`-uppdatering för alla registrerade motion-wrappers. Pausas automatiskt när `isPlaying()` returnerar `false`.
 - `TransformMotion` används som wrapper runt valfri modell/mesh i `Scene.tsx`.
-- Stöd i steg 1:
+- Stöd:
   - Linjär hastighet per axel (`positionVelocity`, `rotationVelocity`, `scaleVelocity`)
   - `loopMode`: `none` | `loop` | `pingpong`
   - Per-axel range för loop/pingpong (`positionRange`, `rotationRange`, `scaleRange`)
+  - Per-axel easing (`positionEasing`, `rotationEasing`, `scaleEasing`)
+  - Per-axel rangeStart (normalized 0–1 start-progress)
 - Default-beteende:
   - Om `loopMode` utelämnas och `positionRange` är satt, används `loop`.
   - Om `loopMode` utelämnas och ingen `positionRange` finns, används `none`.
   - Explicit `loopMode` vinner alltid.
 - Viktigt: range tolkas i wrapperns lokala transform-rum (dvs oftast som offset runt wrapperns startvärde).
+
+### TransformMotionHandle
+
+`TransformMotion` exponerar ett imperative handle via `ref`:
+
+```tsx
+const motionRef = useRef<TransformMotionHandle | null>(null)
+// ...
+<TransformMotion ref={motionRef} positionVelocity={{ z: 0.2 }}>
+  ...
+</TransformMotion>
+// Läs snapshot utanför render-loopen:
+const snap = motionRef.current?.getVelocitySnapshot()
+// snap.linearVelocity, snap.angularVelocity
+```
+
+Används av `BalloonGroup` för att läsa av hastigheten vid pop och applicera korrekt física-impulse.
 
 Exempel:
 
@@ -859,7 +971,13 @@ src/
 ├── entities/
 │   └── entityStore.ts       # Centralt entity-register
 ├── game/
-│   └── gamePhaseStore.ts    # Spelloop-faser
+│   └── gamePhaseStore.ts    # Spelloop-faser (loading/playing/paused/gameOver)
+├── gameplay/
+│   ├── gameplayStore.ts         # Poäng, liv, gameOver, contagion-state
+│   ├── spawnerStore.ts          # Object pool + motion map för spawnade items
+│   ├── ItemSpawner.tsx          # Marker-baserad spawner (BalloonGroup som template)
+│   ├── BalloonLifecycleRuntime.tsx  # Frustum-baserad miss/cleanup-detektion
+│   └── ContagionRuntime.tsx     # Contagion-flush per frame
 ├── settings/
 │   ├── GameSettings.ts
 │   ├── GameSettings.types.ts
@@ -895,7 +1013,8 @@ src/
 │   ├── physicsTypes.ts
 │   └── PhysicsStepper.ts
 ├── geometry/
-│   └── align.ts
+│   ├── align.ts
+│   └── BalloonGroup.tsx         # LOD-ballong med pop-fysik och lifecycle-callbacks
 ├── render/
 │   ├── Materials.tsx
 │   ├── Lights.tsx
@@ -913,6 +1032,7 @@ src/
 │   └── GltfConverter.tsx
 ├── ui/
 │   ├── ControlCenter.tsx
+│   ├── ScoreHud.tsx             # Poäng + liv (hjärtan) + GAME OVER-text
 │   └── docs/
 │       ├── DocsPage.tsx
 │       └── DocsPage.css
@@ -924,4 +1044,4 @@ src/
 
 ---
 
-*Senast uppdaterad: 2026-02-24*
+*Senast uppdaterad: 2026-02-24 (merge: optimize + main balloon lifecycle system)*
