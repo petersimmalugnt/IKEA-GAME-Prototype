@@ -1,7 +1,12 @@
 import { useGameplayStore } from '@/gameplay/gameplayStore'
+import { SETTINGS } from '@/settings/GameSettings'
 
 export function ScoreHud() {
   const score = useGameplayStore((state) => state.score)
+  const lives = useGameplayStore((state) => state.lives)
+  const maxLives = SETTINGS.gameplay.lives.startingLives
+
+  const hearts = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, maxLives - lives))
 
   return (
     <div
@@ -18,9 +23,13 @@ export function ScoreHud() {
         fontFamily: 'Roboto Mono, monospace',
         fontSize: 14,
         lineHeight: 1,
+        display: 'flex',
+        gap: 8,
+        alignItems: 'center',
       }}
     >
-      {`Score: ${score}`}
+      <span>{`Score: ${score}`}</span>
+      <span>{hearts}</span>
     </div>
   )
 }

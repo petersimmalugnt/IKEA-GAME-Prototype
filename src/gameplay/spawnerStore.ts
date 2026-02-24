@@ -11,6 +11,7 @@ export type SpawnedItemDescriptor = {
 export type SpawnedItemMotion = {
   position: [number, number, number]
   velocity: [number, number, number]
+  passedCullLine: boolean
 }
 
 type PoolSlot = {
@@ -25,7 +26,7 @@ export function getItemMotion(id: string): SpawnedItemMotion | undefined {
 }
 
 export function setItemMotion(id: string, position: [number, number, number], velocity: [number, number, number]) {
-  itemMotion.set(id, { position, velocity })
+  itemMotion.set(id, { position, velocity, passedCullLine: false })
 }
 
 export function clearItemMotion(id: string) {

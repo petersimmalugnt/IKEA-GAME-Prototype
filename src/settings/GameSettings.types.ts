@@ -180,6 +180,10 @@ export type Settings = {
       enabled: boolean
       scorePerInfection: number
     }
+    lives: {
+      startingLives: number
+      autoReset: boolean
+    }
   }
   level: {
     defaultFile: string
@@ -204,5 +208,7 @@ export type Settings = {
     maxItems: number
     /** Half-width for random x offset along the spawn marker line */
     spawnXRange: number
+    /** Units past the cull line before the item is actually removed */
+    cullOffset: number
   }
 }

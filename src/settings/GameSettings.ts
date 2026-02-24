@@ -245,6 +245,10 @@ export const SETTINGS: Settings = {
       enabled: true,
       scorePerInfection: 1,
     },
+    lives: {
+      startingLives: 3,
+      autoReset: true,
+    },
   },
 
   // --- LEVEL LOADING ---
@@ -272,6 +276,7 @@ export const SETTINGS: Settings = {
     radius: 0,
     maxItems: 40,
     spawnXRange: 2.5,
+    cullOffset: 2,
   },
 };
 

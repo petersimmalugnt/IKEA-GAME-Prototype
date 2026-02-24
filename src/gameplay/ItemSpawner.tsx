@@ -1,5 +1,6 @@
 import { useEntityStore } from "@/entities/entityStore";
 import { isPlaying } from "@/game/gamePhaseStore";
+import { useGameplayStore } from "@/gameplay/gameplayStore";
 import {
   getItemMotion,
   useSpawnerStore,
@@ -178,7 +179,12 @@ export function ItemSpawner({
       motion.position[1] += motion.velocity[1] * delta;
       motion.position[2] += motion.velocity[2] * delta;
 
-      if (motion.position[2] > cullZ) {
+      if (!motion.passedCullLine && motion.position[2] > cullZ) {
+        motion.passedCullLine = true;
+        useGameplayStore.getState().loseLife();
+      }
+
+      if (motion.position[2] > cullZ + cfg.cullOffset) {
         unregisterEntity(item.id);
         removeItem(item.id);
         continue;

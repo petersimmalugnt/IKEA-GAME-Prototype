@@ -31,10 +31,12 @@ type PendingPair = {
 
 type GameplayState = {
   score: number
+  lives: number
   sequence: number
   contagionEpoch: number
   contagionColorsByEntityId: Record<string, number>
   reset: () => void
+  loseLife: () => void
   removeEntities: (ids: string[]) => void
   enqueueCollisionPair: (
     entityA: ContagionCollisionEntity | null | undefined,
@@ -91,6 +93,7 @@ let maps = createContagionMaps()
 
 export const useGameplayStore = create<GameplayState>((set) => ({
   score: 0,
+  lives: SETTINGS.gameplay.lives.startingLives,
   sequence: 0,
   contagionEpoch: 0,
   contagionColorsByEntityId: {},
@@ -99,9 +102,20 @@ export const useGameplayStore = create<GameplayState>((set) => ({
     maps = createContagionMaps()
     set({
       score: 0,
+      lives: SETTINGS.gameplay.lives.startingLives,
       sequence: 0,
       contagionEpoch: 0,
       contagionColorsByEntityId: {},
+    })
+  },
+
+  loseLife: () => {
+    set((state) => {
+      const next = state.lives - 1
+      if (next <= 0 && SETTINGS.gameplay.lives.autoReset) {
+        return { lives: SETTINGS.gameplay.lives.startingLives }
+      }
+      return { lives: Math.max(0, next) }
     })
   },
 

@@ -172,6 +172,21 @@ function syncLevaFromSettings() {
     'liveSync.url': SETTINGS.level.liveSync.url,
     'liveSync.reconnectMs': SETTINGS.level.liveSync.reconnectMs,
   })
+
+  setters['Gameplay']?.({
+    'lives.startingLives': SETTINGS.gameplay.lives.startingLives,
+    'lives.autoReset': SETTINGS.gameplay.lives.autoReset,
+  })
+
+  setters['Spawner']?.({
+    enabled: SETTINGS.spawner.enabled,
+    spawnIntervalMs: SETTINGS.spawner.spawnIntervalMs,
+    speed: SETTINGS.spawner.speed,
+    speedVariance: SETTINGS.spawner.speedVariance,
+    maxItems: SETTINGS.spawner.maxItems,
+    spawnXRange: SETTINGS.spawner.spawnXRange,
+    cullOffset: SETTINGS.spawner.cullOffset,
+  })
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -734,6 +749,56 @@ function useLevelControls() {
   useEffect(() => { registerSetter('Level', set) }, [set])
 }
 
+function useGameplayControls() {
+  const [, set] = useControls('Gameplay', () => ({
+    lives: folder({
+      startingLives: {
+        value: SETTINGS.gameplay.lives.startingLives, min: 1, max: 10, step: 1,
+        onChange: (v: number) => { SETTINGS.gameplay.lives.startingLives = v; bump() },
+      },
+      autoReset: {
+        value: SETTINGS.gameplay.lives.autoReset,
+        onChange: (v: boolean) => { SETTINGS.gameplay.lives.autoReset = v; bump() },
+      },
+    }),
+  }), { collapsed: true })
+  useEffect(() => { registerSetter('Gameplay', set) }, [set])
+}
+
+function useSpawnerControls() {
+  const [, set] = useControls('Spawner', () => ({
+    enabled: {
+      value: SETTINGS.spawner.enabled,
+      onChange: (v: boolean) => { SETTINGS.spawner.enabled = v; bump() },
+    },
+    spawnIntervalMs: {
+      value: SETTINGS.spawner.spawnIntervalMs, min: 100, max: 10000, step: 50,
+      onChange: (v: number) => { SETTINGS.spawner.spawnIntervalMs = v; bump() },
+    },
+    speed: {
+      value: SETTINGS.spawner.speed, min: 0, max: 5, step: 0.01,
+      onChange: (v: number) => { SETTINGS.spawner.speed = v; bump() },
+    },
+    speedVariance: {
+      value: SETTINGS.spawner.speedVariance, min: 0, max: 2, step: 0.01,
+      onChange: (v: number) => { SETTINGS.spawner.speedVariance = v; bump() },
+    },
+    maxItems: {
+      value: SETTINGS.spawner.maxItems, min: 1, max: 200, step: 1,
+      onChange: (v: number) => { SETTINGS.spawner.maxItems = v; bump() },
+    },
+    spawnXRange: {
+      value: SETTINGS.spawner.spawnXRange, min: 0, max: 10, step: 0.1,
+      onChange: (v: number) => { SETTINGS.spawner.spawnXRange = v; bump() },
+    },
+    cullOffset: {
+      value: SETTINGS.spawner.cullOffset, min: 0, max: 10, step: 0.1,
+      onChange: (v: number) => { SETTINGS.spawner.cullOffset = v; bump() },
+    },
+  }), { collapsed: true })
+  useEffect(() => { registerSetter('Spawner', set) }, [set])
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Preset controls
 // ═══════════════════════════════════════════════════════════════════════════
@@ -811,6 +876,8 @@ export function ControlCenter() {
   useLightControls()
   useMaterialControls()
   usePlayerControls()
+  useGameplayControls()
+  useSpawnerControls()
   useLevelControls()
   usePresetControls()
 
