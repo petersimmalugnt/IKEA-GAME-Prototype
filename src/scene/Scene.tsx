@@ -18,6 +18,9 @@ import { Stats } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { useRef } from "react";
+import { Balloon } from "@/assets/models/Balloon";
+import { Balloon2 } from "@/assets/models/Balloon2";
+import { Balloon3 } from "@/assets/models/Balloon3";
 
 export function Scene() {
   useSettingsVersion();
@@ -80,7 +83,69 @@ export function Scene() {
               rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }}
               rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}
             >
-              {/* <Balloon1 materialColor0={8} /> */}
+              <Balloon materialColor0={8} />
+              <SplineElement
+                points={[
+                  [0, -0.3, 0],
+                  [0, 0, 0],
+                ]}
+                segments={1}
+              />
+              <BlockElement
+                position={[0, -0.3, 0]}
+                sizePreset="sm"
+                heightPreset="sm"
+                color={2}
+                align={{ x: 50, y: 100, z: 50 }}
+                plane="z"
+              />
+            </TransformMotion>
+
+            <TransformMotion
+              position={[-0.5, 1.3, 0]}
+              positionVelocity={{ z: 0.2 }}
+              rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }}
+              rotationEasing={{
+                x: "easeInOutSine",
+                y: "linear",
+                z: "easeInOutSine",
+              }}
+              rotationLoopMode={{ x: "pingpong", y: "loop", z: "pingpong" }}
+              rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }}
+              rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}
+            >
+              <Balloon2 materialColor0={8} />
+              <SplineElement
+                points={[
+                  [0, -0.3, 0],
+                  [0, 0, 0],
+                ]}
+                segments={1}
+              />
+              <BlockElement
+                position={[0, -0.3, 0]}
+                sizePreset="sm"
+                heightPreset="sm"
+                color={2}
+                align={{ x: 50, y: 100, z: 50 }}
+                plane="z"
+              />
+            </TransformMotion>
+
+            <TransformMotion
+              position={[-1, 1.3, 0]}
+              positionVelocity={{ z: 0.2 }}
+              rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }}
+              rotationEasing={{
+                x: "easeInOutSine",
+                y: "linear",
+                z: "easeInOutSine",
+              }}
+              rotationLoopMode={{ x: "pingpong", y: "loop", z: "pingpong" }}
+              rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }}
+              rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}
+            >
+              <Balloon3 materialColor0={8} />
               <SplineElement
                 points={[
                   [0, -0.3, 0],
