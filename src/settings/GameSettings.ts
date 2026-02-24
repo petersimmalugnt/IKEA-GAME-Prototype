@@ -263,7 +263,7 @@ export const SETTINGS: Settings = {
     },
   },
 
-  // --- ITEM SPAWNER (FOV edges) ---
+  // --- ITEM SPAWNER (marker-based) ---
   spawner: {
     enabled: true,
     spawnIntervalMs: 1500,
@@ -271,9 +271,7 @@ export const SETTINGS: Settings = {
     speedVariance: 0.1,
     radius: 0,
     maxItems: 40,
-    spawnEdgeInset: 0.1,
-    spawnPadding: 0.2,
-    cullPadding: 0,
+    spawnXRange: 2.5,
   },
 };
 

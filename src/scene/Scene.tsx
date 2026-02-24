@@ -3,6 +3,7 @@ import { Balloon2 } from "@/assets/models/Balloon2";
 import { Balloon3 } from "@/assets/models/Balloon3";
 import { CameraSystemProvider } from "@/camera/CameraSystem";
 import { ContagionRuntime } from "@/gameplay/ContagionRuntime";
+import { ItemSpawner } from "@/gameplay/ItemSpawner";
 import { ExternalControlBridge } from "@/input/control/ExternalControlBridge";
 import { GameKeyboardControls } from "@/input/GameKeyboardControls";
 import { LevelTileManager } from "@/levels/LevelTileManager";
@@ -14,6 +15,7 @@ import { SplineElement } from "@/primitives/SplineElement";
 import { GameEffects } from "@/render/Effects";
 import { GameLights } from "@/render/Lights";
 import { type PlayerHandle } from "@/scene/Player";
+import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import { MotionSystemProvider, TransformMotion } from "@/scene/TransformMotion";
 import { SETTINGS } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
@@ -27,6 +29,8 @@ export function Scene() {
   useSettingsVersion();
   const playerRef = useRef<PlayerHandle | null>(null);
   const directionalLightRef = useRef<THREE.DirectionalLight | null>(null);
+  const spawnMarkerRef = useRef<PositionTargetHandle | null>(null);
+  const cullMarkerRef = useRef<PositionTargetHandle | null>(null);
   const isDebug = SETTINGS.debug.enabled;
 
   // Calculate the diagonal of the viewport to ensure the floor covers the entire screen
@@ -63,11 +67,13 @@ export function Scene() {
               {/* Diagonal positions blocks */}
               {/* Create */}
               <CubeElement
+                ref={spawnMarkerRef}
                 position={[0, 0.0125, -diagonalRadius]}
                 size={[5, 0.025, 0.025]}
               />
               {/* Cull */}
               <CubeElement
+                ref={cullMarkerRef}
                 position={[0, 0.0125, diagonalRadius]}
                 size={[5, 0.025, 0.025]}
               />
@@ -171,11 +177,15 @@ export function Scene() {
             {/* ENDLESS TILED LEVELS */}
             <LevelTileManager />
 
-            {/* <ItemSpawner> */}
-            {/* <BallBalloon animation="moving" />
-              <BrickBalloon animation="moving" /> */}
-            {/* <BlockElement /> */}
-            {/* </ItemSpawner> */}
+            {/* ITEM SPAWNER */}
+            <ItemSpawner
+              spawnMarkerRef={spawnMarkerRef}
+              cullMarkerRef={cullMarkerRef}
+            >
+              <Balloon />
+              <Balloon2 />
+              <Balloon3 />
+            </ItemSpawner>
 
             {/* LEVEL FROM STORE (file or live sync) */}
             {/* <LevelRenderer /> */}

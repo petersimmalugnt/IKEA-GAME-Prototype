@@ -202,10 +202,7 @@ export type Settings = {
     speedVariance: number
     radius: number
     maxItems: number
-    spawnEdgeInset: number
-    /** World units to push spawn points outward from FOV so items spawn clearly outside view */
-    spawnPadding: number
-    /** World units past the left/bottom edge before culling so items are culled only when no longer visible */
-    cullPadding: number
+    /** Half-width for random x offset along the spawn marker line */
+    spawnXRange: number
   }
 }

@@ -479,6 +479,38 @@ useFrame(() => {
 
 `src/gameplay/spawnerStore.ts` + `src/gameplay/ItemSpawner.tsx` hanterar spawning av dynamiska objekt.
 
+### Marker-baserad spawn/cull
+
+Istället för att projicera kamerans frustum varje frame (NDC unproject + ray-plane + half-plane-test per item) används två `CubeElement`-markörer i `Scene.tsx` som rör sig med kameran via `TransformMotion`:
+
+- **Create-markör** (`z = -diagonalRadius`) — spawn-position framför kameran
+- **Cull-markör** (`z = +diagonalRadius`) — cull-gräns bakom kameran
+
+`ItemSpawner` tar emot refs (`PositionTargetHandle`) till båda markörerna. Per frame läses deras world-position (2× `getWorldPosition`), items spawnas vid create-markörens z med slumpad x inom `spawnXRange`, och culling sker med en enda float-jämförelse per item (`itemZ > cullZ`).
+
+Markörerna behöver inte vara kuber — vilken komponent som helst som exponerar `PositionTargetHandle` (`CubeElement`, `BlockElement`, `SphereElement` etc.) fungerar. Byt till `hidden` BlockElement eller annan mesh utan att ändra ItemSpawner.
+
+### Centraliserad single-loop arkitektur
+
+All per-frame-logik körs i **en enda `useFrame`** i `ItemSpawner` istället för separata hooks per item:
+
+```
+useFrame:
+  1. Läs 2 markörpositioner (2× getWorldPosition)
+  2. Spawn-check (timer-gatad, körs sällan)
+  3. FÖR varje aktivt item:
+     a. position += velocity × delta   (3 FLOPs)
+     b. if itemZ > cullZ → remove      (1 jämförelse)
+     c. group.position.set(...)         (1 anrop, ingen allokering)
+```
+
+`SpawnedItemView` registrerar sin `THREE.Group` i en delad `Map` via callback-ref och är en ren renderkomponent utan egna `useFrame`-hooks.
+
+**Varför per-frame, inte heartbeat/tick:**
+- Aritmetikkostnaden är försumbar (~240 FLOPs för 40 items)
+- Ballonger som flyter med egen hastighet kräver smooth per-frame-interpolation — en 10Hz-tick ger synligt hackande
+- Den verkliga vinsten kommer från att konsolidera 40+1 useFrame-hooks till 1 (minskar R3F-subscription-overhead + bättre cache-locality)
+
 ### Object Pool
 
 Spawner-storen använder en pre-allokerad pool (storlek från `SETTINGS.spawner.maxItems`) istället för dynamiska array-operationer:
