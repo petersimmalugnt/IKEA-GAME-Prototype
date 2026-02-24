@@ -70,7 +70,7 @@ export function Scene() {
               /> */}
 
               {/* CAMERA TRACKER */}
-              <TransformMotion positionVelocity={{ z: -0.5 }}>
+              <TransformMotion positionVelocity={{ z: -0.4 }}>
                 {/* Spawn marker */}
                 <CubeElement
                   ref={spawnMarkerRef}
@@ -94,8 +94,10 @@ export function Scene() {
                 spawnMarkerRef={spawnMarkerRef}
                 cullMarkerRef={cullMarkerRef}
               >
-                <BalloonGroup />
+                <BalloonGroup position={[0, 1.3, 0]} />
               </ItemSpawner>
+
+
 
               {/* LEVEL FROM STORE (file or live sync) */}
               {/* <LevelRenderer /> */}
