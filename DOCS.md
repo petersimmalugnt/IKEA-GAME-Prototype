@@ -51,7 +51,7 @@ graph TD
 | `src/settings/GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `src/settings/GameSettings.types.ts` | Delade typer + options-unions för settings/core-konfig |
 | `src/scene/Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
-| `src/scene/TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för linjär rörelse av position/rotation/scale |
+| `src/scene/TransformMotion.tsx` | Centralt motion-system + wrapper (`TransformMotion`) för velocity/range/easing + random-amplitud och `timeScale` |
 | `src/scene/GridCloner.tsx` | Grid-baserad cloner för att duplicera valfria scenelement med valfri cloner-fysik |
 | `src/input/GameKeyboardControls.tsx` | Input-wrapper med gemensam keymap för spelkontroller |
 | `src/scene/Player.tsx` | Spelarbol med physics/kinematik, input via keyboard/external pipeline, hopp (raycast i digitalt läge) |
@@ -72,7 +72,7 @@ graph TD
 | `src/entities/entityStore.ts` | Centralt entity-register med `register`/`unregister`/`getEntitiesByType`, auto-cleanup av contagion-state |
 | `src/game/gamePhaseStore.ts` | Spelloop-faser (`loading`/`playing`/`paused`/`gameOver`), gatar input/physics/motion |
 | `src/geometry/BalloonGroup.tsx` | LOD-ballong-komponent med pop-fysik, lifecycle-callbacks och detaljnivåer (`ultra`→`minimal`) |
-| `src/gameplay/BalloonLifecycleRuntime.tsx` | Frustum-baserad miss-detektion via registry-pattern — kallar `onMissed`/`onCleanupRequested` på registrerade ballonger |
+| `src/gameplay/BalloonLifecycleRuntime.tsx` | Frustum-baserad miss-detektion via registry-pattern — kallar `onMissed` på opoppade registrerade ballonger |
 | `src/render/Lights.tsx` | DirectionalLight med shadow-konfiguration, accepterar extern `lightRef` |
 | `src/camera/CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow via ref |
 | `src/render/Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
@@ -510,68 +510,58 @@ useFrame(() => {
 
 ### Marker-baserad spawn/cull
 
-Istället för att projicera kamerans frustum varje frame (NDC unproject + ray-plane + half-plane-test per item) används två `CubeElement`-markörer i `Scene.tsx` som rör sig med kameran via `TransformMotion`:
+Två markörer i `Scene.tsx` används som referenser:
 
-- **Create-markör** (`z = -diagonalRadius`) — spawn-position framför kameran
-- **Cull-markör** (`z = +diagonalRadius`) — cull-gräns bakom kameran
+| Markör | Källa | Roll |
+|---|---|---|
+| Spawn marker | `spawnMarkerRef` | Spawn-z framför kameran |
+| Cull marker | `cullMarkerRef` | Cull-z bakom kameran |
 
-`ItemSpawner` tar emot refs (`PositionTargetHandle`) till båda markörerna. Per frame läses deras world-position (2× `getWorldPosition`), items spawnas vid create-markörens z med slumpad x inom `spawnXRange`, och culling sker med en enda float-jämförelse per item (`itemZ > cullZ`).
+`ItemSpawner` läser markörerna varje frame och kör spawn/cull i en enda `useFrame`.
 
-Markörerna behöver inte vara kuber — vilken komponent som helst som exponerar `PositionTargetHandle` (`CubeElement`, `BlockElement`, `SphereElement` etc.) fungerar. Byt till `hidden` BlockElement eller annan mesh utan att ändra ItemSpawner.
+### Runtimeflöde i `ItemSpawner`
 
-### Centraliserad single-loop arkitektur
+| Steg | Beteende |
+|---|---|
+| Spawn timer | Ackumulerar `delta` när `isPlaying()` |
+| Spawn | När intervall passeras och poolen har plats: skapar id, väljer template-index, sätter position `[spawnX + randomOffset, 1.3, spawnZ]`, `addItem` + `registerEntity` |
+| Cull | Läser `cullZ = markerZ + SETTINGS.spawner.cullOffset`; tar bort item när registrerad getter returnerar `z > cullZ` |
+| Remove | `unregisterEntity` + `removeItem` (ingen life-loss i spawnern) |
 
-All per-frame-logik körs i **en enda `useFrame`** i `ItemSpawner` istället för separata hooks per item:
+### Template-injektion (`SpawnedItemView`)
 
-```
-useFrame:
-  1. Läs 2 markörpositioner (2× getWorldPosition)
-  2. Spawn-check (timer-gatad, körs sällan)
-  3. FÖR varje aktivt item:
-     a. position += velocity × delta   (3 FLOPs)
-     b. if itemZ > cullZ → remove      (1 jämförelse)
-     c. group.position.set(...)         (1 anrop, ingen allokering)
-```
+`SpawnedItemView` klonar varje template och injicerar endast:
 
-`SpawnedItemView` registrerar sin `THREE.Group` i en delad `Map` via callback-ref och är en ren renderkomponent utan egna `useFrame`-hooks.
+| Injected prop | Funktion |
+|---|---|
+| `position` | Startposition från `SpawnedItemDescriptor` |
+| `onRegisterCullZ` | Callback där templaten registrerar getter för aktuellt world-z |
 
-**Varför per-frame, inte heartbeat/tick:**
-- Aritmetikkostnaden är försumbar (~240 FLOPs för 40 items)
-- Ballonger som flyter med egen hastighet kräver smooth per-frame-interpolation — en 10Hz-tick ger synligt hackande
-- Den verkliga vinsten kommer från att konsolidera 40+1 useFrame-hooks till 1 (minskar R3F-subscription-overhead + bättre cache-locality)
-
-### Object Pool
-
-Spawner-storen använder en pre-allokerad pool (storlek från `SETTINGS.spawner.maxItems`) istället för dynamiska array-operationer:
-
-- `addItem` hittar första inaktiva sloten och aktiverar den
-- `removeItem` markerar sloten som inaktiv
-- Eliminerar array spread/filter-allokeringar varje spawn/cull-cykel
-
-### Separerad mutable data
-
-Positions- och hastighetsdata lagras i en modul-level `Map` (utanför Zustand-storen) för att undvika immutability-overhead:
-
-- **Store:** Spårar enbart lifecycle (aktiv/inaktiv) och immutable properties (id, colorIndex, radius, templateIndex)
-- **Motion Map:** `getItemMotion(id)` ger direkt access till `position[]` och `velocity[]` som muteras per frame utan React-rerenders
-
-### BalloonGroup som spawn-template
-
-`ItemSpawner` renderar valfria barn som templates. I dag används `BalloonGroup` som enda template:
+I nuvarande setup använder `Scene.tsx`:
 
 ```tsx
 <ItemSpawner spawnMarkerRef={spawnMarkerRef} cullMarkerRef={cullMarkerRef}>
-  <BalloonGroup />
+  <BalloonGroup randomize position={[0, 2.3, 0]} />
 </ItemSpawner>
 ```
 
-`SpawnedItemView` klonar templaten och injicerar:
-- `color` — palett-index från spawner (randomiserat per item)
-- `onPopped` — callback som anropas när ballongen poppas av spelaren; kallar `addScore(SETTINGS.gameplay.balloons.scorePerPop)` + `unregisterEntity` + `removeItem`
+Det är alltså templaten (`BalloonGroup`/`TransformMotion`) som driver rörelsen efter spawn.
 
-`BalloonGroup` hanterar sin egen presentation (SplineElement-sträng, BlockElement-tag, intern rotation via `TransformMotion`). `SpawnedItemView` lägger inte till extra decorationer.
+### `spawnerStore` (object pool)
 
-Cull-hantering görs av `ItemSpawner`'s `useFrame` — när ett item passerar `cullZ` anropas `loseLife()` och `removeItem`.
+| Del | Beskrivning |
+|---|---|
+| `pool` | Preallokerad array med `active` + `descriptor` |
+| `descriptor` | `id`, `radius`, `templateIndex`, `position` |
+| `addItem` | Aktiverar första lediga slot |
+| `removeItem` | Markerar slot inaktiv |
+| `items` | Deriverad lista av aktiva descriptors |
+
+Korrektionsnotering: tidigare dokumenterad “motion map” finns inte i nuvarande implementation.
+
+### Notering om settings
+
+`SETTINGS.spawner.speed` och `speedVariance` finns kvar i settings/UI men används inte av `ItemSpawner`-koden just nu.
 
 ---
 
@@ -579,31 +569,43 @@ Cull-hantering görs av `ItemSpawner`'s `useFrame` — när ett item passerar `c
 
 ### BalloonGroup (`src/geometry/BalloonGroup.tsx`)
 
-`BalloonGroup` är en självständig ballong-komponent med LOD, pop-fysik och lifecycle-callbacks:
+`BalloonGroup` är en självständig ballong-komponent med LOD, pop-fysik och intern motion-wrapper.
 
 ```tsx
 <BalloonGroup
   color={3}
+  randomize
   detailLevel="high"
   onPopped={() => addScore(1)}
   onMissed={() => loseLife()}
-  onCleanupRequested={() => removeFromScene()}
 />
 ```
 
 | Prop | Typ | Beskrivning |
 |------|-----|-------------|
 | `color` | `MaterialColorIndex` | Palettindex för ballongens färg |
+| `randomize` | `boolean` | Slumpar färg (med exkluderade index) samt motion-parametrar i `TransformMotion` |
 | `detailLevel` | `'ultra'\|'high'\|'medium'\|'low'\|'veryLow'\|'minimal'` | LOD-nivå, mappar till Balloon32→Balloon12 |
 | `paused` | `boolean` | Stänger av intern TransformMotion-animation |
 | `onPopped` | `() => void` | Anropas när spelaren poppar ballongen (physics-trigger) |
 | `onMissed` | `() => void` | Anropas av `BalloonLifecycleRuntime` när ballongen passerar kamerans kant |
-| `onCleanupRequested` | `() => void` | Anropas när ballongen är helt utanför scenen och kan tas bort |
+| `onRegisterCullZ` | `(getter) => unregister` | Används av `ItemSpawner` för cull-registrering |
 | `popReleaseTuning` | `BalloonPopReleaseTuning` | Tuning av pop-impulse (`linearScale`, `spinBoost`, etc.) |
 
 `BalloonGroup` inkluderar sin egen SplineElement-sträng och BlockElement-tag — inga extra decorationer behöver läggas till av föräldrar.
 
+**Randomize (nuvarande defaults i komponenten):**
+
+| Setting | Värde |
+|---|---|
+| Exkluderade färgindex | `[0, 1, 2, 3]` |
+| `positionVelocity.z` | `base=0.5`, `randomAmplitude=0.2` |
+| `rotationOffset` | `base=0`, `randomAmplitude=2.0` |
+| `timeScale` | `1.5` |
+
 **Ballonmodeller:** `Balloon12` (minimal) → `Balloon16` → `Balloon20` → `Balloon24` → `Balloon28` → `Balloon32` (ultra). Filer i `src/assets/models/`.
+
+Notering: propen `onCleanupRequested` finns kvar i typen men används inte i nuvarande runtime-path.
 
 ### BalloonLifecycleRuntime (`src/gameplay/BalloonLifecycleRuntime.tsx`)
 
@@ -615,9 +617,25 @@ En provider-komponent som omsluter scenen och övervakar alla registrerade `Ball
 </BalloonLifecycleRuntime>
 ```
 
-- Varje `BalloonGroup` registrerar sig via `useBalloonLifecycleRegistry()` och exponerar `getWorldXZ`, `isPopped`, `onMissed`, `onCleanupRequested`.
-- Per frame kontrolleras om balllongen passerat frustumets kant (`lifeMargin`) eller cull-marginal (`cleanupMargin`) — konfigureras i `SETTINGS.gameplay.balloons.sensors`.
-- Används **inte** för items som spawnas av `ItemSpawner` (dessa hanteras av spawnerens interna cull-logik).
+Registry-target i nuvarande implementation:
+
+| Fält | Typ | Roll |
+|---|---|---|
+| `getWorldXZ` | `() => {x,z} \| undefined` | Position på golvplanet |
+| `isPopped` | `() => boolean` | Skippar miss-check för poppade ballonger |
+| `onMissed` | `() => void` | Callback när miss registreras |
+
+Per frame:
+
+| Kontroll | Källa |
+|---|---|
+| Frustum-korsning (vänster/botten) | `getFrustumCornersOnFloor` + `isPastLeftEdge`/`isPastBottomEdge` |
+| Marginal | `SETTINGS.gameplay.balloons.sensors.lifeMargin` |
+| Life-förlust | `SETTINGS.gameplay.lives.lossPerMiss` |
+
+`cleanupMargin` används inte i `BalloonLifecycleRuntime` i nuvarande kod.
+
+Används **inte** för items som spawnas av `ItemSpawner` (de cullas via `onRegisterCullZ` i spawnern).
 
 ---
 
@@ -649,21 +667,60 @@ Renderar kurviga linjer med konstant pixelbredd:
 
 ## TransformMotion
 
-`TransformMotion.tsx` introducerar ett lätt motionsystem för scenobjekt:
+`TransformMotion.tsx` innehåller både runtime-systemet (`MotionSystemProvider`) och wrapper-komponenten (`TransformMotion`).
 
-- `MotionSystemProvider` kör en central `useFrame`-uppdatering för alla registrerade motion-wrappers. Pausas automatiskt när `isPlaying()` returnerar `false`.
-- `TransformMotion` används som wrapper runt valfri modell/mesh i `Scene.tsx`.
-- Stöd:
-  - Linjär hastighet per axel (`positionVelocity`, `rotationVelocity`, `scaleVelocity`)
-  - `loopMode`: `none` | `loop` | `pingpong`
-  - Per-axel range för loop/pingpong (`positionRange`, `rotationRange`, `scaleRange`)
-  - Per-axel easing (`positionEasing`, `rotationEasing`, `scaleEasing`)
-  - Per-axel rangeStart (normalized 0–1 start-progress)
-- Default-beteende:
-  - Om `loopMode` utelämnas och `positionRange` är satt, används `loop`.
-  - Om `loopMode` utelämnas och ingen `positionRange` finns, används `none`.
-  - Explicit `loopMode` vinner alltid.
-- Viktigt: range tolkas i wrapperns lokala transform-rum (dvs oftast som offset runt wrapperns startvärde).
+### Runtimeöversikt
+
+| Del | Ansvar |
+|---|---|
+| `MotionSystemProvider` | Central `useFrame`-loop för alla registrerade tracks |
+| Delta-skalning | `scaledDelta = delta * timeScale` per track |
+| Pause-gate | Uppdaterar bara när `isPlaying()` och track inte är `paused` |
+| Snapshot | `getVelocitySnapshot()` returnerar world-space linear/angular velocity |
+
+### Globala props
+
+| Prop | Typ | Semantik |
+|---|---|---|
+| `loopMode` | `'none' \| 'loop' \| 'pingpong'` | Default avgörs av `positionRange` (range => `loop`, annars `none`) |
+| `easing` | `EasingName` | Default `linear` |
+| `offset` | `number` | Tids-offset i sekunder vid init |
+| `randomOffset` | `number` | Additiv amplitud kring `offset`, sample en gång vid mount |
+| `rangeStart` | `number` | Init-progress `0..1` för range-baserad motion |
+| `timeScale` | `number` | Global hastighetsmultiplikator, clamp `>= 0` |
+| `randomTimeScale` | `number` | Additiv amplitud kring `timeScale`, sample en gång; ignoreras om `timeScale` inte är explicit satt |
+| `paused` | `boolean` | Track avregistreras från motion-loopen |
+
+### Kanalprops (position/rotation/scale)
+
+| Grupp | Props |
+|---|---|
+| Velocity | `positionVelocity`, `rotationVelocity` (grader/s), `scaleVelocity` |
+| Velocity-random | `randomPositionVelocity`, `randomRotationVelocity`, `randomScaleVelocity` |
+| Range | `positionRange`, `rotationRange`, `scaleRange` |
+| Loop override | `positionLoopMode`, `rotationLoopMode`, `scaleLoopMode` |
+| Easing override | `positionEasing`, `rotationEasing`, `scaleEasing` |
+| Offset override | `positionOffset`, `rotationOffset`, `scaleOffset` |
+| Offset-random | `randomPositionOffset`, `randomRotationOffset`, `randomScaleOffset` |
+| Range-start override | `positionRangeStart`, `rotationRangeStart`, `scaleRangeStart` |
+
+### Random-regler
+
+| Regel | Beteende |
+|---|---|
+| Sampling | Alla random-deltas sampleas en gång per instans (`useRef`) |
+| Formel | `final = base + uniform(-amplitude, +amplitude)` |
+| Velocity (objektform) | Random appliceras bara på explicit satta axlar |
+| Offset override (objektform) | Random appliceras bara på explicit satta axlar |
+| `randomTimeScale` | Aktiv endast om `timeScale` är explicit satt |
+
+### Viktiga enheter
+
+| Kanal | Enhet i prop |
+|---|---|
+| `positionVelocity` | units/sekund |
+| `rotationVelocity` | grader/sekund (konverteras internt till radianer) |
+| `scaleVelocity` | scale-units/sekund |
 
 ### TransformMotionHandle
 
@@ -680,7 +737,7 @@ const snap = motionRef.current?.getVelocitySnapshot()
 // snap.linearVelocity, snap.angularVelocity
 ```
 
-Används av `BalloonGroup` för att läsa av hastigheten vid pop och applicera korrekt física-impulse.
+Används bl.a. av `BalloonGroup` för att läsa av hastighet vid pop och applicera release-impuls i rätt riktning/hastighet.
 
 Exempel:
 
@@ -688,13 +745,15 @@ Exempel:
 <TransformMotion
   positionVelocity={{ z: 0.2 }}
   positionRange={{ z: [-4.8, -3.2] }}
+  timeScale={1}
+  randomTimeScale={0.2}
   loopMode="pingpong"
 >
   <BallBalloon position={[0, 0.5, -4]} animation="moving" />
 </TransformMotion>
 ```
 
-Detta håller modellkomponenterna "dumma" (render-only), men ger enkel authoring i scenen med central uppdatering för bättre skalning.
+Detta håller modellkomponenter render-fokuserade och centraliserar tidsdriven transformlogik i en gemensam loop.
 
 ---
 
@@ -974,9 +1033,9 @@ src/
 │   └── gamePhaseStore.ts    # Spelloop-faser (loading/playing/paused/gameOver)
 ├── gameplay/
 │   ├── gameplayStore.ts         # Poäng, liv, gameOver, contagion-state
-│   ├── spawnerStore.ts          # Object pool + motion map för spawnade items
+│   ├── spawnerStore.ts          # Object pool + descriptors för spawnade items
 │   ├── ItemSpawner.tsx          # Marker-baserad spawner (BalloonGroup som template)
-│   ├── BalloonLifecycleRuntime.tsx  # Frustum-baserad miss/cleanup-detektion
+│   ├── BalloonLifecycleRuntime.tsx  # Frustum-baserad miss-detektion
 │   └── ContagionRuntime.tsx     # Contagion-flush per frame
 ├── settings/
 │   ├── GameSettings.ts
