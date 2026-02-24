@@ -5,7 +5,10 @@ import {
   useSpawnerStore,
   type SpawnedItemDescriptor,
 } from "@/gameplay/spawnerStore";
+import { BlockElement } from "@/primitives/BlockElement";
+import { SplineElement } from "@/primitives/SplineElement";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
+import { TransformMotion } from "@/scene/TransformMotion";
 import {
   getActivePalette,
   resolveMaterialColorIndex,
@@ -24,6 +27,8 @@ import {
 } from "react";
 import * as THREE from "three";
 
+const SPAWN_HEIGHT = 1.3;
+
 function SpawnedItemView({
   item,
   templates,
@@ -40,13 +45,43 @@ function SpawnedItemView({
     [item.id, onGroupRef],
   );
 
+  const rangeStart = useMemo(
+    () => ({ x: Math.random(), y: Math.random(), z: Math.random() }),
+    [],
+  );
+
   return (
     <group ref={refCallback}>
-      {cloneElement(template as ReactElement<Record<string, unknown>>, {
-        color: item.colorIndex,
-        materialColor0: item.colorIndex,
-        materialColor1: item.colorIndex,
-      })}
+      <TransformMotion
+        rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }}
+        rotationEasing={{
+          x: "easeInOutSine",
+          y: "linear",
+          z: "easeInOutSine",
+        }}
+        rotationLoopMode={{ x: "pingpong", y: "loop", z: "pingpong" }}
+        rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }}
+        rotationRangeStart={rangeStart}
+      >
+        {cloneElement(template as ReactElement<Record<string, unknown>>, {
+          materialColor0: item.colorIndex,
+        })}
+        <SplineElement
+          points={[
+            [0, -0.3, 0],
+            [0, 0, 0],
+          ]}
+          segments={1}
+        />
+        <BlockElement
+          position={[0, -0.3, 0]}
+          sizePreset="sm"
+          heightPreset="sm"
+          color={item.colorIndex}
+          align={{ x: 50, y: 100, z: 50 }}
+          plane="z"
+        />
+      </TransformMotion>
     </group>
   );
 }
@@ -125,7 +160,7 @@ export function ItemSpawner({
           radius: cfg.radius,
           templateIndex: Math.floor(Math.random() * templates.length),
         },
-        [spawnPos.x + xOffset, 0.6, spawnPos.z],
+        [spawnPos.x + xOffset, SPAWN_HEIGHT, spawnPos.z],
         [0, 0, speed],
       );
       registerEntity(itemId, "spawned_item");
