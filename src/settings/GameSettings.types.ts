@@ -184,6 +184,7 @@ export type Settings = {
       initial: number
       lossPerMiss: number
       lockScoreOnGameOver: boolean
+      autoReset: boolean
     }
     balloons: {
       scorePerPop: number

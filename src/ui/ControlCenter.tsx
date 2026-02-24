@@ -176,6 +176,7 @@ function syncLevaFromSettings() {
   setters['Gameplay']?.({
     'lives.initial': SETTINGS.gameplay.lives.initial,
     'lives.lockScoreOnGameOver': SETTINGS.gameplay.lives.lockScoreOnGameOver,
+    'lives.autoReset': SETTINGS.gameplay.lives.autoReset,
   })
 
   setters['Spawner']?.({
@@ -759,6 +760,10 @@ function useGameplayControls() {
       lockScoreOnGameOver: {
         value: SETTINGS.gameplay.lives.lockScoreOnGameOver,
         onChange: (v: boolean) => { SETTINGS.gameplay.lives.lockScoreOnGameOver = v; bump() },
+      },
+      autoReset: {
+        value: SETTINGS.gameplay.lives.autoReset,
+        onChange: (v: boolean) => { SETTINGS.gameplay.lives.autoReset = v; bump() },
       },
     }),
   }), { collapsed: true })

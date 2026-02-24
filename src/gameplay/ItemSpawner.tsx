@@ -1,6 +1,5 @@
 import { useEntityStore } from "@/entities/entityStore";
 import { isPlaying } from "@/game/gamePhaseStore";
-import { useGameplayStore } from "@/gameplay/gameplayStore";
 import {
   getItemMotion,
   useSpawnerStore,
@@ -12,6 +11,7 @@ import {
   resolveMaterialColorIndex,
   SETTINGS,
 } from "@/settings/GameSettings";
+import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { useFrame } from "@react-three/fiber";
 import {
   Children,
@@ -44,9 +44,17 @@ function SpawnedItemView({
   );
 
   const onPopped = useCallback(() => {
-    useGameplayStore
-      .getState()
-      .addScore(SETTINGS.gameplay.balloons.scorePerPop);
+    // BalloonGroup already called addScore internally — don't score again here.
+    // Freeze motion so the item won't trigger loseLife or get auto-culled
+    // while the pop physics animation plays out.
+    const motion = getItemMotion(item.id);
+    if (motion) {
+      motion.passedCullLine = true;
+      motion.popped = true;
+    }
+  }, [item.id]);
+
+  const onCleanupRequested = useCallback(() => {
     useEntityStore.getState().unregister(item.id);
     useSpawnerStore.getState().removeItem(item.id);
   }, [item.id]);
@@ -56,6 +64,7 @@ function SpawnedItemView({
       {cloneElement(template as ReactElement<Record<string, unknown>>, {
         color: item.colorIndex,
         onPopped,
+        onCleanupRequested,
       })}
     </group>
   );
@@ -158,7 +167,7 @@ export function ItemSpawner({
         useGameplayStore.getState().loseLife();
       }
 
-      if (motion.position[2] > cullZ + cfg.cullOffset) {
+      if (motion.position[2] > cullZ + cfg.cullOffset && !motion.popped) {
         unregisterEntity(item.id);
         removeItem(item.id);
         continue;

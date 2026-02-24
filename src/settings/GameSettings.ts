@@ -249,6 +249,7 @@ export const SETTINGS: Settings = {
       initial: 5,
       lossPerMiss: 1,
       lockScoreOnGameOver: true,
+      autoReset: true,
     },
     balloons: {
       scorePerPop: 1,

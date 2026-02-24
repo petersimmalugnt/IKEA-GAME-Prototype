@@ -147,6 +147,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     set((state) => {
       if (state.gameOver) return state
       const nextLives = Math.max(0, state.lives - normalizedDelta)
+      if (nextLives <= 0 && SETTINGS.gameplay.lives.autoReset) {
+        return { ...state, lives: getInitialLives() }
+      }
       return {
         ...state,
         lives: nextLives,
