@@ -1,8 +1,11 @@
-import * as THREE from "three";
+import { Balloon } from "@/assets/models/Balloon";
+import { Balloon2 } from "@/assets/models/Balloon2";
+import { Balloon3 } from "@/assets/models/Balloon3";
 import { CameraSystemProvider } from "@/camera/CameraSystem";
 import { ContagionRuntime } from "@/gameplay/ContagionRuntime";
 import { ExternalControlBridge } from "@/input/control/ExternalControlBridge";
 import { GameKeyboardControls } from "@/input/GameKeyboardControls";
+import { LevelTileManager } from "@/levels/LevelTileManager";
 import { LiveLevelSync } from "@/LiveLevelSync";
 import { BlockElement } from "@/primitives/BlockElement";
 import { CubeElement } from "@/primitives/CubeElement";
@@ -18,9 +21,7 @@ import { Stats } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { useRef } from "react";
-import { Balloon } from "@/assets/models/Balloon";
-import { Balloon2 } from "@/assets/models/Balloon2";
-import { Balloon3 } from "@/assets/models/Balloon3";
+import * as THREE from "three";
 
 export function Scene() {
   useSettingsVersion();
@@ -30,7 +31,7 @@ export function Scene() {
 
   // Calculate the diagonal of the viewport to ensure the floor covers the entire screen
   const { viewport } = useThree();
-  const diaginalRadiusOffset = 0.5;
+  const diaginalRadiusOffset = -0.5;
   const diagonalRadius =
     Math.hypot(viewport.height, viewport.width) / 2 + diaginalRadiusOffset;
 
@@ -45,7 +46,10 @@ export function Scene() {
         <ContagionRuntime />
         <GameEffects />
         <GameLights lightRef={directionalLightRef} />
-        <CameraSystemProvider playerRef={playerRef} directionalLightRef={directionalLightRef}>
+        <CameraSystemProvider
+          playerRef={playerRef}
+          directionalLightRef={directionalLightRef}
+        >
           <MotionSystemProvider>
             {/* SPELAREN */}
             {/* <Player
@@ -54,18 +58,19 @@ export function Scene() {
               position={[-1.4, 0.4, 0.4]}
             /> */}
 
-            {/* Diagonal positions blocks */}
-            <CubeElement
-              position={[0, 0.0125, -diagonalRadius]}
-              size={[5, 0.025, 0.025]}
-            />
-            <CubeElement
-              position={[0, 0.0125, diagonalRadius]}
-              size={[5, 0.025, 0.025]}
-            />
-
             {/* CAMERA TRACKER */}
             <TransformMotion positionVelocity={{ z: -0.5 }}>
+              {/* Diagonal positions blocks */}
+              {/* Create */}
+              <CubeElement
+                position={[0, 0.0125, -diagonalRadius]}
+                size={[5, 0.025, 0.025]}
+              />
+              {/* Cull */}
+              <CubeElement
+                position={[0, 0.0125, diagonalRadius]}
+                size={[5, 0.025, 0.025]}
+              />
               <BlockElement ref={playerRef} hidden />
             </TransformMotion>
 
@@ -164,7 +169,7 @@ export function Scene() {
             </TransformMotion>
 
             {/* ENDLESS TILED LEVELS */}
-            {/* <LevelTileManager /> */}
+            <LevelTileManager />
 
             {/* <ItemSpawner> */}
             {/* <BallBalloon animation="moving" />
