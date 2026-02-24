@@ -15,9 +15,18 @@ const _intersection = new THREE.Vector3()
 /** Floor plane Y level used for intersection */
 const FLOOR_Y = 0
 
+const _cornersOutput: THREE.Vector3[] = [
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+  new THREE.Vector3(),
+]
+
 /**
  * Projects the orthographic camera's frustum corners onto the floor plane (y=0).
- * Returns [bottomLeft, bottomRight, topRight, topLeft] in world space, or null if the camera doesn't intersect the floor.
+ * Returns internally cached array `[bottomLeft, bottomRight, topRight, topLeft]` in world space, 
+ * or null if the camera doesn't intersect the floor.
+ * DO NOT mutate the returned array or its vectors.
  */
 export function getFrustumCornersOnFloor(
   camera: THREE.OrthographicCamera
@@ -28,8 +37,6 @@ export function getFrustumCornersOnFloor(
 
   if (Math.abs(_forward.y) < 1e-6) return null
 
-  const corners: THREE.Vector3[] = []
-
   for (let i = 0; i < 4; i++) {
     _corner.set(NDC_CORNERS[i][0], NDC_CORNERS[i][1], NDC_CORNERS[i][2])
     _corner.unproject(cam)
@@ -38,10 +45,10 @@ export function getFrustumCornersOnFloor(
     if (t < 0) return null
 
     _intersection.copy(_corner).addScaledVector(_forward, t)
-    corners.push(new THREE.Vector3(_intersection.x, FLOOR_Y, _intersection.z))
+    _cornersOutput[i].set(_intersection.x, FLOOR_Y, _intersection.z)
   }
 
-  return corners
+  return _cornersOutput
 }
 
 /** Corner indices: 0=bottom-left, 1=bottom-right, 2=top-right, 3=top-left */

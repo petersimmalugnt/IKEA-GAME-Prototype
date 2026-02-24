@@ -1,10 +1,9 @@
-import { useRef } from 'react'
+import { useRef, cloneElement, Children, useMemo, type ReactElement, type ReactNode } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { C4DMaterial } from '@/render/Materials'
 import { SETTINGS } from '@/settings/GameSettings'
 import { getActivePalette, resolveMaterialColorIndex } from '@/settings/GameSettings'
-import { useSpawnerStore } from '@/gameplay/spawnerStore'
+import { useSpawnerStore, type SpawnedItem } from '@/gameplay/spawnerStore'
 import {
   getFrustumCornersOnFloor,
   getMovementDirection,
@@ -17,24 +16,49 @@ import {
 const _spawnPos = new THREE.Vector3()
 const _moveDir = new THREE.Vector3()
 
-export function ItemSpawner() {
+/** Renders a single spawned item — moves group via ref, no React re-renders. */
+function SpawnedItemView({ item, templates }: { item: SpawnedItem; templates: ReactElement[] }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const template = templates[item.templateIndex % templates.length]
+
+  useFrame(() => {
+    if (!groupRef.current) return
+    // Since we mutate position arrays directly in the store, we just read them
+    groupRef.current.position.set(item.position[0], item.position[1], item.position[2])
+  })
+
+  return (
+    <group ref={groupRef} position={item.position}>
+      {cloneElement(template as ReactElement<Record<string, unknown>>, {
+        color: item.colorIndex,
+        materialColor0: item.colorIndex,
+        materialColor1: item.colorIndex,
+      })}
+    </group>
+  )
+}
+
+export function ItemSpawner({ children }: { children: ReactNode }) {
   const { camera } = useThree()
   const spawnTimerRef = useRef(0)
   const spawnIdRef = useRef(0)
 
+  const templates = useMemo(() => {
+    return Children.toArray(children).filter(
+      (child): child is ReactElement => typeof child === 'object' && child !== null && 'type' in child,
+    )
+  }, [children])
+
   const items = useSpawnerStore((state) => state.items)
   const addItem = useSpawnerStore((state) => state.addItem)
   const removeItem = useSpawnerStore((state) => state.removeItem)
-  const updatePositions = useSpawnerStore((state) => state.updatePositions)
 
   useFrame((_state, delta) => {
     const cfg = SETTINGS.spawner
     if (!cfg.enabled) return
 
-    const rawCorners = getFrustumCornersOnFloor(camera as THREE.OrthographicCamera)
-    if (!rawCorners || rawCorners.length !== 4) return
-
-    const corners: FrustumCorners = [rawCorners[0], rawCorners[1], rawCorners[2], rawCorners[3]]
+    const corners = getFrustumCornersOnFloor(camera as THREE.OrthographicCamera)
+    if (!corners || corners.length !== 4) return
 
     // Spawn timer
     spawnTimerRef.current += delta
@@ -42,14 +66,14 @@ export function ItemSpawner() {
     while (spawnTimerRef.current >= intervalSec && useSpawnerStore.getState().items.length < cfg.maxItems) {
       spawnTimerRef.current -= intervalSec
       getRandomSpawnPointOnEdges(
-        corners,
+        corners as FrustumCorners,
         cfg.spawnEdgeInset,
         Math.random(),
         Math.random(),
         _spawnPos,
         cfg.spawnPadding
       )
-      getMovementDirection(corners, _moveDir)
+      getMovementDirection(corners as FrustumCorners, _moveDir)
       const speed =
         cfg.speed + (Math.random() * 2 - 1) * cfg.speedVariance
       const vx = _moveDir.x * speed
@@ -64,36 +88,32 @@ export function ItemSpawner() {
         velocity: [vx, 0, vz],
         colorIndex,
         radius: cfg.radius,
+        templateIndex: Math.floor(Math.random() * templates.length),
       })
     }
 
-    updatePositions(delta)
-
-    // Cull items past left or bottom edge (use fresh state after position update)
+    // Direct mutation of positions (no React/Zustand re-renders)
     const currentItems = useSpawnerStore.getState().items
-    currentItems.forEach((item) => {
-      const [x, , z] = item.position
+    for (let i = currentItems.length - 1; i >= 0; i--) {
+      const item = currentItems[i]
+      item.position[0] += item.velocity[0] * delta
+      item.position[1] += item.velocity[1] * delta
+      item.position[2] += item.velocity[2] * delta
+
+      // Cull items past left or bottom edge
       if (
-        isPastLeftEdge(corners, x, z, cfg.cullPadding) ||
-        isPastBottomEdge(corners, x, z, cfg.cullPadding)
+        isPastLeftEdge(corners as FrustumCorners, item.position[0], item.position[2], cfg.cullPadding) ||
+        isPastBottomEdge(corners as FrustumCorners, item.position[0], item.position[2], cfg.cullPadding)
       ) {
         removeItem(item.id)
       }
-    })
+    }
   })
 
   return (
     <group>
       {items.map((item) => (
-        <mesh
-          key={item.id}
-          position={item.position}
-          castShadow
-          receiveShadow
-        >
-          <sphereGeometry args={[item.radius, 32, 32]} />
-          <C4DMaterial color={item.colorIndex} singleTone flatShading={false} />
-        </mesh>
+        <SpawnedItemView key={item.id} item={item} templates={templates} />
       ))}
     </group>
   )

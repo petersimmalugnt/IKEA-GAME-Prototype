@@ -60,7 +60,7 @@ export const SETTINGS: Settings = {
 
   // --- DEBUG ---
   debug: {
-    enabled: true, // Master-toggle för allt debug
+    enabled: false, // Master-toggle för allt debug
     showColliders: true, // Visa fysik-kollisions-proxys (wireframe)
     showStats: true, // Visa FPS / MS / MB
     showGrid: false, // Visa rutnät på marken
@@ -266,14 +266,14 @@ export const SETTINGS: Settings = {
   // --- ITEM SPAWNER (FOV edges) ---
   spawner: {
     enabled: true,
-    spawnIntervalMs: 800,
-    speed: 1,
-    speedVariance: 0.3,
-    radius: 0.25,
+    spawnIntervalMs: 1500,
+    speed: 0.3,
+    speedVariance: 0.1,
+    radius: 0,
     maxItems: 40,
     spawnEdgeInset: 0.1,
     spawnPadding: 0.2,
-    cullPadding: 1.0,
+    cullPadding: 0,
   },
 };
 
