@@ -1,9 +1,12 @@
 import * as THREE from 'three'
-import { useRef } from 'react'
+import type { RefObject } from 'react'
 import { SETTINGS } from '@/settings/GameSettings'
 
-export function GameLights() {
-  const lightRef = useRef<THREE.DirectionalLight | null>(null)
+type GameLightsProps = {
+  lightRef?: RefObject<THREE.DirectionalLight | null>
+}
+
+export function GameLights({ lightRef }: GameLightsProps) {
   const area = SETTINGS.light.shadowArea
 
   return (

@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { OrthographicCamera } from '@react-three/drei'
 import { Leva } from 'leva'
-import { GameLights } from '@/render/Lights'
 // import { GameEffects } from '@/render/Effects' <--- BORTTAGEN HÄRIFRÅN
 import { SETTINGS, getActiveBackground } from '@/settings/GameSettings'
 import { useSettingsVersion } from '@/settings/settingsStore'
@@ -58,8 +57,6 @@ function GameApp() {
           near={SETTINGS.camera.base.near}
           far={SETTINGS.camera.base.far}
         />
-
-        <GameLights />
 
         <Scene />
       </Canvas>

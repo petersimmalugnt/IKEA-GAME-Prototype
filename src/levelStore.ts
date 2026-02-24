@@ -24,6 +24,52 @@ export type LevelData = {
   gridSize?: [number, number]
 }
 
+const VALID_NODE_TYPES = new Set<string>(['object', 'effector'])
+
+function validateLevelNode(raw: unknown, path: string): LevelNode | null {
+  if (!raw || typeof raw !== 'object') {
+    console.warn(`Invalid level node at ${path}: not an object`)
+    return null
+  }
+
+  const node = raw as Record<string, unknown>
+
+  if (typeof node.id !== 'string' || !node.id.trim()) {
+    console.warn(`Invalid level node at ${path}: missing or empty id`)
+    return null
+  }
+
+  if (typeof node.type !== 'string' || !node.type.trim()) {
+    console.warn(`Invalid level node at ${path} (id: ${node.id}): missing or empty type`)
+    return null
+  }
+
+  if (typeof node.nodeType !== 'string' || !VALID_NODE_TYPES.has(node.nodeType)) {
+    console.warn(`Invalid level node at ${path} (id: ${node.id}): nodeType must be 'object' or 'effector', got '${String(node.nodeType)}'`)
+    return null
+  }
+
+  const props = (node.props && typeof node.props === 'object') ? node.props as Record<string, unknown> : {}
+
+  let children: LevelNode[] | undefined
+  if (Array.isArray(node.children)) {
+    children = node.children
+      .map((child, i) => validateLevelNode(child, `${path}.children[${i}]`))
+      .filter((c): c is LevelNode => c !== null)
+  }
+
+  return {
+    id: node.id as string,
+    nodeType: node.nodeType as 'object' | 'effector',
+    type: node.type as string,
+    builder: node.builder as LevelNode['builder'],
+    position: node.position as Vec3 | undefined,
+    rotation: node.rotation as Vec3 | undefined,
+    props,
+    children,
+  }
+}
+
 export function parseLevelFileJson(raw: unknown): LevelData {
   const data = raw as Record<string, unknown>
 
@@ -35,7 +81,11 @@ export function parseLevelFileJson(raw: unknown): LevelData {
     throw new Error('Invalid level format: missing nodes array')
   }
 
-  const result: LevelData = { version: 6, nodes: data.nodes as LevelNode[] }
+  const validatedNodes = data.nodes
+    .map((node, i) => validateLevelNode(node, `nodes[${i}]`))
+    .filter((n): n is LevelNode => n !== null)
+
+  const result: LevelData = { version: 6, nodes: validatedNodes }
   if (typeof data.unitSize === 'number') result.unitSize = data.unitSize
   if (Array.isArray(data.gridSize) && data.gridSize.length >= 2 && typeof data.gridSize[0] === 'number' && typeof data.gridSize[1] === 'number') {
     result.gridSize = [data.gridSize[0], data.gridSize[1]]

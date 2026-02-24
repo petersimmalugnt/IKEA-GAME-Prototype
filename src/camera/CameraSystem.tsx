@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { useCallback, useEffect, useMemo, useRef, type ReactNode, type RefObject } from 'react'
 import { CameraFollow } from '@/camera/CameraFollow'
 import { SETTINGS } from '@/settings/GameSettings'
@@ -7,12 +8,15 @@ import { CameraSystemContext, type CameraSystemContextValue } from '@/camera/Cam
 
 type CameraSystemProviderProps = {
   playerRef: RefObject<PlayerHandle | null>
+  directionalLightRef?: RefObject<THREE.DirectionalLight | null>
   children: ReactNode
 }
 
-export function CameraSystemProvider({ playerRef, children }: CameraSystemProviderProps) {
+export function CameraSystemProvider({ playerRef, directionalLightRef: externalLightRef, children }: CameraSystemProviderProps) {
   const cameraFocusRef = useRef<WorldPosition | null>(null)
   const targetGettersRef = useRef<Map<string, TargetPositionGetter>>(new Map())
+  const internalLightRef = useRef<THREE.DirectionalLight | null>(null)
+  const directionalLightRef = externalLightRef ?? internalLightRef
 
   const setTargetPositionGetter = useCallback((targetId: string, getter: TargetPositionGetter | null) => {
     if (getter) {
@@ -44,11 +48,12 @@ export function CameraSystemProvider({ playerRef, children }: CameraSystemProvid
   const contextValue = useMemo<CameraSystemContextValue>(() => ({
     setTargetPositionGetter,
     getStreamingCenter,
+    directionalLightRef,
   }), [setTargetPositionGetter, getStreamingCenter])
 
   return (
     <CameraSystemContext.Provider value={contextValue}>
-      <CameraFollow getTargetPosition={getTargetPosition} cameraFocusRef={cameraFocusRef} />
+      <CameraFollow getTargetPosition={getTargetPosition} cameraFocusRef={cameraFocusRef} directionalLightRef={directionalLightRef} />
       {children}
     </CameraSystemContext.Provider>
   )

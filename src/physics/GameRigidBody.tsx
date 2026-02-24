@@ -9,6 +9,7 @@ import {
 } from '@react-three/rapier'
 import { SETTINGS } from '@/settings/GameSettings'
 import { useGameplayStore, type ContagionCollisionEntity } from '@/gameplay/gameplayStore'
+import { useEntityRegistration, generateEntityId } from '@/entities/entityStore'
 import {
   isCollisionActivatedPhysicsType,
   isNoneActivatedPhysicsType,
@@ -39,11 +40,8 @@ function isColliderElement(node: ReactNode): node is ReactElement<Record<string,
   return typeof name === 'string' && name.toLowerCase().includes('collider')
 }
 
-let autoContagionEntityCounter = 0
-
 function createAutoContagionEntityId(): string {
-  autoContagionEntityCounter += 1
-  return `auto-contagion-${autoContagionEntityCounter}`
+  return generateEntityId('contagion')
 }
 
 function resolveCollisionEntity(payload: CollisionEnterPayload, key: 'target' | 'other'): ContagionCollisionEntity | null {
@@ -97,29 +95,41 @@ export function GameRigidBody({
   const hasBodylessVariant = noneActivated || solidNoneActivated
   const canBodylessArm = hasBodylessVariant && hasExplicitColliderChildren
   const sensorPreCollision = noneActivated && !canBodylessArm
-  const mergedUserData = useMemo(() => {
-    const baseUserData = (userData && typeof userData === 'object')
-      ? userData as Record<string, unknown>
-      : {}
 
-    if (!contagion) return baseUserData
-
+  const resolvedEntityId = useMemo(() => {
+    if (!contagion) return undefined
     const explicitEntityId = typeof contagion.entityId === 'string'
       ? contagion.entityId.trim()
       : ''
+    const baseUserData = (userData && typeof userData === 'object')
+      ? userData as Record<string, unknown>
+      : {}
     const baseEntityId = typeof baseUserData.entityId === 'string'
       ? baseUserData.entityId.trim()
       : ''
-    const resolvedEntityId = explicitEntityId || baseEntityId || autoContagionEntityIdRef.current
+    return explicitEntityId || baseEntityId || autoContagionEntityIdRef.current
+  }, [contagion?.entityId, userData])
 
-    return {
-      ...baseUserData,
-      entityId: resolvedEntityId,
-      contagionCarrier: contagion.carrier === true,
-      contagionInfectable: contagion.infectable !== false,
-      contagionColorIndex: contagion.colorIndex ?? 0,
+  useEntityRegistration(resolvedEntityId, 'rigid_body')
+
+  const mergedUserDataRef = useRef<Record<string, unknown>>({})
+  useEffect(() => {
+    const baseUserData = (userData && typeof userData === 'object')
+      ? userData as Record<string, unknown>
+      : {}
+    const target = mergedUserDataRef.current
+    for (const key of Object.keys(target)) {
+      if (!(key in baseUserData)) delete target[key]
     }
-  }, [userData, contagion?.entityId, contagion?.carrier, contagion?.infectable, contagion?.colorIndex])
+    Object.assign(target, baseUserData)
+
+    if (contagion && resolvedEntityId) {
+      target.entityId = resolvedEntityId
+      target.contagionCarrier = contagion.carrier === true
+      target.contagionInfectable = contagion.infectable !== false
+      target.contagionColorIndex = contagion.colorIndex ?? 0
+    }
+  }, [userData, resolvedEntityId, contagion?.carrier, contagion?.infectable, contagion?.colorIndex])
 
   useEffect(() => {
     activationFiredRef.current = false
@@ -264,7 +274,7 @@ export function GameRigidBody({
       {...(rotation !== undefined ? { rotation } : {})}
       {...(quaternion !== undefined ? { quaternion } : {})}
       {...(scale !== undefined ? { scale } : {})}
-      userData={mergedUserData}
+      userData={mergedUserDataRef.current}
       sensor={sensor}
       onCollisionEnter={handleCollisionEnter}
       onIntersectionEnter={handleIntersectionEnter}

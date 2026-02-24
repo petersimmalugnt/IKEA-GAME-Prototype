@@ -11,6 +11,7 @@ import {
 import { useFrame, type ThreeElements } from '@react-three/fiber'
 import type { Vec3 } from '@/settings/GameSettings'
 import { applyEasing, type EasingName } from '@/utils/easing'
+import { isPlaying } from '@/game/gamePhaseStore'
 
 export const TRANSFORM_MOTION_AXES = ['x', 'y', 'z'] as const
 export const TRANSFORM_MOTION_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
@@ -285,6 +286,7 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
   }), [])
 
   useFrame((_, delta) => {
+    if (!isPlaying()) return
     tracksRef.current.forEach((track) => {
       const object = track.ref.current
       if (!object) return

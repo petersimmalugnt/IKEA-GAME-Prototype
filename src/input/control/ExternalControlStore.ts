@@ -108,6 +108,7 @@ export function clearExternalControlState() {
   digitalState.jump = false
   digitalUpdatedAt = 0
   absoluteTarget = undefined
+  lastSeq = -1
 }
 
 export function parseExternalControlPacket(value: unknown): ExternalControlPacket | undefined {

@@ -1,9 +1,11 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, type RefObject } from 'react'
+import type * as THREE from 'three'
 import type { TargetPositionGetter, WorldPosition } from '@/scene/TargetAnchor'
 
 export type CameraSystemContextValue = {
   setTargetPositionGetter: (targetId: string, getter: TargetPositionGetter | null) => void
   getStreamingCenter: () => WorldPosition | undefined
+  directionalLightRef: RefObject<THREE.DirectionalLight | null>
 }
 
 export const CameraSystemContext = createContext<CameraSystemContextValue | null>(null)

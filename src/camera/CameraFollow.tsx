@@ -1,10 +1,9 @@
 import * as THREE from 'three'
-import { useRef, type MutableRefObject } from 'react'
+import { useRef, type MutableRefObject, type RefObject } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { SETTINGS } from '@/settings/GameSettings'
 import type { WorldPosition } from '@/scene/TargetAnchor'
 
-// Återanvändbar vector (ingen allokering per frame)
 const _cameraTarget = new THREE.Vector3()
 const _lookAtTarget = new THREE.Vector3()
 const _orientationCamera = new THREE.PerspectiveCamera()
@@ -14,6 +13,7 @@ const _orientationTo = new THREE.Vector3()
 type CameraFollowProps = {
   getTargetPosition: (targetId: string) => WorldPosition | undefined
   cameraFocusRef: MutableRefObject<WorldPosition | null>
+  directionalLightRef: RefObject<THREE.DirectionalLight | null>
 }
 
 function writeLockedQuaternion(out: THREE.Quaternion) {
@@ -22,7 +22,6 @@ function writeLockedQuaternion(out: THREE.Quaternion) {
   _orientationTo.set(...follow.lookAtOffset)
 
   if (_orientationFrom.distanceToSquared(_orientationTo) < 0.000001) {
-    // Fallback: undvik ogiltig orientering om offset/lookAtOffset råkar vara samma punkt
     _orientationCamera.position.set(...SETTINGS.camera.static.position)
     _orientationCamera.lookAt(...SETTINGS.camera.static.lookAt)
   } else {
@@ -44,9 +43,8 @@ function updateFocusRef(cameraFocusRef: MutableRefObject<WorldPosition | null>, 
   cameraFocusRef.current.z = position.z
 }
 
-export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollowProps) {
-  const { camera, scene } = useThree()
-  const lightRef = useRef<THREE.DirectionalLight | null>(null)
+export function CameraFollow({ getTargetPosition, cameraFocusRef, directionalLightRef }: CameraFollowProps) {
+  const { camera } = useThree()
   const initialized = useRef(false)
   const lockedQuaternion = useRef(new THREE.Quaternion())
   const lookAtCurrent = useRef(new THREE.Vector3(...SETTINGS.camera.static.lookAt))
@@ -55,16 +53,6 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollow
   const minCameraZ = useRef(Infinity)
 
   useFrame((_state, delta) => {
-    // Hitta ljuset en gång
-    if (!lightRef.current) {
-      scene.traverse((obj) => {
-        const light = obj as THREE.DirectionalLight
-        if (light.isDirectionalLight && light.castShadow) {
-          lightRef.current = light
-        }
-      })
-    }
-
     if (SETTINGS.camera.mode === 'static') {
       _cameraTarget.set(...SETTINGS.camera.static.position)
       _lookAtTarget.set(...SETTINGS.camera.static.lookAt)
@@ -134,16 +122,16 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef }: CameraFollow
     minCameraZ.current = Math.min(minCameraZ.current, camera.position.z)
     updateFocusRef(cameraFocusRef, lookAtCurrent.current)
 
-    // Flytta DirectionalLight + shadow target med spelaren
-    if (lightRef.current && followSettings.moveLightWithTarget) {
+    const light = directionalLightRef.current
+    if (light && followSettings.moveLightWithTarget) {
       const lightOffset = SETTINGS.light.position
-      lightRef.current.position.set(
+      light.position.set(
         targetPos.x + lightOffset[0],
         targetPos.y + lightOffset[1],
         targetPos.z + lightOffset[2],
       )
-      lightRef.current.target.position.set(targetPos.x, targetPos.y, targetPos.z)
-      lightRef.current.target.updateMatrixWorld()
+      light.target.position.set(targetPos.x, targetPos.y, targetPos.z)
+      light.target.updateMatrixWorld()
     }
 
     previousMode.current = 'follow'

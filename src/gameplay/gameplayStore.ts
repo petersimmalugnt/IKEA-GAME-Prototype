@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
+import { onEntityUnregister } from '@/entities/entityStore'
 
 export type ContagionRecord = {
   lineageId: string
@@ -34,6 +35,7 @@ type GameplayState = {
   contagionEpoch: number
   contagionColorsByEntityId: Record<string, number>
   reset: () => void
+  removeEntities: (ids: string[]) => void
   enqueueCollisionPair: (
     entityA: ContagionCollisionEntity | null | undefined,
     entityB: ContagionCollisionEntity | null | undefined,
@@ -73,8 +75,19 @@ function sourceWinsByLww(
   return sourceId.localeCompare(targetId) > 0
 }
 
-const contagionRecords = new Map<string, ContagionRecord>()
-const pendingCollisionPairs = new Map<string, PendingPair>()
+type ContagionMaps = {
+  records: Map<string, ContagionRecord>
+  pendingPairs: Map<string, PendingPair>
+}
+
+function createContagionMaps(): ContagionMaps {
+  return {
+    records: new Map(),
+    pendingPairs: new Map(),
+  }
+}
+
+let maps = createContagionMaps()
 
 export const useGameplayStore = create<GameplayState>((set) => ({
   score: 0,
@@ -83,13 +96,30 @@ export const useGameplayStore = create<GameplayState>((set) => ({
   contagionColorsByEntityId: {},
 
   reset: () => {
-    contagionRecords.clear()
-    pendingCollisionPairs.clear()
+    maps = createContagionMaps()
     set({
       score: 0,
       sequence: 0,
       contagionEpoch: 0,
       contagionColorsByEntityId: {},
+    })
+  },
+
+  removeEntities: (ids) => {
+    let changed = false
+    for (const id of ids) {
+      if (maps.records.delete(id)) changed = true
+    }
+    set((state) => {
+      const next = { ...state.contagionColorsByEntityId }
+      for (const id of ids) {
+        if (id in next) {
+          delete next[id]
+          changed = true
+        }
+      }
+      if (!changed) return state
+      return { contagionColorsByEntityId: next }
     })
   },
 
@@ -103,16 +133,16 @@ export const useGameplayStore = create<GameplayState>((set) => ({
     if (entityA.entityId === entityB.entityId) return
 
     const pairKey = resolvePairKey(entityA.entityId, entityB.entityId)
-    if (pendingCollisionPairs.has(pairKey)) return
+    if (maps.pendingPairs.has(pairKey)) return
 
-    pendingCollisionPairs.set(pairKey, { a: entityA, b: entityB })
+    maps.pendingPairs.set(pairKey, { a: entityA, b: entityB })
   },
 
   flushContagionQueue: () => {
-    if (pendingCollisionPairs.size === 0) return
+    if (maps.pendingPairs.size === 0) return
 
-    const pendingPairs = Array.from(pendingCollisionPairs.values())
-    pendingCollisionPairs.clear()
+    const pendingPairs = Array.from(maps.pendingPairs.values())
+    maps.pendingPairs.clear()
 
     set((state) => {
       const contagionSettings = SETTINGS.gameplay.contagion
@@ -127,7 +157,7 @@ export const useGameplayStore = create<GameplayState>((set) => ({
         nextColorsByEntityId[entityId] = colorIndex
       }
       const ensureCarrier = (entity: NormalizedCollisionEntity): ContagionRecord | undefined => {
-        const current = contagionRecords.get(entity.entityId)
+        const current = maps.records.get(entity.entityId)
         if (current) return current
         if (!entity.carrier) return undefined
 
@@ -140,14 +170,14 @@ export const useGameplayStore = create<GameplayState>((set) => ({
           activatedAt: nextSequence,
           seededFrom: 'carrier',
         }
-        contagionRecords.set(entity.entityId, seeded)
+        maps.records.set(entity.entityId, seeded)
         setEntityColor(entity.entityId, seeded.colorIndex)
         return seeded
       }
 
       pendingPairs.forEach(({ a: entityA, b: entityB }) => {
-        const contagionA = ensureCarrier(entityA) ?? contagionRecords.get(entityA.entityId)
-        const contagionB = ensureCarrier(entityB) ?? contagionRecords.get(entityB.entityId)
+        const contagionA = ensureCarrier(entityA) ?? maps.records.get(entityA.entityId)
+        const contagionB = ensureCarrier(entityB) ?? maps.records.get(entityB.entityId)
 
         const hasCarrierA = Boolean(contagionA?.carrier)
         const hasCarrierB = Boolean(contagionB?.carrier)
@@ -188,7 +218,7 @@ export const useGameplayStore = create<GameplayState>((set) => ({
           return
         }
 
-        const targetCurrent = contagionRecords.get(target.entityId)
+        const targetCurrent = maps.records.get(target.entityId)
         const nextTargetColor = sourceRecord.colorIndex
         const nextTargetLineage = sourceRecord.lineageId
 
@@ -203,7 +233,7 @@ export const useGameplayStore = create<GameplayState>((set) => ({
 
         contagionChanged = true
         nextSequence += 1
-        contagionRecords.set(target.entityId, {
+        maps.records.set(target.entityId, {
           lineageId: nextTargetLineage,
           colorIndex: nextTargetColor,
           carrier: true,
@@ -235,3 +265,7 @@ export function useContagionColorOverride(entityId: string | undefined): number 
     return state.contagionColorsByEntityId[entityId]
   })
 }
+
+onEntityUnregister((id) => {
+  useGameplayStore.getState().removeEntities([id])
+})

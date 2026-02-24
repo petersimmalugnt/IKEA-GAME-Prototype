@@ -24,6 +24,7 @@ graph TD
     C --> GC[GridCloner.tsx]
     C --> CS[CameraSystem.tsx]
     C --> TA[TargetAnchor.tsx]
+    C --> LI[Lights.tsx]
     CS --> G[CameraFollow.tsx]
     CS --> CTX[CameraSystemContext.ts]
     C --> H[GameEffects]
@@ -37,11 +38,16 @@ graph TD
     J --> K[GameSettings.ts]
     E --> ECS[control/ExternalControlStore.ts]
     ECB --> ECS
+    E --> ENT[entities/entityStore.ts]
+    PR --> ENT
+    C --> GP[game/gamePhaseStore.ts]
+    TM --> GP
+    E --> GP
 ```
 
 | Fil | Ansvar |
 |-----|--------|
-| `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera, ljus |
+| `App.tsx` | Routing (`/` = spel, `/converter` = C4D-konverterare, `/docs` = dokumentation), Canvas-setup, kamera |
 | `src/settings/GameSettings.ts` | **Centrala konfigurationen** — färger, material, kamera, fysik, debug |
 | `src/settings/GameSettings.types.ts` | Delade typer + options-unions för settings/core-konfig |
 | `src/scene/Scene.tsx` | Spelscenens komposition: physics-wrapper, nivåinnehåll och koppling av delsystem |
@@ -63,8 +69,10 @@ graph TD
 | `debug/BenchmarkDebugContent.tsx` | Debug/benchmark-objekt som använder streamingsystemet |
 | `debug/StreamingDebugOverlay.tsx` | Visuell streaming-debug (ringar och chunk-bounds) |
 | `src/render/Materials.tsx` | Custom toon shader (GLSL), material-cache, C4DMaterial-komponent |
-| `src/render/Lights.tsx` | DirectionalLight med shadow-konfiguration |
-| `src/camera/CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow |
+| `src/entities/entityStore.ts` | Centralt entity-register med `register`/`unregister`/`getEntitiesByType`, auto-cleanup av contagion-state |
+| `src/game/gamePhaseStore.ts` | Spelloop-faser (`loading`/`playing`/`paused`/`gameOver`), gatar input/physics/motion |
+| `src/render/Lights.tsx` | DirectionalLight med shadow-konfiguration, accepterar extern `lightRef` |
+| `src/camera/CameraFollow.tsx` | Kamerariggen (follow/static), target-resolve, axellåsning, rotationslåsning och ljus-follow via ref |
 | `src/render/Effects.tsx` | Render-lägesväxel (`toon`, `pixel`, `retroPixelPass`) och postprocess-orkestrering |
 | `src/render/RetroPixelatedEffects.tsx` | Egen three.js composer-kedja för retro-läget (pixelpass + outputpass) |
 | `src/render/postprocessing/ConfigurableRenderPixelatedPass.ts` | Anpassad pixelpass med styrbar depth-edge-threshold |
@@ -409,7 +417,82 @@ Viktiga features:
 - **Axellåsning:** `followAxes` och `lookAtAxes` (t.ex. lås höjd med `y: false`)
 - **Rotationslåsning:** `lockRotation: true` för stabil ortografisk/isometrisk känsla (ingen wobble)
 - **Delta-oberoende lerp:** `1 - Math.pow(1 - lerp, delta × 60)`
-- **Light follow:** `moveLightWithTarget` för directional light + shadow target
+- **Light follow:** `moveLightWithTarget` för directional light + shadow target (ljus-ref passas via `CameraSystemContext`, ingen scene-traversal)
+
+---
+
+## Entity Registry
+
+`src/entities/entityStore.ts` ger ett centralt Zustand-register för alla aktiva spelobjekt:
+
+- **`register(id, type, metadata?)`** — registrerar en entitet (typ: `player`, `rigid_body`, `spawned_item`, `level_node`)
+- **`unregister(id)`** — avregistrerar och triggar cleanup-listeners (t.ex. tar bort contagion-state)
+- **`getEntitiesByType(type)`** — hämtar alla entiteter av en viss typ
+- **`generateEntityId(prefix)`** — centraliserad ID-generator som nollställs vid game reset
+
+### useEntityRegistration hook
+
+```tsx
+useEntityRegistration(entityId, 'rigid_body')
+```
+
+Registrerar automatiskt vid mount och avregistrerar vid unmount. Används av `GameRigidBody`, `Player` och andra komponenter som behöver spåras.
+
+### Cleanup vid unregister
+
+När en entitet avregistreras rensas dess contagion-data automatiskt ur `gameplayStore` (både `contagionRecords` och `contagionColorsByEntityId`). Detta förhindrar minnesläckor i långa spelsessioner med många spawnade/borttagna objekt.
+
+---
+
+## Game Phase
+
+`src/game/gamePhaseStore.ts` hanterar spelloop-faser:
+
+| Fas | Beskrivning |
+|-----|-------------|
+| `loading` | Resurser laddas |
+| `playing` | Spelet körs aktivt |
+| `paused` | Spelet pausat (physics/input/motion frysta) |
+| `gameOver` | Spelet avslutat |
+
+### Gatade system
+
+Följande system kontrollerar `isPlaying()` före uppdatering:
+
+- `ContagionRuntime` — skippar `flushContagionQueue`
+- `Player` — skippar input-processing
+- `ItemSpawner` — skippar spawn/move-logik
+- `MotionSystemProvider` (TransformMotion) — skippar animationsloop
+
+```ts
+import { isPlaying } from '@/game/gamePhaseStore'
+
+useFrame(() => {
+  if (!isPlaying()) return
+  // ... uppdateringslogik
+})
+```
+
+---
+
+## Item Spawner
+
+`src/gameplay/spawnerStore.ts` + `src/gameplay/ItemSpawner.tsx` hanterar spawning av dynamiska objekt.
+
+### Object Pool
+
+Spawner-storen använder en pre-allokerad pool (storlek från `SETTINGS.spawner.maxItems`) istället för dynamiska array-operationer:
+
+- `addItem` hittar första inaktiva sloten och aktiverar den
+- `removeItem` markerar sloten som inaktiv
+- Eliminerar array spread/filter-allokeringar varje spawn/cull-cykel
+
+### Separerad mutable data
+
+Positions- och hastighetsdata lagras i en modul-level `Map` (utanför Zustand-storen) för att undvika immutability-overhead:
+
+- **Store:** Spårar enbart lifecycle (aktiv/inaktiv) och immutable properties (id, colorIndex, radius, templateIndex)
+- **Motion Map:** `getItemMotion(id)` ger direkt access till `position[]` och `velocity[]` som muteras per frame utan React-rerenders
 
 ---
 
@@ -594,6 +677,8 @@ Nodes-baserade level-filer är nu strikt `version: 4`:
 
 `version 1/2/3` och gamla `objects`-filer stöds inte längre i runtime/parser.
 
+Alla noder valideras vid parse-tid: `id` (icke-tom sträng), `type` (icke-tom sträng), `nodeType` (`object` eller `effector`), och `props` (objekt, default `{}`). Barn valideras rekursivt. Ogiltiga noder loggas med `console.warn` och filtreras bort istället för att krascha vid rendering.
+
 Ny container-typ:
 - `Null` fungerar som ren transform/container-nod med `children`, utan egen renderad geometri i spelet.
 
@@ -739,6 +824,10 @@ src/
 ├── main.tsx
 ├── assets/
 │   └── models/             # Genererade GLB + TSX filer
+├── entities/
+│   └── entityStore.ts       # Centralt entity-register
+├── game/
+│   └── gamePhaseStore.ts    # Spelloop-faser
 ├── settings/
 │   ├── GameSettings.ts
 │   ├── GameSettings.types.ts
@@ -803,4 +892,4 @@ src/
 
 ---
 
-*Senast uppdaterad: 2026-02-20*
+*Senast uppdaterad: 2026-02-24*

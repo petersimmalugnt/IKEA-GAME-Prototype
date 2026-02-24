@@ -1,21 +1,20 @@
 import { useKeyboardControls } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { RigidBody, BallCollider, useRapier, type RapierRigidBody } from '@react-three/rapier'
-import { useMemo, useRef, forwardRef, useImperativeHandle, type ForwardRefExoticComponent, type RefAttributes } from 'react'
+import { useEffect, useRef, forwardRef, useImperativeHandle, type ForwardRefExoticComponent, type RefAttributes } from 'react'
 import { SphereElement } from '@/primitives/SphereElement'
 import type { GameControlName } from '@/input/GameKeyboardControls'
 import { SETTINGS, type ControlInputSource, type MaterialColorIndex, type Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
 import { getExternalAbsoluteTarget, getExternalDigitalState, type DigitalControlState } from '@/input/control/ExternalControlStore'
 import { useContagionColorOverride } from '@/gameplay/gameplayStore'
+import { useEntityRegistration, generateEntityId } from '@/entities/entityStore'
+import { isPlaying } from '@/game/gamePhaseStore'
 
 export type PlayerHandle = PositionTargetHandle
 
-let autoPlayerEntityCounter = 0
-
 function createAutoPlayerEntityId(): string {
-  autoPlayerEntityCounter += 1
-  return `player-auto-${autoPlayerEntityCounter}`
+  return generateEntityId('player')
 }
 
 export type PlayerProps = {
@@ -71,20 +70,28 @@ export const Player: PlayerComponent = forwardRef<PlayerHandle, PlayerProps>(fun
   const { rapier, world } = useRapier()
   const [, getKeys] = useKeyboardControls<GameControlName>()
   const smoothedAbsoluteTarget = useRef<{ x: number; z: number } | null>(null)
+  const rayRef = useRef<InstanceType<typeof rapier.Ray> | null>(null)
   const autoEntityIdRef = useRef<string>(createAutoPlayerEntityId())
   const resolvedEntityId = (entityId && entityId.trim()) || autoEntityIdRef.current
+  useEntityRegistration(resolvedEntityId, 'player')
   const contagionColorOverride = useContagionColorOverride(resolvedEntityId)
   const resolvedColor = contagionColorOverride ?? contagionColor
 
   const controlSettings = SETTINGS.controls
   const useAbsoluteControl = controlSettings.inputSource === 'external'
     && controlSettings.external.mode === 'absolute'
-  const bodyUserData = useMemo(() => ({
+  const bodyUserData = useRef({
     entityId: resolvedEntityId,
     contagionCarrier,
     contagionInfectable,
     contagionColorIndex: resolvedColor,
-  }), [resolvedEntityId, contagionCarrier, contagionInfectable, resolvedColor])
+  })
+  useEffect(() => {
+    bodyUserData.current.entityId = resolvedEntityId
+    bodyUserData.current.contagionCarrier = contagionCarrier
+    bodyUserData.current.contagionInfectable = contagionInfectable
+    bodyUserData.current.contagionColorIndex = resolvedColor
+  }, [resolvedEntityId, contagionCarrier, contagionInfectable, resolvedColor])
 
   // Exponera spelarens position till parent (CameraFollow)
   useImperativeHandle(ref, () => ({
@@ -97,6 +104,7 @@ export const Player: PlayerComponent = forwardRef<PlayerHandle, PlayerProps>(fun
 
   useFrame((_state, delta) => {
     if (!rb.current) return
+    if (!isPlaying()) return
 
     const nowMs = Date.now()
 
@@ -170,12 +178,12 @@ export const Player: PlayerComponent = forwardRef<PlayerHandle, PlayerProps>(fun
       z: (inputState.forward ? -strength : 0) + (inputState.backward ? strength : 0),
     }, true)
 
-    // Raycast för hopp
     const currentPos = rb.current.translation()
-    const rayOrigin = { x: currentPos.x, y: currentPos.y - 0.105, z: currentPos.z }
-    const rayDir = { x: 0, y: -1, z: 0 }
-    const ray = new rapier.Ray(rayOrigin, rayDir)
-    const hit = world.castRay(ray, 0.05, true)
+    if (!rayRef.current) {
+      rayRef.current = new rapier.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 })
+    }
+    rayRef.current.origin = { x: currentPos.x, y: currentPos.y - 0.105, z: currentPos.z }
+    const hit = world.castRay(rayRef.current, 0.05, true)
 
     if (inputState.jump && hit) {
       rb.current.applyImpulse({ x: 0, y: SETTINGS.player.jumpStrength, z: 0 }, true)
@@ -193,7 +201,7 @@ export const Player: PlayerComponent = forwardRef<PlayerHandle, PlayerProps>(fun
       friction={SETTINGS.player.friction}
       // CCD stoppar bollen från att åka igenom objekt (Tunneling)
       ccd
-      userData={bodyUserData}
+      userData={bodyUserData.current}
     >
       <BallCollider args={[0.1]} density={targetDensity} />
       <SphereElement radius={0.1} color={resolvedColor} />
