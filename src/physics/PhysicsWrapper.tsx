@@ -24,11 +24,18 @@ export type PhysicsProps = ContagionProps & {
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
+  linearVelocity?: Vec3
+  angularVelocity?: Vec3
+  linearDamping?: number
+  angularDamping?: number
 }
 
 type ColliderType = 'cuboid' | 'cylinder' | 'ball'
 
-type PhysicsWrapperProps = Omit<RigidBodyProps, 'type' | 'position' | 'rotation' | 'mass' | 'friction'> & ContagionProps & {
+type PhysicsWrapperProps = Omit<
+  RigidBodyProps,
+  'type' | 'position' | 'rotation' | 'mass' | 'friction' | 'linearVelocity' | 'angularVelocity' | 'linearDamping' | 'angularDamping'
+> & ContagionProps & {
   physics?: PhysicsBodyType
   colliderType?: ColliderType
   colliderArgs: [number] | [number, number] | [number, number, number]
@@ -36,6 +43,10 @@ type PhysicsWrapperProps = Omit<RigidBodyProps, 'type' | 'position' | 'rotation'
   colliderPosition?: Vec3
   position?: Vec3
   rotation?: Vec3
+  linearVelocity?: Vec3
+  angularVelocity?: Vec3
+  linearDamping?: number
+  angularDamping?: number
   mass?: number
   friction?: number
   lockRotations?: boolean
@@ -51,6 +62,10 @@ export function PhysicsWrapper({
   colliderPosition,
   position,
   rotation,
+  linearVelocity,
+  angularVelocity,
+  linearDamping,
+  angularDamping,
   mass,
   friction,
   lockRotations,
@@ -70,6 +85,10 @@ export function PhysicsWrapper({
   const rbProps: Omit<RigidBodyProps, 'type'> = { colliders: false, ...rigidBodyProps }
   if (position !== undefined) rbProps.position = position
   if (rotation !== undefined) rbProps.rotation = rotation
+  if (linearVelocity !== undefined) rbProps.linearVelocity = linearVelocity
+  if (angularVelocity !== undefined) rbProps.angularVelocity = angularVelocity
+  if (linearDamping !== undefined) rbProps.linearDamping = linearDamping
+  if (angularDamping !== undefined) rbProps.angularDamping = angularDamping
   if (mass !== undefined) rbProps.mass = mass
   if (friction !== undefined) rbProps.friction = friction
   if (lockRotations) rbProps.lockRotations = true

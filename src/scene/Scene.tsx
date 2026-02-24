@@ -1,8 +1,10 @@
+import { BalloonLifecycleRuntime } from "@/gameplay/BalloonLifecycleRuntime";
 import { CameraSystemProvider } from "@/camera/CameraSystem";
 import { BenchmarkDebugContent } from "@/debug/BenchmarkDebugContent";
 import { CameraFrustumOverlay } from "@/debug/CameraFrustumOverlay";
 import { DebugCameraPiP } from "@/debug/DebugCameraPiP";
 import { ContagionRuntime } from "@/gameplay/ContagionRuntime";
+import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { ItemSpawner } from "@/gameplay/ItemSpawner";
 import { ExternalControlBridge } from "@/input/control/ExternalControlBridge";
 import { GameKeyboardControls } from "@/input/GameKeyboardControls";
@@ -22,24 +24,43 @@ import { SETTINGS } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
 import { Stats } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
-import { useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useThree } from "@react-three/fiber";
 import { CubeElement } from "@/primitives/CubeElement";
-import { Balloon } from "@/assets/models/Balloon";
-import { Balloon2 } from "@/assets/models/Balloon2";
-import { Balloon3 } from "@/assets/models/Balloon3";
-// import { Balloon } from "@/assets/models/Balloon";
+import { Balloon32 } from "@/assets/models/Balloon32";
+import { Balloon28 } from "@/assets/models/Balloon28";
+import { Balloon24 } from "@/assets/models/Balloon24";
+import { Balloon20 } from "@/assets/models/Balloon20";
+import { Balloon16 } from "@/assets/models/Balloon16";
+import { Balloon12 } from "@/assets/models/Balloon12";
+import { BalloonGroup } from "@/geometry/BalloonGroup";
 
+type ActiveBalloon = {
+  id: string;
+  position: [number, number, number];
+};
 
 export function Scene() {
   useSettingsVersion();
   const playerRef = useRef<PlayerHandle | null>(null);
   const isDebug = SETTINGS.debug.enabled;
+  const gameOver = useGameplayStore((state) => state.gameOver);
+  const [activeBalloons, setActiveBalloons] = useState<ActiveBalloon[]>([
+    { id: "balloon-1", position: [0, 1.3, 0] },
+  ]);
 
   // Calculate the diagonal of the viewport to ensure the floor covers the entire screen
   const { viewport } = useThree();
   const diaginalRadiusOffset = 0.5;
   const diagonalRadius = Math.hypot(viewport.height, viewport.width) / 2 + diaginalRadiusOffset;
+  const removeBalloonById = useCallback((id: string) => {
+    setActiveBalloons((items) => items.filter((item) => item.id !== id));
+  }, []);
+
+  useEffect(() => {
+    if (!gameOver) return;
+    setActiveBalloons([]);
+  }, [gameOver]);
 
 
   return (
@@ -54,40 +75,48 @@ export function Scene() {
         <GameEffects />
         <CameraSystemProvider playerRef={playerRef}>
           <MotionSystemProvider>
-            {/* SPELAREN */}
-            {/* <Player
-              contagionCarrier
-              contagionColor={8}
-              position={[-1.4, 0.4, 0.4]}
-            /> */}
+            <BalloonLifecycleRuntime>
+              {/* SPELAREN */}
+              {/* <Player
+                contagionCarrier
+                contagionColor={8}
+                position={[-1.4, 0.4, 0.4]}
+              /> */}
 
-            {/* Diagonal positions blocks */}
-            <CubeElement position={[0, .0125, -diagonalRadius]} size={[5, .025, .025]} />
-            <CubeElement position={[0, .0125, diagonalRadius]} size={[5, .025, .025]} />
+              {/* CAMERA TRACKER */}
+              <TransformMotion positionVelocity={{ z: 0 }}>
+                <BlockElement ref={playerRef} hidden />
+                <CubeElement position={[0, .0125, -diagonalRadius]} size={[5, .025, .025]} />
+                <CubeElement position={[0, .0125, diagonalRadius]} size={[5, .025, .025]} />
+              </TransformMotion>
 
-            {/* CAMERA TRACKER */}
-            <TransformMotion positionVelocity={{ z: 0 }}>
-              <BlockElement ref={playerRef} hidden />
-            </TransformMotion>
+              {/* BALLOON */}
+              {activeBalloons.map((balloon) => (
+                <BalloonGroup
+                  key={balloon.id}
+                  position={balloon.position}
+                  onCleanupRequested={() => removeBalloonById(balloon.id)}
+                />
+              ))}
 
-            {/* BALLOON */}
-            <TransformMotion position={[0, 1.3, 0]} positionVelocity={{ z: 0.2 }} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
-              <Balloon materialColor0={8} />
-              <SplineElement points={[[0, -.3, 0], [0, 0, 0]]} segments={1} />
-              <BlockElement position={[0, -0.3, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="z" />
-            </TransformMotion>
+              <BlockElement color={1} position={[0, 0, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[0, 0.21, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.1, 0, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.1, 0.21, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.2, 0, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.2, 0.21, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.3, 0, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.3, 0.21, 0]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[0, 0, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[0, 0.21, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.1, 0, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.1, 0.21, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.2, 0, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.2, 0.21, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.3, 0, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
+              <BlockElement color={1} position={[.3, 0.21, .15]} sizePreset="sm" heightPreset="sm" physics="dynamic" contagionInfectable />
 
-            <TransformMotion position={[-.5, 1.3, 0]} positionVelocity={{ z: 0.2 }} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
-              <Balloon2 materialColor0={8} />
-              <SplineElement points={[[0, -.3, 0], [0, 0, 0]]} segments={1} />
-              <BlockElement position={[0, -0.3, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="z" />
-            </TransformMotion>
 
-            <TransformMotion position={[-1, 1.3, 0]} positionVelocity={{ z: 0.2 }} rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }} rotationEasing={{ x: 'easeInOutSine', y: 'linear', z: 'easeInOutSine' }} rotationLoopMode={{ x: 'pingpong', y: 'loop', z: 'pingpong' }} rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }} rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}>
-              <Balloon3 materialColor0={8} />
-              <SplineElement points={[[0, -.3, 0], [0, 0, 0]]} segments={1} />
-              <BlockElement position={[0, -0.3, 0]} sizePreset="sm" heightPreset="sm" color={2} align={{ x: 50, y: 100, z: 50 }} plane="z" />
-            </TransformMotion>
 
             {/* ENDLESS TILED LEVELS */}
             {/* <LevelTileManager /> */}
@@ -110,7 +139,8 @@ export function Scene() {
             ) : null}
             {isDebug && SETTINGS.debug.showDebugCamera && <DebugCameraPiP />} */}
 
-            <InvisibleFloor />
+              <InvisibleFloor />
+            </BalloonLifecycleRuntime>
           </MotionSystemProvider>
         </CameraSystemProvider>
       </Physics>

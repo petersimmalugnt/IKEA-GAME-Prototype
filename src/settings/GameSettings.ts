@@ -245,6 +245,18 @@ export const SETTINGS: Settings = {
       enabled: true,
       scorePerInfection: 1,
     },
+    lives: {
+      initial: 5,
+      lossPerMiss: 1,
+      lockScoreOnGameOver: true,
+    },
+    balloons: {
+      scorePerPop: 1,
+      sensors: {
+        lifeMargin: 0,
+        cleanupMargin: 0.35,
+      },
+    },
   },
 
   // --- LEVEL LOADING ---

@@ -1,8 +1,10 @@
 import * as THREE from 'three'
 import {
   createContext,
+  forwardRef,
   useContext,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   type MutableRefObject,
@@ -25,7 +27,7 @@ type PerAxisOverride<T> = T | Partial<Record<AxisName, T>>
 type PerAxisLoopMode = [LoopMode, LoopMode, LoopMode]
 type PerAxisEasing = [EasingName, EasingName, EasingName]
 
-export type TransformMotionProps = ThreeElements['group'] & {
+export type TransformMotionProps = Omit<ThreeElements['group'], 'ref'> & {
   /** 'none' | 'loop' | 'pingpong' */
   loopMode?: LoopMode
   positionVelocity?: Vec3Like
@@ -68,6 +70,15 @@ export type TransformMotionProps = ThreeElements['group'] & {
   scaleEasing?: PerAxisOverride<EasingName>
   /** When true, the track is unregistered from the animation loop (zero CPU cost). */
   paused?: boolean
+}
+
+export type TransformMotionVelocitySnapshot = {
+  linearVelocity: Vec3
+  angularVelocity: Vec3
+}
+
+export type TransformMotionHandle = {
+  getVelocitySnapshot: () => TransformMotionVelocitySnapshot
 }
 
 type MotionTrackConfig = {
@@ -270,6 +281,80 @@ function updateVector(
   })
 }
 
+const EASING_DERIVATIVE_EPSILON = 1e-4
+
+function estimateEasingSlope(progress: number, easing: EasingName): number {
+  const t = Math.max(0, Math.min(1, progress))
+  const h = EASING_DERIVATIVE_EPSILON
+
+  if (t <= h) {
+    return (applyEasing(t + h, easing) - applyEasing(t, easing)) / h
+  }
+  if (t >= 1 - h) {
+    return (applyEasing(t, easing) - applyEasing(t - h, easing)) / h
+  }
+
+  return (applyEasing(t + h, easing) - applyEasing(t - h, easing)) / (2 * h)
+}
+
+function resolveInstantAxisVelocity(
+  speed: number,
+  direction: number,
+  axisRange: AxisRange | undefined,
+  loopMode: LoopMode,
+  easing: EasingName,
+  progress: number,
+): number {
+  if (speed === 0) return 0
+
+  const dir = direction === 0 ? 1 : direction
+  if (easing !== 'linear' && axisRange && loopMode !== 'none') {
+    const [min, max] = normalizeRange(axisRange)
+    const span = max - min
+    if (span <= 0) return 0
+
+    const slope = estimateEasingSlope(progress, easing)
+    const progressRate = (Math.abs(speed) / span) * dir
+    return slope * span * progressRate
+  }
+
+  return speed * dir
+}
+
+function resolveInstantVelocityVector(
+  velocity: Vec3,
+  range: AxisRangeMap | undefined,
+  direction: Vec3,
+  loopModes: PerAxisLoopMode,
+  easings: PerAxisEasing,
+  progress: Vec3,
+): Vec3 {
+  const result: Vec3 = [0, 0, 0]
+  TRANSFORM_MOTION_AXES.forEach((axis, index) => {
+    result[index] = resolveInstantAxisVelocity(
+      velocity[index] ?? 0,
+      direction[index] ?? 1,
+      range?.[axis],
+      loopModes[index],
+      easings[index],
+      progress[index] ?? 0,
+    )
+  })
+  return result
+}
+
+function toWorldVelocity(
+  localVelocity: Vec3,
+  object: THREE.Object3D,
+  parentQuaternion: THREE.Quaternion,
+  scratch: THREE.Vector3,
+): Vec3 {
+  parentQuaternion.identity()
+  object.parent?.getWorldQuaternion(parentQuaternion)
+  scratch.set(localVelocity[0], localVelocity[1], localVelocity[2]).applyQuaternion(parentQuaternion)
+  return [scratch.x, scratch.y, scratch.z]
+}
+
 const MotionRegistryContext = createContext<MotionRegistry | null>(null)
 
 export function MotionSystemProvider({ children }: { children: ReactNode }) {
@@ -330,7 +415,7 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
   )
 }
 
-export function TransformMotion({
+export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotionProps>(function TransformMotion({
   children,
   loopMode,
   positionVelocity,
@@ -356,7 +441,7 @@ export function TransformMotion({
   scaleEasing,
   paused,
   ...groupProps
-}: TransformMotionProps) {
+}, forwardedRef) {
   const registry = useContext(MotionRegistryContext)
   if (!registry) {
     throw new Error('TransformMotion must be used inside MotionSystemProvider')
@@ -403,6 +488,45 @@ export function TransformMotion({
     rotationProgress: [0, 0, 0],
     scaleProgress: [0, 0, 0],
   })
+  const parentWorldQuaternion = useMemo(() => new THREE.Quaternion(), [])
+  const worldLinearVelocityScratch = useMemo(() => new THREE.Vector3(), [])
+  const worldAngularVelocityScratch = useMemo(() => new THREE.Vector3(), [])
+
+  useImperativeHandle(forwardedRef, () => ({
+    getVelocitySnapshot: () => {
+      const object = ref.current
+      if (!object) {
+        return {
+          linearVelocity: [0, 0, 0],
+          angularVelocity: [0, 0, 0],
+        }
+      }
+
+      const config = configRef.current
+      const state = stateRef.current
+      const localLinearVelocity = resolveInstantVelocityVector(
+        config.positionVelocity,
+        config.positionRange,
+        state.positionDirection,
+        config.positionLoopMode,
+        config.positionEasing,
+        state.positionProgress,
+      )
+      const localAngularVelocity = resolveInstantVelocityVector(
+        config.rotationVelocity,
+        config.rotationRange,
+        state.rotationDirection,
+        config.rotationLoopMode,
+        config.rotationEasing,
+        state.rotationProgress,
+      )
+
+      return {
+        linearVelocity: toWorldVelocity(localLinearVelocity, object, parentWorldQuaternion, worldLinearVelocityScratch),
+        angularVelocity: toWorldVelocity(localAngularVelocity, object, parentWorldQuaternion, worldAngularVelocityScratch),
+      }
+    },
+  }), [parentWorldQuaternion, worldLinearVelocityScratch, worldAngularVelocityScratch])
 
   useEffect(() => {
     configRef.current = computedConfig
@@ -504,4 +628,6 @@ export function TransformMotion({
       <group ref={ref}>{children}</group>
     </group>
   )
-}
+})
+
+TransformMotion.displayName = 'TransformMotion'
