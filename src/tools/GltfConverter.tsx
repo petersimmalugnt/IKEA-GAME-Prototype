@@ -6,32 +6,32 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js'
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js'
 
 type ParsedSpline = {
-  name: string
-  parentPath: string[]
-  siblingIndex: number
-  anchorIndex: number
-  points: number[][]
-  closed: boolean
-  tension: number
-  castShadow: boolean
-  transform: {
-    position: THREE.Vector3
-    rotation: THREE.Euler
-    scale: THREE.Vector3
-  }
+    name: string
+    parentPath: string[]
+    siblingIndex: number
+    anchorIndex: number
+    points: number[][]
+    closed: boolean
+    tension: number
+    castShadow: boolean
+    transform: {
+        position: THREE.Vector3
+        rotation: THREE.Euler
+        scale: THREE.Vector3
+    }
 }
 
 type GenerateSettings = {
-  useSourceImport: boolean
-  modelPath: string
-  componentPath: string
-  animations?: Array<{ name: string }>
-  splines?: ParsedSpline[]
+    useSourceImport: boolean
+    modelPath: string
+    componentPath: string
+    animations?: Array<{ name: string }>
+    splines?: ParsedSpline[]
 }
 
 function toErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
+    if (error instanceof Error) return error.message
+    return String(error)
 }
 
 export function GltfConverter() {
@@ -392,7 +392,14 @@ export function GltfConverter() {
             alert(`Saved ${finalGlbName} and ${finalJsxName}!`)
             setShowModal(false)
         } catch (e: unknown) {
-            setError("Write failed: " + toErrorMessage(e))
+            const errMsg = toErrorMessage(e)
+            if (e instanceof Error && e.name === 'NotFoundError' || errMsg.includes('NotFoundError')) {
+                setError("Write failed: The saved folder was not found! It may have been renamed or deleted. Click SAVE again to pick a new folder.")
+                setDirHandle(null)
+                clearDirectoryHandle().catch(console.error)
+            } else {
+                setError("Write failed: " + errMsg)
+            }
             setShowModal(false)
         }
     }
@@ -1460,5 +1467,16 @@ async function getDirectoryHandle(): Promise<FileSystemDirectoryHandle | null> {
         const request = store.get('models_dir')
         request.onsuccess = () => resolve((request.result as FileSystemDirectoryHandle | undefined) || null)
         request.onerror = () => reject(request.error)
+    })
+}
+
+async function clearDirectoryHandle(): Promise<void> {
+    const db = await openDB()
+    return new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        const store = tx.objectStore(STORE_NAME)
+        store.delete('models_dir')
+        tx.oncomplete = () => resolve()
+        tx.onerror = () => reject(tx.error)
     })
 }
