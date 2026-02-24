@@ -19,13 +19,11 @@ export type BalloonLifecycleTarget = {
   getWorldXZ: () => BalloonWorldXZ | undefined
   isPopped: () => boolean
   onMissed: () => void
-  onCleanupRequested: () => void
 }
 
 type BalloonLifecycleEntry = {
   target: BalloonLifecycleTarget
   missApplied: boolean
-  cleanupApplied: boolean
 }
 
 type BalloonLifecycleRegistry = {
@@ -33,7 +31,6 @@ type BalloonLifecycleRegistry = {
 }
 
 const DEFAULT_LIFE_MARGIN = 0
-const DEFAULT_CLEANUP_MARGIN = 0.35
 
 const BalloonLifecycleRegistryContext = createContext<BalloonLifecycleRegistry | null>(null)
 
@@ -51,100 +48,51 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
   const loseLives = useGameplayStore((state) => state.loseLives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const entriesRef = useRef<Set<BalloonLifecycleEntry>>(new Set())
-  const gameOverCleanupAppliedRef = useRef(false)
   const missQueueRef = useRef<Array<() => void>>([])
-  const cleanupQueueRef = useRef<Array<() => void>>([])
 
   const registry = useMemo<BalloonLifecycleRegistry>(() => ({
     register(target) {
-      const entry: BalloonLifecycleEntry = {
-        target,
-        missApplied: false,
-        cleanupApplied: false,
-      }
-
+      const entry: BalloonLifecycleEntry = { target, missApplied: false }
       entriesRef.current.add(entry)
-
-      return () => {
-        entriesRef.current.delete(entry)
-      }
+      return () => { entriesRef.current.delete(entry) }
     },
   }), [])
 
   useFrame(() => {
+    if (gameOver) return
     const entries = entriesRef.current
-    if (entries.size === 0) {
-      if (!gameOver) {
-        gameOverCleanupAppliedRef.current = false
-      }
-      return
-    }
-
-    const cleanupQueue = cleanupQueueRef.current
-    const missQueue = missQueueRef.current
-    cleanupQueue.length = 0
-    missQueue.length = 0
-
-    if (gameOver) {
-      if (gameOverCleanupAppliedRef.current) return
-      gameOverCleanupAppliedRef.current = true
-
-      entries.forEach((entry) => {
-        if (entry.cleanupApplied) return
-        entry.cleanupApplied = true
-        cleanupQueue.push(entry.target.onCleanupRequested)
-      })
-
-      cleanupQueue.forEach((callback) => callback())
-      return
-    }
-    gameOverCleanupAppliedRef.current = false
+    if (entries.size === 0) return
 
     const rawCorners = getFrustumCornersOnFloor(camera as THREE.OrthographicCamera)
     if (!rawCorners || rawCorners.length !== 4) return
     const corners = rawCorners as FrustumCorners
 
     const lifeMargin = normalizeMargin(SETTINGS.gameplay.balloons.sensors.lifeMargin, DEFAULT_LIFE_MARGIN)
-    const cleanupMarginRaw = normalizeMargin(SETTINGS.gameplay.balloons.sensors.cleanupMargin, DEFAULT_CLEANUP_MARGIN)
-    const cleanupMargin = Math.max(lifeMargin, cleanupMarginRaw)
     const lifeLoss = Math.max(0, Math.trunc(SETTINGS.gameplay.lives.lossPerMiss))
 
+    const missQueue = missQueueRef.current
+    missQueue.length = 0
+
     entries.forEach((entry) => {
-      if (entry.cleanupApplied) return
+      if (entry.missApplied) return
+      if (entry.target.isPopped()) return
 
       const worldPosition = entry.target.getWorldXZ()
       if (!worldPosition) return
 
-      const isPopped = entry.target.isPopped()
-
-      if (!isPopped) {
-        const pastLife = (
-          isPastLeftEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
-          || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
-        )
-
-        if (pastLife && !entry.missApplied) {
-          entry.missApplied = true
-          if (lifeLoss > 0) {
-            loseLives(lifeLoss)
-          }
-          missQueue.push(entry.target.onMissed)
-        }
-      }
-
-      const pastCleanup = (
-        isPastLeftEdge(corners, worldPosition.x, worldPosition.z, cleanupMargin)
-        || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, cleanupMargin)
+      const pastLife = (
+        isPastLeftEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
+        || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
       )
 
-      if (pastCleanup && !entry.cleanupApplied) {
-        entry.cleanupApplied = true
-        cleanupQueue.push(entry.target.onCleanupRequested)
+      if (pastLife) {
+        entry.missApplied = true
+        if (lifeLoss > 0) loseLives(lifeLoss)
+        missQueue.push(entry.target.onMissed)
       }
     })
 
     missQueue.forEach((callback) => callback())
-    cleanupQueue.forEach((callback) => callback())
   })
 
   return (

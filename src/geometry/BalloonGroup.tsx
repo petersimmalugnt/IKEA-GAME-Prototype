@@ -43,6 +43,8 @@ type BalloonGroupProps = Omit<ThreeElements["group"], "ref"> & {
     onPopped?: () => void;
     onMissed?: () => void;
     onCleanupRequested?: () => void;
+    /** Called once on mount; the provided getter returns the item's current world Z. Returns an unregister function. */
+    onRegisterCullZ?: (getter: () => number | undefined) => () => void;
     popReleaseTuning?: BalloonPopReleaseTuning;
 };
 
@@ -152,7 +154,8 @@ export function BalloonGroup({
     paused = false,
     onPopped,
     onMissed,
-    onCleanupRequested,
+    onCleanupRequested: _onCleanupRequested,
+    onRegisterCullZ,
     popReleaseTuning,
     ...props
 }: BalloonGroupProps) {
@@ -187,19 +190,21 @@ export function BalloonGroup({
         onMissed?.();
     }, [onMissed]);
 
-    const handleCleanupRequested = useCallback(() => {
-        onCleanupRequested?.();
-    }, [onCleanupRequested]);
-
     useEffect(() => {
         if (!lifecycleRegistry) return;
-        return lifecycleRegistry.register({
-            getWorldXZ,
-            isPopped,
-            onMissed: handleMissed,
-            onCleanupRequested: handleCleanupRequested,
+        return lifecycleRegistry.register({ getWorldXZ, isPopped, onMissed: handleMissed });
+    }, [lifecycleRegistry, getWorldXZ, isPopped, handleMissed]);
+
+    useEffect(() => {
+        if (!onRegisterCullZ) return;
+        return onRegisterCullZ(() => {
+            if (poppedRef.current) return blockRef.current?.getPosition()?.z;
+            const probe = probeRef.current;
+            if (!probe) return undefined;
+            probe.getWorldPosition(probeWorld);
+            return probeWorld.z;
         });
-    }, [lifecycleRegistry, getWorldXZ, isPopped, handleMissed, handleCleanupRequested]);
+    }, [onRegisterCullZ, probeWorld]);
 
     const handleBalloonPointerEnter: ThreeElements["group"]["onPointerEnter"] = (event) => {
         if (gameOver) return;

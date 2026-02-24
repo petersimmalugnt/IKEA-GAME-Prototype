@@ -38,7 +38,7 @@ function syncLevaFromSettings() {
   })
 
   setters['Debug']?.({
-    enabled: SETTINGS.debug.enabled,
+    debugEnabled: SETTINGS.debug.enabled,
     showColliders: SETTINGS.debug.showColliders,
     showStats: SETTINGS.debug.showStats,
     showGrid: SETTINGS.debug.showGrid,
@@ -257,9 +257,10 @@ function useControlsControls() {
 
 function useDebugControls() {
   const [, set] = useControls('Debug', () => ({
-    enabled: {
+    debugEnabled: {
       value: SETTINGS.debug.enabled,
       onChange: (v: boolean) => { SETTINGS.debug.enabled = v; bump() },
+      label: 'Enabled',
     },
     showColliders: {
       value: SETTINGS.debug.showColliders,
