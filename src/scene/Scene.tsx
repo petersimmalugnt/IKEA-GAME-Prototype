@@ -5,6 +5,7 @@ import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { ItemSpawner } from "@/gameplay/ItemSpawner";
 import { useSpawnerStore } from "@/gameplay/spawnerStore";
 import { ExternalControlBridge } from "@/input/control/ExternalControlBridge";
+import { CursorSystem } from "@/input/CursorSystem";
 import { GameKeyboardControls } from "@/input/GameKeyboardControls";
 import { LevelTileManager } from "@/levels/LevelTileManager";
 import { LiveLevelSync } from "@/LiveLevelSync";
@@ -62,6 +63,8 @@ export function Scene() {
         >
           <MotionSystemProvider>
             <BalloonLifecycleRuntime>
+              <CursorSystem />
+
               {/* SPELAREN */}
               {/* <Player
                 contagionCarrier

@@ -111,27 +111,31 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
 
     entries.forEach((entry) => {
       if (entry.cleanupApplied) return
-      if (entry.target.isPopped()) return
 
       const worldPosition = entry.target.getWorldXZ()
       if (!worldPosition) return
 
-      const pastLife = (
-        isPastLeftEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
-        || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
-      )
+      const isPopped = entry.target.isPopped()
+
+      if (!isPopped) {
+        const pastLife = (
+          isPastLeftEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
+          || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, lifeMargin)
+        )
+
+        if (pastLife && !entry.missApplied) {
+          entry.missApplied = true
+          if (lifeLoss > 0) {
+            loseLives(lifeLoss)
+          }
+          missQueue.push(entry.target.onMissed)
+        }
+      }
+
       const pastCleanup = (
         isPastLeftEdge(corners, worldPosition.x, worldPosition.z, cleanupMargin)
         || isPastBottomEdge(corners, worldPosition.x, worldPosition.z, cleanupMargin)
       )
-
-      if (pastLife && !entry.missApplied) {
-        entry.missApplied = true
-        if (lifeLoss > 0) {
-          loseLives(lifeLoss)
-        }
-        missQueue.push(entry.target.onMissed)
-      }
 
       if (pastCleanup && !entry.cleanupApplied) {
         entry.cleanupApplied = true

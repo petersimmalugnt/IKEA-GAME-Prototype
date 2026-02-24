@@ -285,7 +285,16 @@ export const SETTINGS: Settings = {
     radius: 0,
     maxItems: 40,
     spawnXRange: 2.5,
-    cullOffset: 2,
+    cullOffset: 6,
+  },
+
+  // --- CURSOR ---
+  cursor: {
+    minPopVelocity: 300,
+    trail: {
+      maxAge: 0.25,
+      color: '#ffffff',
+    },
   },
 };
 

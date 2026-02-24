@@ -35,7 +35,7 @@ function GameApp() {
     : SETTINGS.camera.static.position
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: backgroundColor }}>
+    <div style={{ width: '100vw', height: '100vh', background: backgroundColor, cursor: 'none' }}>
       <Leva collapsed />
       <ControlCenter />
       <ScoreHud />

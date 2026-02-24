@@ -7,8 +7,10 @@ import { Balloon28 } from "@/assets/models/Balloon28";
 import { Balloon32 } from "@/assets/models/Balloon32";
 import { useBalloonLifecycleRegistry } from "@/gameplay/BalloonLifecycleRuntime";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
+import { getCursorVelocityPx } from "@/input/cursorVelocity";
 import { BlockElement } from "@/primitives/BlockElement";
 import { SplineElement } from "@/primitives/SplineElement";
+import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import { TransformMotion, type TransformMotionHandle } from "@/scene/TransformMotion";
 import { SETTINGS, type MaterialColorIndex, type Vec3 } from "@/settings/GameSettings";
 import type { ThreeElements } from "@react-three/fiber";
@@ -159,6 +161,7 @@ export function BalloonGroup({
     const poppedRef = useRef(false);
     const motionRef = useRef<TransformMotionHandle | null>(null);
     const probeRef = useRef<THREE.Group | null>(null);
+    const blockRef = useRef<PositionTargetHandle | null>(null);
     const popReleaseRef = useRef<PopRelease | null>(null);
     const probeWorld = useMemo(() => new THREE.Vector3(), []);
     const lifecycleRegistry = useBalloonLifecycleRegistry();
@@ -167,13 +170,15 @@ export function BalloonGroup({
     const motionPaused = paused || popped || gameOver;
 
     const getWorldXZ = useCallback(() => {
+        if (poppedRef.current) {
+            const pos = blockRef.current?.getPosition();
+            if (!pos) return undefined;
+            return { x: pos.x, z: pos.z };
+        }
         const probe = probeRef.current;
         if (!probe) return undefined;
         probe.getWorldPosition(probeWorld);
-        return {
-            x: probeWorld.x,
-            z: probeWorld.z,
-        };
+        return { x: probeWorld.x, z: probeWorld.z };
     }, [probeWorld]);
 
     const isPopped = useCallback(() => poppedRef.current, []);
@@ -196,10 +201,13 @@ export function BalloonGroup({
         });
     }, [lifecycleRegistry, getWorldXZ, isPopped, handleMissed, handleCleanupRequested]);
 
-    const handleBalloonPointerDown: ThreeElements["group"]["onPointerDown"] = (event) => {
+    const handleBalloonPointerEnter: ThreeElements["group"]["onPointerEnter"] = (event) => {
         if (gameOver) return;
         if (poppedRef.current) return;
-        if (event.pointerType === "mouse" && event.button !== 0) return;
+
+        if (event.pointerType === "mouse") {
+            if (getCursorVelocityPx() < SETTINGS.cursor.minPopVelocity) return;
+        }
 
         event.stopPropagation();
         poppedRef.current = true;
@@ -247,7 +255,7 @@ export function BalloonGroup({
                     <>
                         <BalloonComponent
                             materialColor0={color}
-                            onPointerDown={handleBalloonPointerDown}
+                            onPointerEnter={handleBalloonPointerEnter}
                         />
                         <SplineElement points={[[0, 0, 0], [0, WRAP_TOP_Y, 0]]} segments={1} />
                         <SplineElement
@@ -259,6 +267,7 @@ export function BalloonGroup({
                     </>
                 ) : null}
                 <BlockElement
+                    ref={blockRef}
                     position={[0, -0.3, 0]}
                     sizePreset="sm"
                     heightPreset="sm"

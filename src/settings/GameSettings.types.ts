@@ -220,4 +220,13 @@ export type Settings = {
     /** Units past the cull line before the item is actually removed */
     cullOffset: number
   }
+  cursor: {
+    /** Minimum cursor speed in px/s required to pop a balloon on hover */
+    minPopVelocity: number
+    trail: {
+      /** How long (in seconds) trail points persist before fading out */
+      maxAge: number
+      color: string
+    }
+  }
 }
