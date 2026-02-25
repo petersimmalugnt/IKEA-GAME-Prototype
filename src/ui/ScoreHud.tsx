@@ -1,37 +1,96 @@
+import type { CSSProperties } from 'react'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
-import { SETTINGS } from '@/settings/GameSettings'
+import { SETTINGS, getPaletteEntry } from '@/settings/GameSettings'
 
 export function ScoreHud() {
   const score = useGameplayStore((state) => state.score)
   const lives = useGameplayStore((state) => state.lives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const maxLives = SETTINGS.gameplay.lives.initial
+  const primaryColor = getPaletteEntry(0).base
+  const secondaryColor = getPaletteEntry(1).base
+  const consumedLives = Math.max(0, maxLives - lives)
 
-  const hearts = '❤️'.repeat(lives) + '🖤'.repeat(Math.max(0, maxLives - lives))
+  const hudTextStyle: CSSProperties = {
+    fontFamily: '"Instrument Sans", sans-serif',
+    fontSize: '1.5rem',
+    lineHeight: 1,
+    letterSpacing: '0.03em',
+    textTransform: 'uppercase',
+  }
 
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        zIndex: 30,
-        pointerEvents: 'none',
-        padding: '6px 10px',
-        borderRadius: 6,
-        background: 'rgba(0, 0, 0, 0.4)',
-        color: '#fff',
-        fontFamily: 'Roboto Mono, monospace',
-        fontSize: 14,
-        lineHeight: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 4,
-      }}
-    >
-      <span>{`Score: ${score}`}</span>
-      <span>{hearts}</span>
-      {gameOver ? <span>GAME OVER</span> : null}
-    </div>
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          top: '1.5rem',
+          left: '1.5rem',
+          zIndex: 30,
+          pointerEvents: 'none',
+          ...hudTextStyle,
+        }}
+      >
+        <span style={{ color: secondaryColor }}>Score </span>
+        <span style={{ color: primaryColor }}>{score}</span>
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: '1.5rem',
+          right: '1.5rem',
+          zIndex: 30,
+          pointerEvents: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.2em',
+          ...hudTextStyle,
+        }}
+      >
+        {Array.from({ length: lives }, (_, index) => (
+          <span
+            key={`life-active-${index}`}
+            className="material-icons"
+            style={{
+              color: primaryColor,
+              fontSize: '1.5rem',
+              lineHeight: '1em',
+            }}
+          >
+            favorite
+          </span>
+        ))}
+        {Array.from({ length: consumedLives }, (_, index) => (
+          <span
+            key={`life-consumed-${index}`}
+            className="material-icons"
+            style={{
+              color: secondaryColor,
+              fontSize: '1.5rem',
+              lineHeight: '1em',
+            }}
+          >
+            favorite
+          </span>
+        ))}
+      </div>
+
+      {gameOver ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: '3.3rem',
+            left: '1.5rem',
+            zIndex: 30,
+            pointerEvents: 'none',
+            color: secondaryColor,
+            ...hudTextStyle,
+          }}
+        >
+          Game Over
+        </div>
+      ) : null}
+    </>
   )
 }

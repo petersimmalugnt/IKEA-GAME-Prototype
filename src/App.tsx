@@ -32,7 +32,7 @@ export default function App() {
 
 function GameApp() {
   useSettingsVersion();
-  const [levaHidden, setLevaHidden] = useState(false);
+  const [levaHidden, setLevaHidden] = useState(true);
 
   useEffect(() => {
     preloadSounds();
@@ -40,7 +40,7 @@ function GameApp() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.metaKey && e.key === "d") {
+      if (e.metaKey && (e.key === "." || e.code === "Period")) {
         e.preventDefault();
         setLevaHidden((h) => !h);
       }
