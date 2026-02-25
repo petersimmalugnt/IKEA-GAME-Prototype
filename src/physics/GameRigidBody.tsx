@@ -93,7 +93,6 @@ export function GameRigidBody({
   rotation,
   quaternion,
   scale,
-  mass,
   ...props
 }: GameRigidBodyProps) {
   const { rapier } = useRapier()
@@ -193,18 +192,6 @@ export function GameRigidBody({
     }
   }, [rapier.RigidBodyType.Dynamic, rapier.RigidBodyType.Fixed, rapier.RigidBodyType.KinematicPositionBased, rapier.RigidBodyType.KinematicVelocityBased])
 
-  const applyAdditionalMass = useCallback((nextBody: RapierRigidBody | null) => {
-    if (!nextBody) return
-    const resolvedMass = mass === undefined ? 0 : Math.max(0, mass)
-    // Explicit-collider objects use additional mass so "mass" has effect consistently.
-    nextBody.setAdditionalMass(resolvedMass, true)
-  }, [mass])
-
-  const setBodyRef = useCallback((nextBody: RapierRigidBody | null) => {
-    bodyRef.current = nextBody
-    applyAdditionalMass(nextBody)
-  }, [applyAdditionalMass])
-
   const promoteToDynamicImmediately = useCallback(() => {
     const body = bodyRef.current
     if (!body) return
@@ -216,10 +203,6 @@ export function GameRigidBody({
     if (collisionActivated && activationFiredRef.current && !activated) return
     applyBodyType(resolvedType)
   }, [resolvedType, applyBodyType, collisionActivated, activated])
-
-  useEffect(() => {
-    applyAdditionalMass(bodyRef.current)
-  }, [applyAdditionalMass])
 
   useEffect(() => {
     if (collisionActivated && activationFiredRef.current && !activated) return
@@ -315,7 +298,7 @@ export function GameRigidBody({
 
   return (
     <RigidBody
-      ref={setBodyRef}
+      ref={bodyRef}
       {...props}
       {...(position !== undefined ? { position } : {})}
       {...(rotation !== undefined ? { rotation } : {})}
