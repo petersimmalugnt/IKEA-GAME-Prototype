@@ -27,6 +27,7 @@ type LevelTilingState = {
   initialize: (files: string[]) => Promise<void>
   spawnNextSegment: () => void
   cullSegment: (id: string) => void
+  cullSegments: (ids: string[]) => void
 }
 
 export const useLevelTilingStore = create<LevelTilingState>((set, get) => ({
@@ -82,6 +83,14 @@ export const useLevelTilingStore = create<LevelTilingState>((set, get) => ({
   cullSegment: (id: string) => {
     set((state) => ({
       segments: state.segments.filter((s) => s.id !== id),
+    }))
+  },
+
+  cullSegments: (ids: string[]) => {
+    if (ids.length === 0) return
+    const cullSet = new Set(ids)
+    set((state) => ({
+      segments: state.segments.filter((s) => !cullSet.has(s.id)),
     }))
   },
 }))

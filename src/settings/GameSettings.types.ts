@@ -227,6 +227,10 @@ export type Settings = {
       /** How long (in seconds) trail points persist before fading out */
       maxAge: number
       color: string
+      /** Line width in pixels */
+      lineWidth: number
+      /** Curve smoothing: 0 = tight polyline, 1 = fully smoothed quadratic curve */
+      smoothing: number
     }
   }
 }

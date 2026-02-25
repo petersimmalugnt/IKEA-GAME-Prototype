@@ -6,6 +6,7 @@ import { Leva } from 'leva'
 import { SETTINGS, getActiveBackground } from '@/settings/GameSettings'
 import { useSettingsVersion } from '@/settings/settingsStore'
 import { Scene } from '@/scene/Scene'
+import { CursorTrailCanvas } from '@/input/CursorTrailCanvas'
 import { GltfConverter } from '@/tools/GltfConverter'
 import { DocsPage } from '@/ui/docs/DocsPage'
 import { ControlCenter } from '@/ui/ControlCenter'
@@ -35,7 +36,7 @@ function GameApp() {
     : SETTINGS.camera.static.position
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: backgroundColor, cursor: 'none' }}>
+    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: backgroundColor, cursor: 'none' }}>
       <Leva collapsed />
       <ControlCenter />
       <ScoreHud />
@@ -60,6 +61,7 @@ function GameApp() {
 
         <Scene />
       </Canvas>
+      <CursorTrailCanvas />
     </div>
   )
 }
