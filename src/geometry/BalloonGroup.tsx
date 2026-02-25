@@ -8,6 +8,7 @@ import { Balloon32 } from "@/assets/models/Balloon32";
 import { useBalloonLifecycleRegistry } from "@/gameplay/BalloonLifecycleRuntime";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { getCursorVelocityPx } from "@/input/cursorVelocity";
+import { emitScorePop } from "@/input/scorePopEmitter";
 import { BlockElement } from "@/primitives/BlockElement";
 import { SplineElement } from "@/primitives/SplineElement";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
@@ -299,6 +300,12 @@ export function BalloonGroup({
         }
 
         useGameplayStore.getState().addScore(SETTINGS.gameplay.balloons.scorePerPop);
+        const projected = event.point.clone().project(event.camera);
+        emitScorePop({
+            amount: SETTINGS.gameplay.balloons.scorePerPop,
+            x: (projected.x + 1) / 2 * window.innerWidth,
+            y: (-projected.y + 1) / 2 * window.innerHeight,
+        });
         setPopped(true);
         onPopped?.();
     };

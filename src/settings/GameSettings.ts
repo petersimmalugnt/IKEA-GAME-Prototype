@@ -263,6 +263,7 @@ export const SETTINGS: Settings = {
   // --- LEVEL LOADING ---
   level: {
     defaultFile: "default.json", // filename inside public/levels/
+    gridClonerSpawnChunkSize: 32, // Physics bodies registered per frame (0 = all at once)
     tiling: {
       enabled: false,
       files: ["default.json", "1.json", "2.json"],
