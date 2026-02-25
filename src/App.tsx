@@ -4,6 +4,7 @@ import { Leva } from "leva";
 import { useEffect, useState } from "react";
 import * as THREE from "three";
 // import { GameEffects } from '@/render/Effects' <--- BORTTAGEN HÄRIFRÅN
+import { preload as preloadSounds } from "@/audio/SoundManager";
 import { CursorTrailCanvas } from "@/input/CursorTrailCanvas";
 import { Scene } from "@/scene/Scene";
 import { SETTINGS, getActiveBackground } from "@/settings/GameSettings";
@@ -32,6 +33,10 @@ export default function App() {
 function GameApp() {
   useSettingsVersion();
   const [levaHidden, setLevaHidden] = useState(false);
+
+  useEffect(() => {
+    preloadSounds();
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

@@ -4,6 +4,7 @@ import { Balloon20 } from "@/assets/models/Balloon20";
 import { Balloon24 } from "@/assets/models/Balloon24";
 import { Balloon28 } from "@/assets/models/Balloon28";
 import { Balloon32 } from "@/assets/models/Balloon32";
+import { playFelt, playPop } from "@/audio/SoundManager";
 import { useBalloonLifecycleRegistry } from "@/gameplay/BalloonLifecycleRuntime";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { getCursorVelocityPx } from "@/input/cursorVelocity";
@@ -21,7 +22,7 @@ import {
   type MaterialColorIndex,
   type Vec3,
 } from "@/settings/GameSettings";
-import type { ThreeElements } from "@react-three/fiber";
+import { useFrame, type ThreeElements } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
@@ -293,6 +294,7 @@ export function BalloonGroup({
   const probeRef = useRef<THREE.Group | null>(null);
   const blockRef = useRef<PositionTargetHandle | null>(null);
   const popReleaseRef = useRef<PopRelease | null>(null);
+  const feltPlayedRef = useRef(false);
   const randomColorRef = useRef<MaterialColorIndex | null>(null);
   const probeWorld = useMemo(() => new THREE.Vector3(), []);
   const lifecycleRegistry = useBalloonLifecycleRegistry();
@@ -341,6 +343,15 @@ export function BalloonGroup({
       return probeWorld.z;
     });
   }, [onRegisterCullZ, probeWorld]);
+
+  useFrame(() => {
+    if (!popped || feltPlayedRef.current) return;
+    const pos = blockRef.current?.getPosition();
+    if (pos && pos.y < 0.05) {
+      feltPlayedRef.current = true;
+      playFelt();
+    }
+  });
 
   const handleBalloonPointerEnter: ThreeElements["group"]["onPointerEnter"] = (
     event,
@@ -399,6 +410,7 @@ export function BalloonGroup({
       y: ((-projected.y + 1) / 2) * window.innerHeight,
     });
     setPopped(true);
+    playPop();
     onPopped?.();
   };
   const popRelease = popReleaseRef.current;

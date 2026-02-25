@@ -29,6 +29,9 @@ export type {
   RenderStyle,
   Settings,
   SMAAPresetName,
+  SoundCategorySettings,
+  SoundSettings,
+  SwooshSoundSettings,
   StreamingCenterSource,
   Vec3,
 } from "@/settings/GameSettings.types";
@@ -297,6 +300,48 @@ export const SETTINGS: Settings = {
       color: "#ffffff",
       lineWidth: 3,
       smoothing: 0.75,
+    },
+  },
+
+  // --- LJUD ---
+  sounds: {
+    enabled: true,
+    pop: {
+      files: [
+        "/sounds/pop/pop1.wav",
+        "/sounds/pop/pop2.wav",
+        "/sounds/pop/pop3.wav",
+        "/sounds/pop/pop4.wav",
+      ],
+      volume: 1,
+    },
+    felt: {
+      files: [
+        "/sounds/felt/felt1.wav",
+        "/sounds/felt/felt2.wav",
+        "/sounds/felt/felt3.wav",
+      ],
+      volume: 1,
+    },
+    steel: {
+      files: [
+        "/sounds/steel/steel1.wav",
+        "/sounds/steel/steel2.wav",
+        "/sounds/steel/steel3.wav",
+      ],
+      volume: 1,
+    },
+    swoosh: {
+      files: [
+        "/sounds/swoosh/swoosh1.wav",
+        "/sounds/swoosh/swoosh2.wav",
+        "/sounds/swoosh/swoosh3.wav",
+        "/sounds/swoosh/swoosh4.wav",
+        "/sounds/swoosh/swoosh65.wav",
+      ],
+      volume: 1,
+      minVelocity: 300,
+      cooldownMs: 350,
     },
   },
 };
