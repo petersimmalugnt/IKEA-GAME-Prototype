@@ -49,6 +49,7 @@ export const BallElement: BallElementComponent = forwardRef<PositionTargetHandle
             radius={radius}
             segments={BALL_VISUAL_SEGMENTS}
             align={finalAlign}
+            angularDamping={10}
         />
     )
 })
