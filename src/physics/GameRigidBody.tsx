@@ -195,14 +195,9 @@ export function GameRigidBody({
 
   const applyAdditionalMass = useCallback((nextBody: RapierRigidBody | null) => {
     if (!nextBody) return
-    if (!nextBody.isDynamic()) return
-    if (mass === undefined) {
-      // Restore collider-driven mass when custom mass is unset.
-      nextBody.recomputeMassPropertiesFromColliders()
-      return
-    }
+    const resolvedMass = mass === undefined ? 0 : Math.max(0, mass)
     // Explicit-collider objects use additional mass so "mass" has effect consistently.
-    nextBody.setAdditionalMass(Math.max(0, mass), true)
+    nextBody.setAdditionalMass(resolvedMass, true)
   }, [mass])
 
   const setBodyRef = useCallback((nextBody: RapierRigidBody | null) => {
