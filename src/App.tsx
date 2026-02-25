@@ -1,44 +1,66 @@
-import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
-import { OrthographicCamera } from '@react-three/drei'
-import { Leva } from 'leva'
+import { OrthographicCamera } from "@react-three/drei";
+import { Canvas } from "@react-three/fiber";
+import { Leva } from "leva";
+import { useEffect, useState } from "react";
+import * as THREE from "three";
 // import { GameEffects } from '@/render/Effects' <--- BORTTAGEN HÄRIFRÅN
-import { SETTINGS, getActiveBackground } from '@/settings/GameSettings'
-import { useSettingsVersion } from '@/settings/settingsStore'
-import { Scene } from '@/scene/Scene'
-import { CursorTrailCanvas } from '@/input/CursorTrailCanvas'
-import { ScorePopCanvas } from '@/ui/ScorePopCanvas'
-import { GltfConverter } from '@/tools/GltfConverter'
-import { DocsPage } from '@/ui/docs/DocsPage'
-import { ControlCenter } from '@/ui/ControlCenter'
-import { ScoreHud } from '@/ui/ScoreHud'
+import { CursorTrailCanvas } from "@/input/CursorTrailCanvas";
+import { Scene } from "@/scene/Scene";
+import { SETTINGS, getActiveBackground } from "@/settings/GameSettings";
+import { useSettingsVersion } from "@/settings/settingsStore";
+import { GltfConverter } from "@/tools/GltfConverter";
+import { ControlCenter } from "@/ui/ControlCenter";
+import { DocsPage } from "@/ui/docs/DocsPage";
+import { ScoreHud } from "@/ui/ScoreHud";
+import { ScorePopCanvas } from "@/ui/ScorePopCanvas";
 
 export default function App() {
-  const isConverter = window.location.pathname === '/converter'
-  const isDocs = window.location.pathname === '/docs'
+  const isConverter = window.location.pathname === "/converter";
+  const isDocs = window.location.pathname === "/docs";
 
   if (isConverter) {
-    return <GltfConverter />
+    return <GltfConverter />;
   }
 
   if (isDocs) {
-    return <DocsPage />
+    return <DocsPage />;
   }
 
-  return <GameApp />
+  return <GameApp />;
 }
 
 function GameApp() {
-  useSettingsVersion()
+  useSettingsVersion();
+  const [levaHidden, setLevaHidden] = useState(false);
 
-  const backgroundColor = getActiveBackground()
-  const initialCameraPosition = SETTINGS.camera.mode === 'follow'
-    ? SETTINGS.camera.follow.offset
-    : SETTINGS.camera.static.position
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === "d") {
+        e.preventDefault();
+        setLevaHidden((h) => !h);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  const backgroundColor = getActiveBackground();
+  const initialCameraPosition =
+    SETTINGS.camera.mode === "follow"
+      ? SETTINGS.camera.follow.offset
+      : SETTINGS.camera.static.position;
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', background: backgroundColor, cursor: 'none' }}>
-      <Leva collapsed />
+    <div
+      style={{
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        background: backgroundColor,
+        cursor: "none",
+      }}
+    >
+      <Leva collapsed hidden={levaHidden} />
       <ControlCenter />
       <ScoreHud />
       <Canvas
@@ -65,5 +87,5 @@ function GameApp() {
       <CursorTrailCanvas />
       <ScorePopCanvas />
     </div>
-  )
+  );
 }
