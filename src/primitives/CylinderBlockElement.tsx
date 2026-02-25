@@ -10,7 +10,12 @@ export const CYLINDER_BLOCK_HEIGHT_PRESETS = ['sm', 'md', 'lg'] as const
 export type CylinderBlockSizePreset = (typeof CYLINDER_BLOCK_SIZE_PRESETS)[number]
 export type CylinderBlockHeightPreset = (typeof CYLINDER_BLOCK_HEIGHT_PRESETS)[number]
 
-export type CylinderBlockElementProps = Simplify<Omit<CylinderElementProps, 'radius' | 'height' | 'align'> & {
+// Hardcoded visual/collider resolution for CylinderBlockElement.
+// Tune these values manually for perf/quality tradeoff.
+const CYLINDER_BLOCK_VISUAL_SEGMENTS = 12
+const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 6
+
+export type CylinderBlockElementProps = Simplify<Omit<CylinderElementProps, 'radius' | 'height' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: CylinderBlockSizePreset
     heightPreset?: CylinderBlockHeightPreset
     align?: Align3
@@ -68,6 +73,8 @@ export const CylinderBlockElement: CylinderBlockElementComponent = forwardRef<Po
             {...props}
             radius={radius}
             height={height}
+            segments={CYLINDER_BLOCK_VISUAL_SEGMENTS}
+            colliderSegments={CYLINDER_BLOCK_COLLIDER_SEGMENTS}
             align={finalAlign}
         />
     )

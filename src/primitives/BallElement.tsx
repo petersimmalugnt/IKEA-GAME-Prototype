@@ -7,7 +7,12 @@ import type { Simplify } from './ElementBaseProps'
 export const BALL_SIZE_PRESETS = ['lg', 'md', 'sm', 'xs'] as const
 export type BallSizePreset = (typeof BALL_SIZE_PRESETS)[number]
 
-export type BallElementProps = Simplify<Omit<SphereElementProps, 'radius' | 'align'> & {
+// Hardcoded visual resolution for BallElement.
+// Tune this value manually for perf/quality tradeoff.
+const BALL_VISUAL_SEGMENTS = 12
+const BALL_COLLIDER_SEGMENTS = 6
+
+export type BallElementProps = Simplify<Omit<SphereElementProps, 'radius' | 'align' | 'segments'> & {
     sizePreset?: BallSizePreset
     align?: Align3
 }>
@@ -42,6 +47,7 @@ export const BallElement: BallElementComponent = forwardRef<PositionTargetHandle
             ref={ref}
             {...props}
             radius={radius}
+            segments={BALL_VISUAL_SEGMENTS}
             align={finalAlign}
         />
     )

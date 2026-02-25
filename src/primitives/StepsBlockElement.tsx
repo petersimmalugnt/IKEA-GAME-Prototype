@@ -11,7 +11,11 @@ export const STEPS_BLOCK_HEIGHT_PRESETS = ['sm', 'md', 'lg'] as const
 export type StepsBlockSizePreset = (typeof STEPS_BLOCK_SIZE_PRESETS)[number]
 export type StepsBlockHeightPreset = (typeof STEPS_BLOCK_HEIGHT_PRESETS)[number]
 
-export type StepsBlockElementProps = Simplify<Omit<StepsElementProps, 'width' | 'height' | 'depth' | 'align'> & {
+// Hardcoded step resolution for StepsBlockElement.
+// Tune this value manually for perf/quality tradeoff.
+const STEPS_BLOCK_STEP_COUNT = 4
+
+export type StepsBlockElementProps = Simplify<Omit<StepsElementProps, 'width' | 'height' | 'depth' | 'align' | 'stepCount'> & {
     sizePreset?: StepsBlockSizePreset
     heightPreset?: StepsBlockHeightPreset
     align?: Align3
@@ -49,7 +53,6 @@ export const StepsBlockElement: StepsBlockElementComponent = forwardRef<Position
     sizePreset = 'lg',
     heightPreset = 'sm',
     align,
-    stepCount = 4,
     ...props
 }, ref) {
     const finalSize = useMemo<Vec3>(
@@ -69,7 +72,7 @@ export const StepsBlockElement: StepsBlockElementComponent = forwardRef<Position
             width={finalSize[0]}
             height={finalSize[1]}
             depth={finalSize[2]}
-            stepCount={stepCount}
+            stepCount={STEPS_BLOCK_STEP_COUNT}
             align={finalAlign}
         />
     )
