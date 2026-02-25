@@ -112,7 +112,7 @@ export const SETTINGS: Settings = {
 
   // --- FÄRGPALETT (Toon Material) ---
   palette: {
-    active: "green",
+    active: "greyscale",
     variants: {
       classic: {
         background: "#3D2C23",
@@ -125,7 +125,7 @@ export const SETTINGS: Settings = {
         ],
       },
       greyscale: {
-        background: "#191919",
+        background: "#1d1d1d",
         colors: [
           { base: "#E1D4BD" },
           { base: "#606060" },
