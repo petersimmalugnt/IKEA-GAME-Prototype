@@ -196,6 +196,7 @@ export type Settings = {
   }
   level: {
     defaultFile: string
+    gridClonerSpawnChunkSize: number
     tiling: {
       enabled: boolean
       files: string[]

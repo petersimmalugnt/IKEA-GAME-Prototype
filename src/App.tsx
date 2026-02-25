@@ -7,6 +7,7 @@ import { SETTINGS, getActiveBackground } from '@/settings/GameSettings'
 import { useSettingsVersion } from '@/settings/settingsStore'
 import { Scene } from '@/scene/Scene'
 import { CursorTrailCanvas } from '@/input/CursorTrailCanvas'
+import { ScorePopCanvas } from '@/ui/ScorePopCanvas'
 import { GltfConverter } from '@/tools/GltfConverter'
 import { DocsPage } from '@/ui/docs/DocsPage'
 import { ControlCenter } from '@/ui/ControlCenter'
@@ -62,6 +63,7 @@ function GameApp() {
         <Scene />
       </Canvas>
       <CursorTrailCanvas />
+      <ScorePopCanvas />
     </div>
   )
 }
