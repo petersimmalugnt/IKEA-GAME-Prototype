@@ -11,6 +11,7 @@ import { DomeBlockElement } from '@/primitives/DomeBlockElement'
 import { ConeBlockElement } from '@/primitives/ConeBlockElement'
 import { StepsBlockElement } from '@/primitives/StepsBlockElement'
 import {
+  Fracture,
   GridCloner,
   LinearFieldEffector,
   RandomEffector,
@@ -176,6 +177,22 @@ function renderGridClonerNode(node: LevelNode) {
   )
 }
 
+function renderFractureNode(node: LevelNode) {
+  const children = node.children ?? []
+  const { position, rotation, ...restProps } = node.props as Record<string, unknown>
+
+  return (
+    <Fracture
+      key={node.id}
+      {...restProps}
+      position={node.position}
+      rotation={node.rotation}
+    >
+      {children.map((child) => renderNode(child, false))}
+    </Fracture>
+  )
+}
+
 export function renderNode(
   node: LevelNode,
   asClonerTemplate = false,
@@ -198,6 +215,10 @@ export function renderNode(
 
   if (node.type === 'GridCloner') {
     return renderGridClonerNode(node)
+  }
+
+  if (node.type === 'Fracture') {
+    return renderFractureNode(node)
   }
 
   return renderObjectNode(node, asClonerTemplate)
