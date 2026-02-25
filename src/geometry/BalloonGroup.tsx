@@ -77,7 +77,7 @@ const BALLOONS = {
 // Centrala BalloonGroup-inställningar: håll all gameplay-tuning här.
 const BALLOON_GROUP_SETTINGS = {
   randomize: {
-    excludedColorIndices: [0, 1, 2, 3] as number[],
+    excludedColorIndices: [0, 1, 2, 9] as number[],
     positionVelocityZBase: 0.5,
     positionVelocityZAmplitude: 0.2,
     rotationOffsetBase: 0,
@@ -370,9 +370,9 @@ export function BalloonGroup({
       const snapshot = motionRef.current?.getVelocitySnapshot();
       const baseRelease: PopRelease = snapshot
         ? {
-            linearVelocity: cloneVec3(snapshot.linearVelocity),
-            angularVelocity: cloneVec3(snapshot.angularVelocity),
-          }
+          linearVelocity: cloneVec3(snapshot.linearVelocity),
+          angularVelocity: cloneVec3(snapshot.angularVelocity),
+        }
         : createFallbackPopRelease();
 
       const scaledLinear = scaleVec3(
@@ -487,11 +487,13 @@ export function BalloonGroup({
           plane="z"
           physics={popped ? "dynamic" : undefined}
           contagionCarrier={popped}
+          contagionInfectable={false}
           contagionColor={resolvedColor}
           linearVelocity={popped ? popRelease?.linearVelocity : undefined}
           angularVelocity={popped ? popRelease?.angularVelocity : undefined}
           linearDamping={popped ? tuning.linearDamping : undefined}
           angularDamping={popped ? tuning.angularDamping : undefined}
+          mass={popped ? 1 : undefined}
         />
       </group>
     </TransformMotion>
