@@ -24,12 +24,30 @@ import { useLevelStore, type LevelNode } from './levelStore'
 import type { Vec3 } from '@/settings/GameSettings'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 
+const IDENTITY_SCALE: Vec3 = [1, 1, 1]
+
 function toRadians(rotation: Vec3): Vec3 {
   return [
     rotation[0] * (Math.PI / 180),
     rotation[1] * (Math.PI / 180),
     rotation[2] * (Math.PI / 180),
   ]
+}
+
+function isVec3(value: unknown): value is Vec3 {
+  return Array.isArray(value)
+    && value.length === 3
+    && typeof value[0] === 'number'
+    && typeof value[1] === 'number'
+    && typeof value[2] === 'number'
+}
+
+function multiplyVec3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] * b[0], a[1] * b[1], a[2] * b[2]]
+}
+
+function resolveNodeScale(node: LevelNode): Vec3 {
+  return isVec3(node.scale) ? node.scale : IDENTITY_SCALE
 }
 
 type ComponentRegistryEntry = {
@@ -92,6 +110,8 @@ function renderObjectNode(
     : node.rotation
   const nodeProps = (node.props ?? {}) as Record<string, unknown>
   const nextProps: Record<string, unknown> = { ...nodeProps }
+  const propsScale = isVec3(nodeProps.scale) ? nodeProps.scale : IDENTITY_SCALE
+  nextProps.scale = multiplyVec3(resolveNodeScale(node), propsScale)
 
   if (!asClonerTemplate) {
     if (CONTAGION_CAPABLE_OBJECT_TYPES.has(node.type)) {
@@ -134,6 +154,7 @@ function renderNullNode(
       key={node.id}
       position={node.position}
       rotation={rotation}
+      scale={resolveNodeScale(node)}
     >
       {children.map((child) => renderNode(child, asClonerTemplate))}
     </group>
@@ -153,6 +174,7 @@ function renderTransformMotionNode(
       key={node.id}
       position={node.position}
       rotation={rotation}
+      scale={resolveNodeScale(node)}
       {...motionProps}
     >
       {children.map((child) => renderNode(child, asClonerTemplate))}
@@ -163,17 +185,19 @@ function renderTransformMotionNode(
 function renderGridClonerNode(node: LevelNode) {
   const children = node.children ?? []
   const { position, rotation, ...restProps } = node.props as Record<string, unknown>
+  const nodeScale = resolveNodeScale(node)
 
   return (
-    <GridCloner
-      key={node.id}
-      {...restProps}
-      position={node.position}
-      rotation={node.rotation}
-      entityPrefix={node.id}
-    >
-      {children.map((child) => renderNode(child, true))}
-    </GridCloner>
+    <group key={node.id} scale={nodeScale}>
+      <GridCloner
+        {...restProps}
+        position={node.position}
+        rotation={node.rotation}
+        entityPrefix={node.id}
+      >
+        {children.map((child) => renderNode(child, true))}
+      </GridCloner>
+    </group>
   )
 }
 
@@ -187,6 +211,7 @@ function renderFractureNode(node: LevelNode) {
       {...restProps}
       position={node.position}
       rotation={node.rotation}
+      scale={resolveNodeScale(node)}
     >
       {children.map((child) => renderNode(child, false))}
     </Fracture>

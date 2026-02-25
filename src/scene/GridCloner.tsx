@@ -208,6 +208,7 @@ export type FractureProps = {
   children: ReactNode
   position?: Vec3
   rotation?: Vec3
+  scale?: Vec3
   enabled?: boolean
   gridUnit?: GridUnit
   showDebugEffectors?: boolean
@@ -1765,6 +1766,7 @@ export function Fracture({
   children,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
+  scale = [1, 1, 1],
   enabled = true,
   gridUnit,
   showDebugEffectors,
@@ -2178,14 +2180,14 @@ export function Fracture({
 
   if (!enabled) {
     return (
-      <group position={position} rotation={fractureRotation}>
+      <group position={position} rotation={fractureRotation} scale={scale}>
         {children}
       </group>
     )
   }
 
   return (
-    <group position={position} rotation={fractureRotation}>
+    <group position={position} rotation={fractureRotation} scale={scale}>
       {transforms.map((transform) => {
         const templateChild = templateChildren[transform.index]
         if (!templateChild) return null

@@ -11,6 +11,7 @@ export type LevelNode = {
   }
   position?: Vec3
   rotation?: Vec3
+  scale?: Vec3
   props: Record<string, unknown>
   children?: LevelNode[]
 }
@@ -65,6 +66,7 @@ function validateLevelNode(raw: unknown, path: string): LevelNode | null {
     builder: node.builder as LevelNode['builder'],
     position: node.position as Vec3 | undefined,
     rotation: node.rotation as Vec3 | undefined,
+    scale: node.scale as Vec3 | undefined,
     props,
     children,
   }

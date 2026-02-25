@@ -21,6 +21,7 @@ export type SplineElementProps = {
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
+  scale?: Vec3
   points?: Vec3[]
   segments?: number
   lineWidth?: number
@@ -56,6 +57,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   lockRotations,
   position,
   rotation = [0, 0, 0],
+  scale,
 }, ref) {
   const { size, camera: rawCamera, gl } = useThree()
   const camera = rawCamera as THREE.OrthographicCamera
@@ -182,7 +184,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   const visual = (
     <group
       ref={ref}
-      {...(!physics ? { position, rotation: rotationRadians } : {})}
+      {...(!physics ? { position, rotation: rotationRadians, ...(scale !== undefined ? { scale } : {}) } : {})}
       visible={visible}
     >
       <primitive object={line2} />
@@ -204,6 +206,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
       {...rbProps}
       type={physics}
       colliders={false}
+      {...(scale !== undefined ? { scale } : {})}
     >
       {colliders.map((col, i) => (
         <CuboidCollider
