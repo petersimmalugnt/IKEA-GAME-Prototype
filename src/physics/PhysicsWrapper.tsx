@@ -97,6 +97,7 @@ export function PhysicsWrapper({
   if (lockRotations) rbProps.lockRotations = true
 
   const colliderRef = useRef<RapierCollider | null>(null)
+  const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
   const arg0 = colliderArgs[0]
   const arg1 = (colliderArgs as [number, number] | [number, number, number])[1]
   const arg2 = (colliderArgs as [number, number, number])[2]
@@ -132,7 +133,7 @@ export function PhysicsWrapper({
           args={colliderArgs as [number, number]}
           position={colliderPosition}
           sensor={colliderSensor}
-          restitution={restitution}
+          {...colliderRestitutionProps}
         />
       )
     }
@@ -143,7 +144,7 @@ export function PhysicsWrapper({
           args={colliderArgs as [number]}
           position={colliderPosition}
           sensor={colliderSensor}
-          restitution={restitution}
+          {...colliderRestitutionProps}
         />
       )
     }
@@ -153,7 +154,7 @@ export function PhysicsWrapper({
         args={colliderArgs as [number, number, number]}
         position={colliderPosition}
         sensor={colliderSensor}
-        restitution={restitution}
+        {...colliderRestitutionProps}
       />
     )
   })()

@@ -140,6 +140,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
     const worldPos = useMemo(() => new THREE.Vector3(), [])
     const surfaceId = useSurfaceId()
     const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
+    const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
     const anchorOffset = useMemo<Vec3>(
         () => getAlignOffset([width, height, depth], align),
         [width, height, depth, align?.x, align?.y, align?.z],
@@ -223,7 +224,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
                 colorIndex: contagionColor ?? resolvedColor,
             }}
         >
-            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
+            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} {...colliderRestitutionProps} />
             {mesh}
         </GameRigidBody>
     )

@@ -157,6 +157,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
     const worldPos = useMemo(() => new THREE.Vector3(), [])
     const surfaceId = useSurfaceId()
     const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
+    const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
     const clampedStepCount = Math.max(2, Math.min(20, Math.round(stepCount)))
     const anchorOffset = useMemo<Vec3>(
         () => getAlignOffset([width, height, depth], align),
@@ -235,7 +236,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
                         key={i}
                         args={col.halfExtents}
                         position={absPos}
-                        restitution={restitution}
+                        {...colliderRestitutionProps}
                     />
                 )
             })}

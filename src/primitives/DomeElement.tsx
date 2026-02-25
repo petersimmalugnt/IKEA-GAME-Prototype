@@ -122,6 +122,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
     const worldPos = useMemo(() => new THREE.Vector3(), [])
     const surfaceId = useSurfaceId()
     const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
+    const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
     const anchorOffset = useMemo<Vec3>(
         () => getAlignOffset([radius * 2, radius, radius * 2], align),
         [radius, align?.x, align?.y, align?.z],
@@ -215,7 +216,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
                 colorIndex: contagionColor ?? resolvedColor,
             }}
         >
-            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
+            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} {...colliderRestitutionProps} />
             {mesh}
         </GameRigidBody>
     )

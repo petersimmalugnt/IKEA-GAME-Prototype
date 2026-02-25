@@ -62,6 +62,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   const { size, camera: rawCamera, gl } = useThree()
   const camera = rawCamera as THREE.OrthographicCamera
   const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
+  const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
   const finalColor = color || SETTINGS.colors.outline
   const finalLineWidth = lineWidth ?? (SETTINGS.lines.thickness * gl.getPixelRatio())
 
@@ -214,7 +215,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
           args={col.args}
           position={col.position}
           rotation={col.rotation}
-          restitution={restitution}
+          {...colliderRestitutionProps}
         />
       ))}
       <primitive object={line2} visible={visible} />
