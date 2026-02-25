@@ -3,12 +3,12 @@ import { useGameplayStore } from '@/gameplay/gameplayStore'
 import { SETTINGS, getPaletteEntry } from '@/settings/GameSettings'
 
 export function ScoreHud() {
+  const uiWhite = '#fff'
   const score = useGameplayStore((state) => state.score)
   const lives = useGameplayStore((state) => state.lives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const maxLives = SETTINGS.gameplay.lives.initial
-  const primaryColor = getPaletteEntry(0).base
-  const secondaryColor = getPaletteEntry(1).base
+  const secondaryColor = 'rgba(255, 255, 255, 0.2)'
   const consumedLives = Math.max(0, maxLives - lives)
 
   const hudTextStyle: CSSProperties = {
@@ -29,10 +29,12 @@ export function ScoreHud() {
           zIndex: 30,
           pointerEvents: 'none',
           ...hudTextStyle,
+          display: 'flex',
+          gap: '.5em',
         }}
       >
-        <span style={{ color: secondaryColor }}>Score </span>
-        <span style={{ color: primaryColor }}>{score}</span>
+        <span style={{ color: secondaryColor }}>Score</span>
+        <span style={{ color: uiWhite }}>{score}</span>
       </div>
 
       <div
@@ -44,7 +46,7 @@ export function ScoreHud() {
           pointerEvents: 'none',
           display: 'flex',
           alignItems: 'center',
-          gap: '0.2em',
+          gap: '0.125em',
           ...hudTextStyle,
         }}
       >
@@ -53,7 +55,7 @@ export function ScoreHud() {
             key={`life-active-${index}`}
             className="material-icons"
             style={{
-              color: primaryColor,
+              color: uiWhite,
               fontSize: '1.5rem',
               lineHeight: '1em',
             }}
