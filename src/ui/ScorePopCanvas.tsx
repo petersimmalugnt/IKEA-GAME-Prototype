@@ -3,7 +3,7 @@ import { subscribeToScorePops } from '@/input/scorePopEmitter'
 
 const POP_DURATION_MS = 900
 const FLOAT_DISTANCE = 48
-const FONT_SIZE = 28
+const FONT_SIZE = 14
 
 type ScorePop = {
   text: string
@@ -68,11 +68,6 @@ export function ScorePopCanvas() {
         ctx.font = `bold ${FONT_SIZE}px "Roboto Mono", monospace`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
-
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)'
-        ctx.lineWidth = 4
-        ctx.lineJoin = 'round'
-        ctx.strokeText(pop.text, pop.x, floatY)
 
         ctx.fillStyle = '#fff'
         ctx.fillText(pop.text, pop.x, floatY)
