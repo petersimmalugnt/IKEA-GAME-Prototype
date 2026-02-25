@@ -1,19 +1,16 @@
-import { useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Fragment } from 'react'
 import { SETTINGS } from '@/settings/GameSettings'
 import { useLevelTilingStore, getTileDepth, type LevelSegment } from '@/levels/levelTilingStore'
 import { renderNode } from '@/LevelRenderer'
 
-function SegmentGroup({ segment }: { segment: LevelSegment }) {
+const SegmentGroup = memo(function SegmentGroup({ segment }: { segment: LevelSegment }) {
   return (
     <group position={[0, 0, segment.zOffset]}>
-      {segment.data.nodes.map((node) => (
-        <Fragment key={`${segment.id}-${node.id}`}>{renderNode(node)}</Fragment>
-      ))}
+      {segment.data.nodes.map((node) => renderNode(node))}
     </group>
   )
-}
+})
 
 export function LevelTileManager() {
   const { camera } = useThree()
@@ -21,7 +18,7 @@ export function LevelTileManager() {
   const initialized = useLevelTilingStore((state) => state.initialized)
   const initialize = useLevelTilingStore((state) => state.initialize)
   const spawnNextSegment = useLevelTilingStore((state) => state.spawnNextSegment)
-  const cullSegment = useLevelTilingStore((state) => state.cullSegment)
+  const cullSegments = useLevelTilingStore((state) => state.cullSegments)
 
   const tiling = SETTINGS.level.tiling
 
@@ -37,8 +34,8 @@ export function LevelTileManager() {
     const viewCenterZ = camera.position.z - followOffsetZ
     const { lookAheadDistance, cullBehindDistance } = tiling
 
-    let currentSegments = useLevelTilingStore.getState().segments
-    let frontierZ =
+    const currentSegments = useLevelTilingStore.getState().segments
+    const frontierZ =
       currentSegments.length > 0
         ? Math.min(
             ...currentSegments.map(
@@ -47,24 +44,20 @@ export function LevelTileManager() {
           )
         : 0
 
-    let safety = 10
-    while (frontierZ > viewCenterZ - lookAheadDistance && safety-- > 0) {
-      useLevelTilingStore.getState().spawnNextSegment()
-      currentSegments = useLevelTilingStore.getState().segments
-      if (currentSegments.length === 0) break
-      frontierZ = Math.min(
-        ...currentSegments.map(
-          (s) => s.zOffset - getTileDepth(s.data),
-        ),
-      )
+    if (frontierZ > viewCenterZ - lookAheadDistance) {
+      spawnNextSegment()
     }
 
+    const idsToCull: string[] = []
     currentSegments.forEach((segment) => {
       const segmentFarEdge = segment.zOffset - getTileDepth(segment.data)
       if (segmentFarEdge > viewCenterZ + cullBehindDistance) {
-        cullSegment(segment.id)
+        idsToCull.push(segment.id)
       }
     })
+    if (idsToCull.length > 0) {
+      cullSegments(idsToCull)
+    }
   })
 
   if (!tiling.enabled) return null
