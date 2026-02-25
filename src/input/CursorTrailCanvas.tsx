@@ -54,12 +54,17 @@ export function CursorTrailCanvas() {
       decayCursorVelocity(delta)
 
       const { swoosh } = SETTINGS.sounds
+      const velocity = getCursorVelocityPx()
       if (
-        getCursorVelocityPx() >= swoosh.minVelocity &&
+        velocity >= swoosh.minVelocity &&
         now - lastSwooshTime >= swoosh.cooldownMs
       ) {
         lastSwooshTime = now
-        playSwoosh()
+        const range = swoosh.maxVelocity - swoosh.minVelocity
+        const scale = range > 0
+          ? Math.min(1, (velocity - swoosh.minVelocity) / range)
+          : 1
+        playSwoosh(scale)
       }
 
       // Evict old points
