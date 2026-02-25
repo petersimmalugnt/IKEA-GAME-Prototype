@@ -1,3 +1,4 @@
+import * as THREE from 'three'
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import {
   RigidBody,
@@ -42,6 +43,33 @@ function isColliderElement(node: ReactNode): node is ReactElement<Record<string,
 
 function createAutoContagionEntityId(): string {
   return generateEntityId('contagion')
+}
+
+const _collisionWorldA = new THREE.Vector3()
+const _collisionWorldB = new THREE.Vector3()
+
+function resolveCollisionWorldPosition(payload: CollisionEnterPayload): { x: number, y: number, z: number } | undefined {
+  const targetObject = payload.target.rigidBodyObject
+  const otherObject = payload.other.rigidBodyObject
+
+  if (targetObject && otherObject) {
+    targetObject.getWorldPosition(_collisionWorldA)
+    otherObject.getWorldPosition(_collisionWorldB)
+    return {
+      x: (_collisionWorldA.x + _collisionWorldB.x) * 0.5,
+      y: (_collisionWorldA.y + _collisionWorldB.y) * 0.5,
+      z: (_collisionWorldA.z + _collisionWorldB.z) * 0.5,
+    }
+  }
+
+  const fallbackObject = targetObject ?? otherObject
+  if (!fallbackObject) return undefined
+  fallbackObject.getWorldPosition(_collisionWorldA)
+  return {
+    x: _collisionWorldA.x,
+    y: _collisionWorldA.y,
+    z: _collisionWorldA.z,
+  }
 }
 
 function resolveCollisionEntity(payload: CollisionEnterPayload, key: 'target' | 'other'): ContagionCollisionEntity | null {
@@ -205,6 +233,7 @@ export function GameRigidBody({
       enqueueContagionPair(
         resolveCollisionEntity(payload, 'target'),
         resolveCollisionEntity(payload, 'other'),
+        resolveCollisionWorldPosition(payload),
       )
     }
     onCollisionEnter?.(payload)

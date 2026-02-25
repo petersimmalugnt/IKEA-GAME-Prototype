@@ -17,6 +17,28 @@ export type ContagionCollisionEntity = {
   colorIndex?: number
 }
 
+export type ScoreAwardSource = 'pop' | 'collision'
+
+export type ScoreAwardWorldPosition = {
+  x: number
+  y: number
+  z: number
+}
+
+export type ScoreAwardMeta = {
+  source: ScoreAwardSource
+  worldPosition: ScoreAwardWorldPosition
+}
+
+export type ScoreAwardFx = {
+  id: string
+  amount: number
+  source: ScoreAwardSource
+  worldPosition: ScoreAwardWorldPosition
+  createdAt: number
+  expiresAt: number
+}
+
 type NormalizedCollisionEntity = {
   entityId: string
   carrier: boolean
@@ -27,6 +49,7 @@ type NormalizedCollisionEntity = {
 type PendingPair = {
   a: NormalizedCollisionEntity
   b: NormalizedCollisionEntity
+  collisionPosition?: ScoreAwardWorldPosition
 }
 
 type GameplayState = {
@@ -36,8 +59,10 @@ type GameplayState = {
   sequence: number
   contagionEpoch: number
   contagionColorsByEntityId: Record<string, number>
+  scoreAwardFx: ScoreAwardFx[]
   reset: () => void
-  addScore: (delta: number) => void
+  addScore: (delta: number, scoreAward?: ScoreAwardMeta) => void
+  pruneScoreAwardFx: (now?: number) => void
   loseLife: () => void
   loseLives: (delta: number) => void
   setGameOver: (value: boolean) => void
@@ -45,9 +70,12 @@ type GameplayState = {
   enqueueCollisionPair: (
     entityA: ContagionCollisionEntity | null | undefined,
     entityB: ContagionCollisionEntity | null | undefined,
+    collisionPosition?: ScoreAwardWorldPosition,
   ) => void
   flushContagionQueue: () => void
 }
+
+export const SCORE_AWARD_LIFETIME_MS = 1000
 
 function normalizeNonNegativeInt(value: number, fallback = 0): number {
   if (!Number.isFinite(value)) return fallback
@@ -107,6 +135,24 @@ function createContagionMaps(): ContagionMaps {
 }
 
 let maps = createContagionMaps()
+let scoreAwardFxId = 0
+
+function createScoreAwardFx(
+  amount: number,
+  source: ScoreAwardSource,
+  worldPosition: ScoreAwardWorldPosition,
+  now: number,
+): ScoreAwardFx {
+  scoreAwardFxId += 1
+  return {
+    id: `score-award-fx-${scoreAwardFxId}`,
+    amount,
+    source,
+    worldPosition: { ...worldPosition },
+    createdAt: now,
+    expiresAt: now + SCORE_AWARD_LIFETIME_MS,
+  }
+}
 
 export const useGameplayStore = create<GameplayState>((set, get) => ({
   score: 0,
@@ -115,6 +161,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   sequence: 0,
   contagionEpoch: 0,
   contagionColorsByEntityId: {},
+  scoreAwardFx: [],
 
   reset: () => {
     maps = createContagionMaps()
@@ -125,15 +172,40 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       sequence: 0,
       contagionEpoch: 0,
       contagionColorsByEntityId: {},
+      scoreAwardFx: [],
     })
   },
 
-  addScore: (delta) => {
+  addScore: (delta, scoreAward) => {
     const normalizedDelta = normalizeNonNegativeInt(delta, 0)
     if (normalizedDelta === 0) return
+    const now = performance.now()
     set((state) => {
       if (isScoreLockedOnGameOver() && state.gameOver) return state
-      return { score: state.score + normalizedDelta }
+      if (!scoreAward) {
+        return { score: state.score + normalizedDelta }
+      }
+
+      const nextFx = createScoreAwardFx(
+        normalizedDelta,
+        scoreAward.source,
+        scoreAward.worldPosition,
+        now,
+      )
+
+      return {
+        score: state.score + normalizedDelta,
+        scoreAwardFx: [...state.scoreAwardFx, nextFx],
+      }
+    })
+  },
+
+  pruneScoreAwardFx: (now = performance.now()) => {
+    set((state) => {
+      if (state.scoreAwardFx.length === 0) return state
+      const nextFx = state.scoreAwardFx.filter((entry) => entry.expiresAt > now)
+      if (nextFx.length === state.scoreAwardFx.length) return state
+      return { scoreAwardFx: nextFx }
     })
   },
 
@@ -184,7 +256,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     })
   },
 
-  enqueueCollisionPair: (rawA, rawB) => {
+  enqueueCollisionPair: (rawA, rawB, collisionPosition) => {
     const contagionSettings = SETTINGS.gameplay.contagion
     if (!contagionSettings.enabled) return
     if (isScoreLockedOnGameOver() && get().gameOver) return
@@ -195,9 +267,19 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     if (entityA.entityId === entityB.entityId) return
 
     const pairKey = resolvePairKey(entityA.entityId, entityB.entityId)
-    if (maps.pendingPairs.has(pairKey)) return
+    const existingPair = maps.pendingPairs.get(pairKey)
+    if (existingPair) {
+      if (!existingPair.collisionPosition && collisionPosition) {
+        existingPair.collisionPosition = collisionPosition
+      }
+      return
+    }
 
-    maps.pendingPairs.set(pairKey, { a: entityA, b: entityB })
+    maps.pendingPairs.set(pairKey, {
+      a: entityA,
+      b: entityB,
+      collisionPosition: collisionPosition ? { ...collisionPosition } : undefined,
+    })
   },
 
   flushContagionQueue: () => {
@@ -215,10 +297,13 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       if (!contagionSettings.enabled) return state
       if (isScoreLockedOnGameOver() && state.gameOver) return state
 
+      const now = performance.now()
       let nextSequence = state.sequence
       let nextScore = state.score
       const nextColorsByEntityId = state.contagionColorsByEntityId
+      let nextScoreAwardFx = state.scoreAwardFx
       let contagionChanged = false
+      let scoreAwardFxChanged = false
       const setEntityColor = (entityId: string, colorIndex: number) => {
         if (nextColorsByEntityId[entityId] === colorIndex) return
         nextColorsByEntityId[entityId] = colorIndex
@@ -242,7 +327,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         return seeded
       }
 
-      pendingPairs.forEach(({ a: entityA, b: entityB }) => {
+      pendingPairs.forEach(({ a: entityA, b: entityB, collisionPosition }) => {
         const contagionA = ensureCarrier(entityA) ?? maps.records.get(entityA.entityId)
         const contagionB = ensureCarrier(entityB) ?? maps.records.get(entityB.entityId)
 
@@ -308,7 +393,24 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
           seededFrom: source.entityId,
         })
         setEntityColor(target.entityId, nextTargetColor)
-        nextScore += Math.max(0, contagionSettings.scorePerInfection)
+
+        const infectionScore = Math.max(0, contagionSettings.scorePerInfection)
+        nextScore += infectionScore
+
+        if (infectionScore > 0 && collisionPosition) {
+          if (!scoreAwardFxChanged) {
+            nextScoreAwardFx = [...nextScoreAwardFx]
+            scoreAwardFxChanged = true
+          }
+          nextScoreAwardFx.push(
+            createScoreAwardFx(
+              infectionScore,
+              'collision',
+              collisionPosition,
+              now,
+            ),
+          )
+        }
       })
 
       if (!contagionChanged) {
@@ -321,6 +423,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         sequence: nextSequence,
         contagionEpoch: state.contagionEpoch + 1,
         contagionColorsByEntityId: nextColorsByEntityId,
+        ...(scoreAwardFxChanged ? { scoreAwardFx: nextScoreAwardFx } : {}),
       }
     })
   },

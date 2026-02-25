@@ -11,6 +11,7 @@ import { GltfConverter } from '@/tools/GltfConverter'
 import { DocsPage } from '@/ui/docs/DocsPage'
 import { ControlCenter } from '@/ui/ControlCenter'
 import { ScoreHud } from '@/ui/ScoreHud'
+import { ScoreAwardFxLayer } from '@/ui/ScoreAwardFxLayer'
 
 export default function App() {
   const isConverter = window.location.pathname === '/converter'
@@ -60,6 +61,7 @@ function GameApp() {
         />
 
         <Scene />
+        <ScoreAwardFxLayer />
       </Canvas>
       <CursorTrailCanvas />
     </div>

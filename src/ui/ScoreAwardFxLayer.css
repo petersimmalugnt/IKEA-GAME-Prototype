@@ -1,0 +1,60 @@
+.score-award-fx {
+  --score-award-duration: 1000ms;
+  --score-award-scale: 1;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  height: 44px;
+  color: #ffffff;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 7px rgba(0, 0, 0, 0.66);
+  transform-origin: center center;
+  pointer-events: none;
+  will-change: transform, opacity;
+  animation: score-award-fx-float var(--score-award-duration) ease-out forwards;
+}
+
+.score-award-fx__value {
+  position: relative;
+  z-index: 2;
+}
+
+.score-award-fx__burst {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.score-award-fx__ray {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 14px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.9);
+  transform-origin: center 2px;
+}
+
+@keyframes score-award-fx-float {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(calc(var(--score-award-scale) * 0.72));
+  }
+
+  16% {
+    opacity: 1;
+    transform: translate3d(0, -4px, 0) scale(calc(var(--score-award-scale) * 1));
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -30px, 0) scale(calc(var(--score-award-scale) * 1.08));
+  }
+}

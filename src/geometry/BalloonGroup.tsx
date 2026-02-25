@@ -298,7 +298,17 @@ export function BalloonGroup({
             };
         }
 
-        useGameplayStore.getState().addScore(SETTINGS.gameplay.balloons.scorePerPop);
+        useGameplayStore.getState().addScore(
+            SETTINGS.gameplay.balloons.scorePerPop,
+            {
+                source: "pop",
+                worldPosition: {
+                    x: event.point.x,
+                    y: event.point.y,
+                    z: event.point.z,
+                },
+            },
+        );
         setPopped(true);
         onPopped?.();
     };
