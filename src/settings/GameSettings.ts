@@ -243,7 +243,7 @@ export const SETTINGS: Settings = {
   gameplay: {
     contagion: {
       enabled: true,
-      scorePerInfection: 1,
+      scorePerInfection: 10,
     },
     lives: {
       initial: 5,
@@ -252,7 +252,7 @@ export const SETTINGS: Settings = {
       autoReset: true,
     },
     balloons: {
-      scorePerPop: 1,
+      scorePerPop: 100,
       sensors: {
         lifeMargin: 0,
         cleanupMargin: 0.35,
@@ -293,10 +293,10 @@ export const SETTINGS: Settings = {
   cursor: {
     minPopVelocity: 300,
     trail: {
-      maxAge: .2,
-      color: '#ffffff',
+      maxAge: 0.2,
+      color: "#ffffff",
       lineWidth: 3,
-      smoothing: .75,
+      smoothing: 0.75,
     },
   },
 };
