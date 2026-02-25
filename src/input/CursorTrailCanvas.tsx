@@ -36,12 +36,36 @@ export function CursorTrailCanvas() {
     const resizeObserver = new ResizeObserver(syncSize)
     resizeObserver.observe(canvas)
 
-    const onMouseMove = (e: MouseEvent) => {
-      updateCursorFromMouseEvent(e.clientX, e.clientY)
-      history.push({ x: e.clientX, y: e.clientY, time: performance.now() })
+    const normalizeEventTime = (timeStamp: number): number => {
+      if (!Number.isFinite(timeStamp) || timeStamp <= 0 || timeStamp > 1e9) {
+        return performance.now()
+      }
+      return timeStamp
     }
 
-    window.addEventListener('mousemove', onMouseMove)
+    const onPointerMove = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return
+
+      const samples = typeof e.getCoalescedEvents === 'function'
+        ? e.getCoalescedEvents()
+        : []
+
+      if (samples.length > 0) {
+        for (let i = 0; i < samples.length; i += 1) {
+          const sample = samples[i]
+          const eventTime = normalizeEventTime(sample.timeStamp)
+          updateCursorFromMouseEvent(sample.clientX, sample.clientY, eventTime)
+          history.push({ x: sample.clientX, y: sample.clientY, time: eventTime })
+        }
+        return
+      }
+
+      const eventTime = normalizeEventTime(e.timeStamp)
+      updateCursorFromMouseEvent(e.clientX, e.clientY, eventTime)
+      history.push({ x: e.clientX, y: e.clientY, time: eventTime })
+    }
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true })
     document.documentElement.style.cursor = 'none'
 
     const frame = () => {
@@ -105,7 +129,7 @@ export function CursorTrailCanvas() {
 
     return () => {
       cancelAnimationFrame(rafId)
-      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('pointermove', onPointerMove)
       resizeObserver.disconnect()
       document.documentElement.style.cursor = ''
     }

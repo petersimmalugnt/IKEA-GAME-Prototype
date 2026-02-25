@@ -36,6 +36,8 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
   friction,
   restitution,
   lockRotations,
+  linearVelocity,
+  angularVelocity,
   linearDamping,
   angularDamping,
   entityId,
@@ -107,6 +109,8 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
       friction={friction}
       restitution={restitution}
       lockRotations={lockRotations}
+      linearVelocity={linearVelocity}
+      angularVelocity={angularVelocity}
       linearDamping={linearDamping}
       angularDamping={angularDamping}
       entityId={entityId}
