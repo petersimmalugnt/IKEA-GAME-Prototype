@@ -329,7 +329,7 @@ export const SETTINGS: Settings = {
         "/sounds/steel/steel2.wav",
         "/sounds/steel/steel3.wav",
       ],
-      volume: 1,
+      volume: .5,
     },
     swoosh: {
       files: [
@@ -339,10 +339,10 @@ export const SETTINGS: Settings = {
         "/sounds/swoosh/swoosh4.wav",
         "/sounds/swoosh/swoosh65.wav",
       ],
-      volume: 1,
+      volume: 0.3,
       minVelocity: 300,
-      maxVelocity: 1500,
-      cooldownMs: 350,
+      maxVelocity: 2000,
+      cooldownMs: 300,
     },
   },
 };
