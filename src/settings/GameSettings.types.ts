@@ -42,6 +42,7 @@ export type SoundCategorySettings = {
 
 export type SwooshSoundSettings = SoundCategorySettings & {
   minVelocity: number
+  maxVelocity: number
   cooldownMs: number
 }
 

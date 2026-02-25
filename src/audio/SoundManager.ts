@@ -85,7 +85,7 @@ export async function preload(): Promise<void> {
   ]);
 }
 
-function playCategory(name: SoundCategory): void {
+function playCategory(name: SoundCategory, volumeScale = 1): void {
   if (!SETTINGS.sounds.enabled) return;
 
   const state = categories.get(name);
@@ -99,7 +99,7 @@ function playCategory(name: SoundCategory): void {
   source.buffer = buffer;
 
   const gain = audioCtx.createGain();
-  gain.gain.value = SETTINGS.sounds[name].volume;
+  gain.gain.value = SETTINGS.sounds[name].volume * volumeScale;
 
   source.connect(gain);
   gain.connect(audioCtx.destination);
@@ -118,6 +118,6 @@ export function playSteel(): void {
   playCategory("steel");
 }
 
-export function playSwoosh(): void {
-  playCategory("swoosh");
+export function playSwoosh(volumeScale = 1): void {
+  playCategory("swoosh", volumeScale);
 }

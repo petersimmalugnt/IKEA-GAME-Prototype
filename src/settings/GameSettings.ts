@@ -341,6 +341,7 @@ export const SETTINGS: Settings = {
       ],
       volume: 1,
       minVelocity: 300,
+      maxVelocity: 1500,
       cooldownMs: 350,
     },
   },
