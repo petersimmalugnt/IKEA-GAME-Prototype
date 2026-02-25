@@ -196,8 +196,18 @@ export function GameRigidBody({
   const applyAdditionalMass = useCallback((nextBody: RapierRigidBody | null) => {
     if (!nextBody) return
     if (!nextBody.isDynamic()) return
-    const resolvedMass = mass === undefined ? 0 : Math.max(0, mass)
-    nextBody.setAdditionalMass(resolvedMass, true)
+    if (mass === undefined || !Number.isFinite(mass)) {
+      // Keep existing default behavior when mass is not provided.
+      nextBody.setAdditionalMass(0, true)
+      return
+    }
+
+    // Recompute collider-driven mass so custom mass acts as target total mass.
+    nextBody.recomputeMassPropertiesFromColliders()
+    const baseMass = Math.max(0, nextBody.mass())
+    const targetMass = Math.max(0, mass)
+    const additionalMass = Math.max(0, targetMass - baseMass)
+    nextBody.setAdditionalMass(additionalMass, true)
   }, [mass])
 
   const setBodyRef = useCallback((nextBody: RapierRigidBody | null) => {
@@ -209,8 +219,9 @@ export function GameRigidBody({
     const body = bodyRef.current
     if (!body) return
     applyBodyType('dynamic')
+    applyAdditionalMass(body)
     body.wakeUp()
-  }, [applyBodyType])
+  }, [applyBodyType, applyAdditionalMass])
 
   useEffect(() => {
     if (collisionActivated && activationFiredRef.current && !activated) return
