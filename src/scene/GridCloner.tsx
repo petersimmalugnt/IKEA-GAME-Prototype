@@ -169,6 +169,12 @@ export type GridClonerProps = {
   /** Grid size preset ('lg' | 'md' | 'sm' | 'xs') or explicit multiplier. */
   gridUnit?: GridUnit
   /**
+   * Max clones to mount per frame when physics is active. Spreads Rapier body
+   * registration across frames to avoid a single-frame freeze on level load.
+   * Defaults to SETTINGS.level.gridClonerSpawnChunkSize. Set to 0 to disable.
+   */
+  spawnChunkSize?: number
+  /**
    * Either a physics mode string or a physics config object.
    * String modes:
    * 'fixed' | 'dynamic' | 'kinematicPosition' | 'kinematicVelocity'
@@ -824,6 +830,7 @@ export function GridCloner({
   contagionCarrier,
   contagionInfectable,
   contagionColor,
+  spawnChunkSize,
 }: GridClonerProps) {
   const autoEntityPrefixRef = useRef<string>(createAutoGridClonerEntityPrefix())
   const resolvedEntityPrefix = entityPrefix ?? autoEntityPrefixRef.current
@@ -1325,11 +1332,35 @@ export function GridCloner({
     collisionActivatedClones,
   ])
 
+  const effectiveChunkSize = useMemo(() => {
+    const raw = spawnChunkSize ?? SETTINGS.level.gridClonerSpawnChunkSize
+    return Math.max(0, Math.floor(raw))
+  }, [spawnChunkSize])
+
+  const initialVisibleCount = effectiveChunkSize > 0 ? effectiveChunkSize : transforms.length
+  const [visibleCount, setVisibleCount] = useState(initialVisibleCount)
+
+  useEffect(() => {
+    setVisibleCount(effectiveChunkSize > 0 ? effectiveChunkSize : transforms.length)
+  }, [effectiveChunkSize, transforms.length])
+
+  useFrame(() => {
+    if (effectiveChunkSize <= 0) return
+    setVisibleCount((prev) => {
+      if (prev >= transforms.length) return prev
+      return Math.min(prev + effectiveChunkSize, transforms.length)
+    })
+  })
+
+  const visibleTransforms = visibleCount >= transforms.length
+    ? transforms
+    : transforms.slice(0, visibleCount)
+
   if (!enabled) return <>{children}</>
 
   return (
     <group>
-      {transforms.map((clone) => {
+      {visibleTransforms.map((clone) => {
         if (templateChildren.length === 0) return null
         const selectedChildIndex = resolveDistributedChildIndex(
           resolvedChildDistribution,
