@@ -7,8 +7,10 @@ import {
   type RapierRigidBody,
   type RigidBodyProps,
 } from '@react-three/rapier'
+import { useThree } from '@react-three/fiber'
+import * as THREE from 'three'
 import { SETTINGS } from '@/settings/GameSettings'
-import { useGameplayStore, type ContagionCollisionEntity } from '@/gameplay/gameplayStore'
+import { useGameplayStore, type ContagionCollisionEntity, type ScreenPos } from '@/gameplay/gameplayStore'
 import { useEntityRegistration, generateEntityId } from '@/entities/entityStore'
 import {
   isCollisionActivatedPhysicsType,
@@ -42,6 +44,22 @@ function isColliderElement(node: ReactNode): node is ReactElement<Record<string,
 
 function createAutoContagionEntityId(): string {
   return generateEntityId('contagion')
+}
+
+const _projVec = new THREE.Vector3()
+
+function projectToScreen(
+  obj: THREE.Object3D,
+  camera: THREE.Camera,
+  width: number,
+  height: number,
+): ScreenPos {
+  obj.getWorldPosition(_projVec)
+  _projVec.project(camera)
+  return {
+    x: (_projVec.x + 1) / 2 * width,
+    y: (-_projVec.y + 1) / 2 * height,
+  }
 }
 
 function resolveCollisionEntity(payload: CollisionEnterPayload, key: 'target' | 'other'): ContagionCollisionEntity | null {
@@ -78,6 +96,11 @@ export function GameRigidBody({
   ...props
 }: GameRigidBodyProps) {
   const { rapier } = useRapier()
+  const { camera, size } = useThree()
+  const cameraRef = useRef(camera)
+  const sizeRef = useRef(size)
+  cameraRef.current = camera
+  sizeRef.current = size
   const bodyRef = useRef<RapierRigidBody | null>(null)
   const collisionActivated = isCollisionActivatedPhysicsType(type)
   const noneActivated = isNoneActivatedPhysicsType(type)
@@ -202,10 +225,17 @@ export function GameRigidBody({
 
   const dispatchCollisionEnter = useCallback((payload: CollisionEnterPayload) => {
     if (contagionEnabled) {
-      enqueueContagionPair(
-        resolveCollisionEntity(payload, 'target'),
-        resolveCollisionEntity(payload, 'other'),
-      )
+      const targetEntity = resolveCollisionEntity(payload, 'target')
+      const otherEntity = resolveCollisionEntity(payload, 'other')
+      if (targetEntity) {
+        const obj = payload.target.rigidBodyObject
+        if (obj) targetEntity.screenPos = projectToScreen(obj, cameraRef.current, sizeRef.current.width, sizeRef.current.height)
+      }
+      if (otherEntity) {
+        const obj = payload.other.rigidBodyObject
+        if (obj) otherEntity.screenPos = projectToScreen(obj, cameraRef.current, sizeRef.current.width, sizeRef.current.height)
+      }
+      enqueueContagionPair(targetEntity, otherEntity)
     }
     onCollisionEnter?.(payload)
   }, [contagionEnabled, enqueueContagionPair, onCollisionEnter])

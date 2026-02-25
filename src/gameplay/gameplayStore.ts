@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
 import { onEntityUnregister } from '@/entities/entityStore'
+import { emitScorePop } from '@/input/scorePopEmitter'
 
 export type ContagionRecord = {
   lineageId: string
@@ -10,11 +11,14 @@ export type ContagionRecord = {
   seededFrom?: string
 }
 
+export type ScreenPos = { x: number; y: number }
+
 export type ContagionCollisionEntity = {
   entityId?: string
   contagionCarrier?: boolean
   contagionInfectable?: boolean
   colorIndex?: number
+  screenPos?: ScreenPos
 }
 
 type NormalizedCollisionEntity = {
@@ -22,6 +26,7 @@ type NormalizedCollisionEntity = {
   carrier: boolean
   infectable: boolean
   colorIndex: number
+  screenPos?: ScreenPos
 }
 
 type PendingPair = {
@@ -73,6 +78,7 @@ function normalizeCollisionEntity(raw: ContagionCollisionEntity | null | undefin
     carrier: raw.contagionCarrier === true,
     infectable: raw.contagionInfectable !== false,
     colorIndex: resolveMaterialColorIndex(raw.colorIndex ?? 0),
+    screenPos: raw.screenPos,
   }
 }
 
@@ -308,7 +314,11 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
           seededFrom: source.entityId,
         })
         setEntityColor(target.entityId, nextTargetColor)
-        nextScore += Math.max(0, contagionSettings.scorePerInfection)
+        const infectionScore = Math.max(0, contagionSettings.scorePerInfection)
+        nextScore += infectionScore
+        if (infectionScore > 0 && target.screenPos) {
+          emitScorePop({ amount: infectionScore, ...target.screenPos })
+        }
       })
 
       if (!contagionChanged) {
