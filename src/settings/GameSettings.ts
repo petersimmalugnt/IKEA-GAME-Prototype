@@ -294,6 +294,7 @@ export const SETTINGS: Settings = {
     trail: {
       maxAge: 0.25,
       color: '#ffffff',
+      lineWidth: 4,
     },
   },
 };

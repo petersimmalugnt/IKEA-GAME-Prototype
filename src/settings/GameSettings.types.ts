@@ -227,6 +227,8 @@ export type Settings = {
       /** How long (in seconds) trail points persist before fading out */
       maxAge: number
       color: string
+      /** Line width in pixels (uses Line2; thicker than default 1px) */
+      lineWidth: number
     }
   }
 }
