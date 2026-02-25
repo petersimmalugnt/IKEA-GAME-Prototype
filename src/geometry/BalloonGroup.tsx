@@ -12,7 +12,7 @@ import { BlockElement } from "@/primitives/BlockElement";
 import { SplineElement } from "@/primitives/SplineElement";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import { TransformMotion, type TransformMotionHandle } from "@/scene/TransformMotion";
-import { SETTINGS, type MaterialColorIndex, type Vec3 } from "@/settings/GameSettings";
+import { SETTINGS, getActivePalette, type MaterialColorIndex, type Vec3 } from "@/settings/GameSettings";
 import type { ThreeElements } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -39,6 +39,7 @@ type ResolvedBalloonPopReleaseTuning = {
 type BalloonGroupProps = Omit<ThreeElements["group"], "ref"> & {
     detailLevel?: BalloonDetailLevel;
     color?: MaterialColorIndex;
+    randomize?: boolean;
     paused?: boolean;
     onPopped?: () => void;
     onMissed?: () => void;
@@ -57,26 +58,61 @@ const BALLOONS = {
     minimal: Balloon12,
 };
 
-const WRAP_WIDTH = 0.05;
-const WRAP_DEPTH = 0.2;
-const WRAP_BLOCK_HEIGHT = 0.1;
-const WRAP_Y = -0.3;
-const WRAP_OFFSET = 0.0025;
-const WRAP_SIDE_X = WRAP_WIDTH / 2 + WRAP_OFFSET;
-const WRAP_SIDE_Z = WRAP_DEPTH / 2 + WRAP_OFFSET;
-const WRAP_TOP_Y = WRAP_Y + WRAP_OFFSET;
-const WRAP_BOTTOM_Y = WRAP_Y - WRAP_BLOCK_HEIGHT - WRAP_OFFSET;
-const VECTOR_EPSILON = 1e-6;
-const POP_FALLBACK_LINEAR_VELOCITY: Vec3 = [0, 0, 0.2];
-const POP_FALLBACK_ANGULAR_VELOCITY: Vec3 = [0.2327, 0.4596, 0.2327];
-const DEFAULT_POP_RELEASE_TUNING: ResolvedBalloonPopReleaseTuning = {
-    linearScale: 1.5,
-    angularScale: 10,
-    directionalBoost: 0.05,
-    spinBoost: 0.18,
-    linearDamping: 0.45,
-    angularDamping: 1.0,
+// Centrala BalloonGroup-inställningar: håll all gameplay-tuning här.
+const BALLOON_GROUP_SETTINGS = {
+    randomize: {
+        excludedColorIndices: [0, 1, 2, 3] as number[],
+        positionVelocityZBase: 0.5,
+        positionVelocityZAmplitude: 0.2,
+        rotationOffsetBase: 0,
+        rotationOffsetAmplitude: 2.0,
+    },
+    motion: {
+        positionVelocityZ: 0.2,
+        rotationVelocity: { x: 13.3333, y: 26.3333, z: 13.3333 },
+        rotationEasing: {
+            x: "easeInOutSine" as const,
+            y: "linear" as const,
+            z: "easeInOutSine" as const,
+        },
+        rotationLoopMode: {
+            x: "pingpong" as const,
+            y: "loop" as const,
+            z: "pingpong" as const,
+        },
+        rotationRange: {
+            x: [-10, 10] as [number, number],
+            y: [0, 360] as [number, number],
+            z: [-10, 10] as [number, number],
+        },
+        rotationRangeStart: { x: 0, y: 0, z: 0.5 },
+    },
+    popRelease: {
+        fallbackLinearVelocity: [0, 0, 0.2] as Vec3,
+        fallbackAngularVelocity: [0.2327, 0.4596, 0.2327] as Vec3,
+        defaultTuning: {
+            linearScale: 1.5,
+            angularScale: 10,
+            directionalBoost: 0.05,
+            spinBoost: 0.18,
+            linearDamping: 0.45,
+            angularDamping: 1.0,
+        } as ResolvedBalloonPopReleaseTuning,
+    },
+    wrap: {
+        width: 0.05,
+        depth: 0.2,
+        blockHeight: 0.1,
+        y: -0.3,
+        offset: 0.0025,
+    },
 };
+
+const VECTOR_EPSILON = 1e-6;
+const WRAP_SIDE_X = BALLOON_GROUP_SETTINGS.wrap.width / 2 + BALLOON_GROUP_SETTINGS.wrap.offset;
+const WRAP_SIDE_Z = BALLOON_GROUP_SETTINGS.wrap.depth / 2 + BALLOON_GROUP_SETTINGS.wrap.offset;
+const WRAP_TOP_Y = BALLOON_GROUP_SETTINGS.wrap.y + BALLOON_GROUP_SETTINGS.wrap.offset;
+const WRAP_BOTTOM_Y = BALLOON_GROUP_SETTINGS.wrap.y - BALLOON_GROUP_SETTINGS.wrap.blockHeight - BALLOON_GROUP_SETTINGS.wrap.offset;
 
 // Manual values keep wrap generation fast and isolated to BalloonGroup.
 const WRAP_POINTS: [number, number, number][] = [
@@ -127,30 +163,50 @@ function normalizeVec3(value: Vec3): Vec3 | null {
     return [value[0] * invLength, value[1] * invLength, value[2] * invLength];
 }
 
-const FALLBACK_LINEAR_DIRECTION: Vec3 = normalizeVec3(POP_FALLBACK_LINEAR_VELOCITY) ?? [0, 0, 1];
-const FALLBACK_ANGULAR_DIRECTION: Vec3 = normalizeVec3(POP_FALLBACK_ANGULAR_VELOCITY) ?? [0, 1, 0];
+const FALLBACK_LINEAR_DIRECTION: Vec3 = normalizeVec3(BALLOON_GROUP_SETTINGS.popRelease.fallbackLinearVelocity) ?? [0, 0, 1];
+const FALLBACK_ANGULAR_DIRECTION: Vec3 = normalizeVec3(BALLOON_GROUP_SETTINGS.popRelease.fallbackAngularVelocity) ?? [0, 1, 0];
 
 function createFallbackPopRelease(): PopRelease {
     return {
-        linearVelocity: cloneVec3(POP_FALLBACK_LINEAR_VELOCITY),
-        angularVelocity: cloneVec3(POP_FALLBACK_ANGULAR_VELOCITY),
+        linearVelocity: cloneVec3(BALLOON_GROUP_SETTINGS.popRelease.fallbackLinearVelocity),
+        angularVelocity: cloneVec3(BALLOON_GROUP_SETTINGS.popRelease.fallbackAngularVelocity),
     };
 }
 
 function resolvePopReleaseTuning(input: BalloonPopReleaseTuning | undefined): ResolvedBalloonPopReleaseTuning {
     return {
-        linearScale: resolveClampedNumber(input?.linearScale, DEFAULT_POP_RELEASE_TUNING.linearScale, 0, 4),
-        angularScale: resolveClampedNumber(input?.angularScale, DEFAULT_POP_RELEASE_TUNING.angularScale, 0, 6),
-        directionalBoost: resolveClampedNumber(input?.directionalBoost, DEFAULT_POP_RELEASE_TUNING.directionalBoost, 0, 2),
-        spinBoost: resolveClampedNumber(input?.spinBoost, DEFAULT_POP_RELEASE_TUNING.spinBoost, 0, 8),
-        linearDamping: resolveClampedNumber(input?.linearDamping, DEFAULT_POP_RELEASE_TUNING.linearDamping, 0, 10),
-        angularDamping: resolveClampedNumber(input?.angularDamping, DEFAULT_POP_RELEASE_TUNING.angularDamping, 0, 10),
+        linearScale: resolveClampedNumber(input?.linearScale, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.linearScale, 0, 4),
+        angularScale: resolveClampedNumber(input?.angularScale, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.angularScale, 0, 6),
+        directionalBoost: resolveClampedNumber(input?.directionalBoost, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.directionalBoost, 0, 2),
+        spinBoost: resolveClampedNumber(input?.spinBoost, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.spinBoost, 0, 8),
+        linearDamping: resolveClampedNumber(input?.linearDamping, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.linearDamping, 0, 10),
+        angularDamping: resolveClampedNumber(input?.angularDamping, BALLOON_GROUP_SETTINGS.popRelease.defaultTuning.angularDamping, 0, 10),
     };
+}
+
+function pickRandomBalloonColorIndex(fallback: MaterialColorIndex): MaterialColorIndex {
+    const paletteSize = getActivePalette().colors.length;
+    if (paletteSize <= 0) return fallback;
+
+    const candidates: number[] = [];
+    for (let i = 0; i < paletteSize; i += 1) {
+        if (!BALLOON_GROUP_SETTINGS.randomize.excludedColorIndices.includes(i)) {
+            candidates.push(i);
+        }
+    }
+    const samplePoolSize = candidates.length > 0 ? candidates.length : paletteSize;
+    const randomIndex = Math.floor(Math.random() * samplePoolSize);
+
+    if (candidates.length > 0) {
+        return candidates[randomIndex] ?? fallback;
+    }
+    return randomIndex;
 }
 
 export function BalloonGroup({
     detailLevel = "ultra",
     color = 8,
+    randomize = false,
     paused = false,
     onPopped,
     onMissed,
@@ -166,11 +222,16 @@ export function BalloonGroup({
     const probeRef = useRef<THREE.Group | null>(null);
     const blockRef = useRef<PositionTargetHandle | null>(null);
     const popReleaseRef = useRef<PopRelease | null>(null);
+    const randomColorRef = useRef<MaterialColorIndex | null>(null);
     const probeWorld = useMemo(() => new THREE.Vector3(), []);
     const lifecycleRegistry = useBalloonLifecycleRegistry();
     const gameOver = useGameplayStore((state) => state.gameOver);
     const tuning = resolvePopReleaseTuning(popReleaseTuning);
     const motionPaused = paused || popped || gameOver;
+    if (randomize && randomColorRef.current === null) {
+        randomColorRef.current = pickRandomBalloonColorIndex(color);
+    }
+    const resolvedColor = randomize ? (randomColorRef.current ?? color) : color;
 
     const getWorldXZ = useCallback(() => {
         if (poppedRef.current) {
@@ -247,19 +308,23 @@ export function BalloonGroup({
         <TransformMotion
             ref={motionRef}
             paused={motionPaused}
-            positionVelocity={{ z: 0.2 }}
-            rotationVelocity={{ x: 13.3333, y: 26.3333, z: 13.3333 }}
-            rotationEasing={{ x: "easeInOutSine", y: "linear", z: "easeInOutSine" }}
-            rotationLoopMode={{ x: "pingpong", y: "loop", z: "pingpong" }}
-            rotationRange={{ x: [-10, 10], y: [0, 360], z: [-10, 10] }}
-            rotationRangeStart={{ x: 0, y: 0, z: 0.5 }}
+            positionVelocity={randomize ? { z: BALLOON_GROUP_SETTINGS.randomize.positionVelocityZBase } : { z: BALLOON_GROUP_SETTINGS.motion.positionVelocityZ }}
+            randomPositionVelocity={randomize ? { z: BALLOON_GROUP_SETTINGS.randomize.positionVelocityZAmplitude } : undefined}
+            rotationVelocity={BALLOON_GROUP_SETTINGS.motion.rotationVelocity}
+            rotationEasing={BALLOON_GROUP_SETTINGS.motion.rotationEasing}
+            rotationLoopMode={BALLOON_GROUP_SETTINGS.motion.rotationLoopMode}
+            rotationRange={BALLOON_GROUP_SETTINGS.motion.rotationRange}
+            rotationRangeStart={BALLOON_GROUP_SETTINGS.motion.rotationRangeStart}
+            rotationOffset={randomize ? BALLOON_GROUP_SETTINGS.randomize.rotationOffsetBase : undefined}
+            randomRotationOffset={randomize ? BALLOON_GROUP_SETTINGS.randomize.rotationOffsetAmplitude : undefined}
+            timeScale={1.5}
             {...props}
         >
             <group ref={probeRef}>
                 {!popped ? (
                     <>
                         <BalloonComponent
-                            materialColor0={color}
+                            materialColor0={resolvedColor}
                             onPointerEnter={handleBalloonPointerEnter}
                         />
                         <SplineElement points={[[0, 0, 0], [0, WRAP_TOP_Y, 0]]} segments={1} />
@@ -276,12 +341,12 @@ export function BalloonGroup({
                     position={[0, -0.3, 0]}
                     sizePreset="sm"
                     heightPreset="sm"
-                    color={color}
+                    color={resolvedColor}
                     align={{ x: 50, y: 100, z: 50 }}
                     plane="z"
                     physics={popped ? "dynamic" : undefined}
                     contagionCarrier={popped}
-                    contagionColor={color}
+                    contagionColor={resolvedColor}
                     linearVelocity={popped ? popRelease?.linearVelocity : undefined}
                     angularVelocity={popped ? popRelease?.angularVelocity : undefined}
                     linearDamping={popped ? tuning.linearDamping : undefined}

@@ -4,11 +4,12 @@ import { SphereElement } from '@/primitives/SphereElement'
 import { CylinderElement } from '@/primitives/CylinderElement'
 import { BlockElement } from '@/primitives/BlockElement'
 import { SplineElement } from '@/primitives/SplineElement'
-import { Stair } from './assets/models/Stair'
-import { VaultStairs } from './assets/models/VaultStairs'
-import { Laddertest } from './assets/models/Laddertest'
-import { BrickBalloon } from './assets/models/BrickBalloon'
-import { BallBalloon } from './assets/models/BallBalloon'
+import { TriangleBlockElement } from '@/primitives/TriangleBlockElement'
+import { CylinderBlockElement } from '@/primitives/CylinderBlockElement'
+import { BallElement } from '@/primitives/BallElement'
+import { DomeBlockElement } from '@/primitives/DomeBlockElement'
+import { ConeBlockElement } from '@/primitives/ConeBlockElement'
+import { StepsBlockElement } from '@/primitives/StepsBlockElement'
 import {
   GridCloner,
   LinearFieldEffector,
@@ -40,11 +41,12 @@ const COMPONENT_REGISTRY: Record<string, ComponentRegistryEntry> = {
   SphereElement: { component: SphereElement, needsRotationConversion: false },
   CylinderElement: { component: CylinderElement, needsRotationConversion: false },
   BlockElement: { component: BlockElement, needsRotationConversion: false },
-  Stair: { component: Stair, needsRotationConversion: true },
-  VaultStairs: { component: VaultStairs, needsRotationConversion: true },
-  Laddertest: { component: Laddertest, needsRotationConversion: true },
-  BrickBalloon: { component: BrickBalloon, needsRotationConversion: true },
-  BallBalloon: { component: BallBalloon, needsRotationConversion: true },
+  TriangleBlockElement: { component: TriangleBlockElement, needsRotationConversion: false },
+  CylinderBlockElement: { component: CylinderBlockElement, needsRotationConversion: false },
+  BallElement: { component: BallElement, needsRotationConversion: false },
+  DomeBlockElement: { component: DomeBlockElement, needsRotationConversion: false },
+  ConeBlockElement: { component: ConeBlockElement, needsRotationConversion: false },
+  StepsBlockElement: { component: StepsBlockElement, needsRotationConversion: false },
   SplineElement: { component: SplineElement, needsRotationConversion: false },
 }
 
@@ -61,9 +63,12 @@ const CONTAGION_CAPABLE_OBJECT_TYPES = new Set([
   'SphereElement',
   'CylinderElement',
   'BlockElement',
-  'Stair',
-  'Laddertest',
-  'VaultStairs',
+  'TriangleBlockElement',
+  'CylinderBlockElement',
+  'BallElement',
+  'DomeBlockElement',
+  'ConeBlockElement',
+  'StepsBlockElement',
 ])
 
 function isNodeHiddenInBuilder(node: LevelNode): boolean {

@@ -749,7 +749,7 @@ Exempel:
   randomTimeScale={0.2}
   loopMode="pingpong"
 >
-  <BallBalloon position={[0, 0.5, -4]} animation="moving" />
+  <Balloon20 position={[0, 0.5, -4]} materialColor0={10} />
 </TransformMotion>
 ```
 
@@ -950,10 +950,15 @@ Det gör att en override på t.ex. `rigidBodyOne` slår på alla objekt som anv�
 
 Exempel:
 ```tsx
-<Stair
+<Balloon20
   materialColor0={4}
-  rigidBodyOne={{ type: 'fixed', friction: 1.5 }}
+  materialHidden0={false}
 />
+```
+
+Om modellen innehåller fysikslotar kan de overridas på samma sätt:
+```tsx
+<SomeGeneratedModel rigidBodyOne={{ type: 'fixed', friction: 1.5 }} />
 ```
 
 ### Splines (FBX)

@@ -9,6 +9,16 @@ import { CubeElement } from '@/primitives/CubeElement'
 import { CylinderElement } from '@/primitives/CylinderElement'
 import { PhysicsWrapper } from '@/physics/PhysicsWrapper'
 import { SphereElement } from '@/primitives/SphereElement'
+import { TriangleBlockElement, resolveTriangleBlockSize, type TriangleBlockSizePreset, type TriangleBlockHeightPreset, type TriangleBlockPlane } from '@/primitives/TriangleBlockElement'
+import { CylinderBlockElement, resolveCylinderBlockSize, type CylinderBlockSizePreset, type CylinderBlockHeightPreset } from '@/primitives/CylinderBlockElement'
+import { BallElement, BALL_RADII_M, type BallSizePreset } from '@/primitives/BallElement'
+import { DomeBlockElement, DOME_BLOCK_RADII_M, type DomeBlockSizePreset } from '@/primitives/DomeBlockElement'
+import { ConeBlockElement, resolveConeBlockSize, type ConeBlockSizePreset, type ConeBlockHeightPreset } from '@/primitives/ConeBlockElement'
+import { StepsBlockElement, resolveStepsBlockSize, type StepsBlockSizePreset, type StepsBlockHeightPreset } from '@/primitives/StepsBlockElement'
+import { WedgeElement } from '@/primitives/WedgeElement'
+import { DomeElement } from '@/primitives/DomeElement'
+import { ConeElement } from '@/primitives/ConeElement'
+import { StepsElement } from '@/primitives/StepsElement'
 import { toRadians } from '@/scene/SceneHelpers'
 import { SeededImprovedNoise } from '@/utils/seededNoise'
 
@@ -557,6 +567,16 @@ function isPrimitiveType(type: unknown): boolean {
     || type === SphereElement
     || type === CylinderElement
     || type === BlockElement
+    || type === TriangleBlockElement
+    || type === WedgeElement
+    || type === CylinderBlockElement
+    || type === BallElement
+    || type === DomeBlockElement
+    || type === DomeElement
+    || type === ConeBlockElement
+    || type === ConeElement
+    || type === StepsBlockElement
+    || type === StepsElement
 }
 
 function resolveChildBaseColorIndex(
@@ -637,6 +657,128 @@ function resolveAutoColliderFromChild(
     const alignOffset = getAlignOffset(size, align)
     return {
       collider: { shape: 'cuboid', halfExtents: [size[0] / 2, size[1] / 2, size[2] / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // TriangleBlockElement / WedgeElement – use cuboid as bounding-box approximation
+  if (templateChild.type === TriangleBlockElement) {
+    const sizePreset = (props.sizePreset as TriangleBlockSizePreset) ?? 'lg'
+    const heightPreset = (props.heightPreset as TriangleBlockHeightPreset) ?? 'sm'
+    const plane = (props.plane as TriangleBlockPlane) ?? 'y'
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const size = resolveTriangleBlockSize(sizePreset, heightPreset, plane)
+    const alignOffset = getAlignOffset(size, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [size[0] / 2, size[1] / 2, size[2] / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === WedgeElement) {
+    const w = typeof props.width === 'number' ? props.width : 0.2
+    const h = typeof props.height === 'number' ? props.height : 0.2
+    const d = typeof props.depth === 'number' ? props.depth : 0.2
+    const align = isAlign3(props.align) ? props.align : undefined
+    const alignOffset = getAlignOffset([w, h, d] as Vec3, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [w / 2, h / 2, d / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // CylinderBlockElement
+  if (templateChild.type === CylinderBlockElement) {
+    const sizePreset = (props.sizePreset as CylinderBlockSizePreset) ?? 'lg'
+    const heightPreset = (props.heightPreset as CylinderBlockHeightPreset) ?? 'sm'
+    const { radius, height } = resolveCylinderBlockSize(sizePreset, heightPreset)
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset([radius * 2, height, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'cylinder', halfHeight: height / 2, radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // BallElement
+  if (templateChild.type === BallElement) {
+    const sizePreset = (props.sizePreset as BallSizePreset) ?? 'lg'
+    const radius = BALL_RADII_M[sizePreset] ?? 0.1
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset([radius * 2, radius * 2, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'ball', radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // DomeBlockElement / DomeElement – use ball as approximation
+  if (templateChild.type === DomeBlockElement) {
+    const sizePreset = (props.sizePreset as DomeBlockSizePreset) ?? 'lg'
+    const radius = DOME_BLOCK_RADII_M[sizePreset] ?? 0.1
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset([radius * 2, radius, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'ball', radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === DomeElement) {
+    const radius = typeof props.radius === 'number' ? props.radius : 0.1
+    const align = isAlign3(props.align) ? props.align : undefined
+    const alignOffset = getAlignOffset([radius * 2, radius, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'ball', radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // ConeBlockElement / ConeElement – use cylinder as approximation
+  if (templateChild.type === ConeBlockElement) {
+    const sizePreset = (props.sizePreset as ConeBlockSizePreset) ?? 'lg'
+    const heightPreset = (props.heightPreset as ConeBlockHeightPreset) ?? 'sm'
+    const { radius, height } = resolveConeBlockSize(sizePreset, heightPreset)
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset([radius * 2, height, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'cylinder', halfHeight: height / 2, radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === ConeElement) {
+    const radius = typeof props.radius === 'number' ? props.radius : 0.1
+    const height = typeof props.height === 'number' ? props.height : 0.2
+    const align = isAlign3(props.align) ? props.align : undefined
+    const alignOffset = getAlignOffset([radius * 2, height, radius * 2] as Vec3, align)
+    return {
+      collider: { shape: 'cylinder', halfHeight: height / 2, radius },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  // StepsBlockElement / StepsElement – use cuboid bounding box
+  if (templateChild.type === StepsBlockElement) {
+    const sizePreset = (props.sizePreset as StepsBlockSizePreset) ?? 'lg'
+    const heightPreset = (props.heightPreset as StepsBlockHeightPreset) ?? 'sm'
+    const size = resolveStepsBlockSize(sizePreset, heightPreset)
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset(size, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [size[0] / 2, size[1] / 2, size[2] / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === StepsElement) {
+    const w = typeof props.width === 'number' ? props.width : 0.2
+    const h = typeof props.height === 'number' ? props.height : 0.2
+    const d = typeof props.depth === 'number' ? props.depth : 0.2
+    const align = isAlign3(props.align) ? props.align : undefined
+    const alignOffset = getAlignOffset([w, h, d] as Vec3, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [w / 2, h / 2, d / 2] },
       colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
     }
   }

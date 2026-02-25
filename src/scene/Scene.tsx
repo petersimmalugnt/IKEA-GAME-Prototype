@@ -25,6 +25,7 @@ import { useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { LevelRenderer } from "@/LevelRenderer";
 
 export function Scene() {
   useSettingsVersion();
@@ -73,18 +74,20 @@ export function Scene() {
               /> */}
 
               {/* CAMERA TRACKER */}
-              <TransformMotion positionVelocity={{ z: -0.4 }}>
+              <TransformMotion positionVelocity={{ z: -0.3 }}>
                 {/* Spawn marker */}
                 <CubeElement
                   ref={spawnMarkerRef}
                   position={[0, 0.0125, -diagonalRadius]}
                   size={[5, 0.025, 0.025]}
+                  hidden
                 />
                 {/* Cull marker */}
                 <CubeElement
                   ref={cullMarkerRef}
                   position={[0, 0.0125, diagonalRadius]}
                   size={[5, 0.025, 0.025]}
+                  hidden
                 />
                 <BlockElement ref={playerRef} hidden />
               </TransformMotion>
@@ -97,13 +100,13 @@ export function Scene() {
                 spawnMarkerRef={spawnMarkerRef}
                 cullMarkerRef={cullMarkerRef}
               >
-                <BalloonGroup position={[0, 1.3, 0]} />
+                <BalloonGroup randomize position={[0, 2.3, 0]} />
               </ItemSpawner>
 
 
 
               {/* LEVEL FROM STORE (file or live sync) */}
-              {/* <LevelRenderer /> */}
+              <LevelRenderer />
 
               {/* DEBUG BENCHMARK + STREAMING */}
               {/* <BenchmarkDebugContent />

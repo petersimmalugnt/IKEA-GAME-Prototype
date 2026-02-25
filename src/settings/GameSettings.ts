@@ -190,12 +190,12 @@ export const SETTINGS: Settings = {
   camera: {
     mode: "follow", // 'follow' eller 'static'
     base: {
-      zoom: 300,
+      zoom: 200,
       near: 0.1,
       far: 2000,
     },
     static: {
-      position: [5, 5, 5], // Fast kameraposition i static-mode
+      position: [20, 20, 20], // Fast kameraposition i static-mode
       lookAt: [0, 0, 0], // Punkt kameran tittar mot i static-mode
     },
     follow: {
@@ -205,7 +205,7 @@ export const SETTINGS: Settings = {
       followLerp: 0.025, // Kamera-drag position (0.01=trögt, 0.1=snappigt)
       lookAtLerp: 0.04, // Kamera-drag för lookAt-target
       lockRotation: true, // Låser kamerans rotation för stabil ortografisk/isometrisk känsla
-      followAxes: { x: true, y: false, z: true }, // Följ bara sidled + djup, lås höjd
+      followAxes: { x: true, y: true, z: true }, // Följ bara sidled + djup, lås höjd
       lookAtAxes: { x: true, y: true, z: true }, // Lås valda axlar för lookAt
       moveLightWithTarget: true, // Flytta directional light tillsammans med follow-target
     },
@@ -213,7 +213,7 @@ export const SETTINGS: Settings = {
 
   // --- LJUS (Påverkar skuggor & material) ---
   light: {
-    position: [0, 2.0, 5],
+    position: [0, 4, 10],
     intensity: 1,
     shadowMapSize: 4096, // 4096 = Skarpast skuggor
     shadowBias: 0, // Mycket liten bias (så skuggan sitter fast i objektet)
@@ -264,13 +264,13 @@ export const SETTINGS: Settings = {
   level: {
     defaultFile: "default.json", // filename inside public/levels/
     tiling: {
-      enabled: true,
+      enabled: false,
       files: ["default.json", "1.json", "2.json"],
       lookAheadDistance: 15,
       cullBehindDistance: 3,
     },
     liveSync: {
-      enabled: false,
+      enabled: true,
       url: "ws://localhost:5174/ws/level",
       reconnectMs: 1000,
     },

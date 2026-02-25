@@ -24,23 +24,37 @@ type AxisRange = [number, number]
 type AxisValueMap = Partial<Record<AxisName, number>>
 type AxisRangeMap = Partial<Record<AxisName, AxisRange>>
 type Vec3Like = Vec3 | AxisValueMap
+type RandomPerAxis = number | Partial<Record<AxisName, number>>
 type PerAxisOverride<T> = T | Partial<Record<AxisName, T>>
 type PerAxisLoopMode = [LoopMode, LoopMode, LoopMode]
 type PerAxisEasing = [EasingName, EasingName, EasingName]
+type AxisEnabledMap = [boolean, boolean, boolean]
 
 export type TransformMotionProps = Omit<ThreeElements['group'], 'ref'> & {
   /** 'none' | 'loop' | 'pingpong' */
   loopMode?: LoopMode
+  /** Global motion speed multiplier. 1 = normal speed, 0.5 = half speed, 10 = ten times speed. */
+  timeScale?: number
+  /** Additive random amplitude for `timeScale` (sampled once at mount). Requires explicit `timeScale`. */
+  randomTimeScale?: number
   positionVelocity?: Vec3Like
   /** Degrees per second */
   rotationVelocity?: Vec3Like
   scaleVelocity?: Vec3Like
+  /** Additive random amplitude applied once at mount: final = base + random(-a, +a). */
+  randomPositionVelocity?: RandomPerAxis
+  /** Additive random amplitude applied once at mount: final = base + random(-a, +a). */
+  randomRotationVelocity?: RandomPerAxis
+  /** Additive random amplitude applied once at mount: final = base + random(-a, +a). */
+  randomScaleVelocity?: RandomPerAxis
   positionRange?: AxisRangeMap
   /** In degrees */
   rotationRange?: AxisRangeMap
   scaleRange?: AxisRangeMap
   /** Time offset in seconds. Negative = start behind, positive = start ahead. */
   offset?: number
+  /** Additive random amplitude for `offset`, sampled once at mount. */
+  randomOffset?: number
   /** Override loopMode for position (string = all axes, object = per-axis). */
   positionLoopMode?: PerAxisOverride<LoopMode>
   /** Override loopMode for rotation (string = all axes, object = per-axis). */
@@ -49,10 +63,16 @@ export type TransformMotionProps = Omit<ThreeElements['group'], 'ref'> & {
   scaleLoopMode?: PerAxisOverride<LoopMode>
   /** Override offset for position in seconds (number = all axes, object = per-axis). */
   positionOffset?: PerAxisOverride<number>
+  /** Additive random amplitude for `positionOffset`, sampled once at mount. */
+  randomPositionOffset?: RandomPerAxis
   /** Override offset for rotation in seconds (number = all axes, object = per-axis). */
   rotationOffset?: PerAxisOverride<number>
+  /** Additive random amplitude for `rotationOffset`, sampled once at mount. */
+  randomRotationOffset?: RandomPerAxis
   /** Override offset for scale in seconds (number = all axes, object = per-axis). */
   scaleOffset?: PerAxisOverride<number>
+  /** Additive random amplitude for `scaleOffset`, sampled once at mount. */
+  randomScaleOffset?: RandomPerAxis
   /** Starting position in the range as normalized 0-1 progress. 0 = range start, 1 = range end. */
   rangeStart?: number
   /** Override rangeStart for position (number = all axes, object = per-axis). */
@@ -92,6 +112,7 @@ type MotionTrackConfig = {
   positionVelocity: Vec3
   rotationVelocity: Vec3
   scaleVelocity: Vec3
+  timeScale: number
   positionRange?: AxisRangeMap
   rotationRange?: AxisRangeMap
   scaleRange?: AxisRangeMap
@@ -199,6 +220,58 @@ function resolvePerAxisOffset(global: number, override?: PerAxisOverride<number>
   if (override === undefined) return [global, global, global]
   if (typeof override === 'number') return [override, override, override]
   return TRANSFORM_MOTION_AXES.map(a => override[a] ?? global) as Vec3
+}
+
+function hasOwnAxis(input: object, axis: AxisName): boolean {
+  return Object.prototype.hasOwnProperty.call(input, axis)
+}
+
+function resolveExplicitAxesForVec3Like(input?: Vec3Like): AxisEnabledMap {
+  if (input === undefined) return [false, false, false]
+  if (Array.isArray(input)) return [true, true, true]
+  return TRANSFORM_MOTION_AXES.map((axis) => hasOwnAxis(input, axis)) as AxisEnabledMap
+}
+
+function resolveExplicitAxesForPerAxisOverride(input?: PerAxisOverride<number>): AxisEnabledMap {
+  if (input === undefined) return [false, false, false]
+  if (typeof input === 'number') return [true, true, true]
+  return TRANSFORM_MOTION_AXES.map((axis) => hasOwnAxis(input, axis)) as AxisEnabledMap
+}
+
+function resolveRandomAmplitude(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return Math.abs(value)
+}
+
+function resolveTimeScale(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 1
+  return Math.max(0, value)
+}
+
+function sampleSignedRandom(amplitude: number): number {
+  if (!(amplitude > 0)) return 0
+  return (Math.random() * 2 - 1) * amplitude
+}
+
+function sampleRandomPerAxis(input?: RandomPerAxis): Vec3 {
+  if (input === undefined) return [0, 0, 0]
+  if (typeof input === 'number') {
+    const sampled = sampleSignedRandom(resolveRandomAmplitude(input))
+    return [sampled, sampled, sampled]
+  }
+  return TRANSFORM_MOTION_AXES.map((axis) => (
+    sampleSignedRandom(resolveRandomAmplitude(input[axis]))
+  )) as Vec3
+}
+
+function applyRandomDelta(base: Vec3, delta: Vec3, enabledAxes: AxisEnabledMap): Vec3 {
+  return base.map((baseValue, index) => (
+    enabledAxes[index] ? baseValue + (delta[index] ?? 0) : baseValue
+  )) as Vec3
+}
+
+function scaleVec3(value: Vec3, scalar: number): Vec3 {
+  return [value[0] * scalar, value[1] * scalar, value[2] * scalar]
 }
 
 function wrapProgress(t: number): number {
@@ -377,6 +450,8 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
       if (!object) return
 
       const config = track.configRef.current
+      const scaledDelta = delta * config.timeScale
+      if (scaledDelta === 0) return
       updateVector(
         object.position,
         config.positionVelocity,
@@ -385,7 +460,7 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
         config.positionLoopMode,
         config.positionEasing,
         track.state.positionProgress,
-        delta,
+        scaledDelta,
       )
       updateVector(
         object.rotation,
@@ -395,7 +470,7 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
         config.rotationLoopMode,
         config.rotationEasing,
         track.state.rotationProgress,
-        delta,
+        scaledDelta,
       )
       updateVector(
         object.scale,
@@ -405,7 +480,7 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
         config.scaleLoopMode,
         config.scaleEasing,
         track.state.scaleProgress,
-        delta,
+        scaledDelta,
       )
     })
   })
@@ -420,19 +495,28 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
 export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotionProps>(function TransformMotion({
   children,
   loopMode,
+  timeScale,
+  randomTimeScale,
   positionVelocity,
   rotationVelocity,
   scaleVelocity,
+  randomPositionVelocity,
+  randomRotationVelocity,
+  randomScaleVelocity,
   positionRange,
   rotationRange,
   scaleRange,
   offset,
+  randomOffset,
   positionLoopMode,
   rotationLoopMode,
   scaleLoopMode,
   positionOffset,
+  randomPositionOffset,
   rotationOffset,
+  randomRotationOffset,
   scaleOffset,
+  randomScaleOffset,
   rangeStart,
   positionRangeStart,
   rotationRangeStart,
@@ -452,6 +536,55 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
   const effectiveLoopMode: LoopMode = loopMode ?? (hasAxisRange(positionRange) ? 'loop' : 'none')
   const ref = useRef<THREE.Group | null>(null)
   const effectiveEasing: EasingName = easing ?? 'linear'
+  const randomProfileRef = useRef<{
+    positionVelocityDelta: Vec3
+    rotationVelocityDelta: Vec3
+    scaleVelocityDelta: Vec3
+    timeScaleDelta: number
+    offsetDelta: number
+    positionOffsetDelta: Vec3
+    rotationOffsetDelta: Vec3
+    scaleOffsetDelta: Vec3
+  } | null>(null)
+  if (!randomProfileRef.current) {
+    randomProfileRef.current = {
+      positionVelocityDelta: sampleRandomPerAxis(randomPositionVelocity),
+      rotationVelocityDelta: sampleRandomPerAxis(randomRotationVelocity),
+      scaleVelocityDelta: sampleRandomPerAxis(randomScaleVelocity),
+      timeScaleDelta: timeScale === undefined ? 0 : sampleSignedRandom(resolveRandomAmplitude(randomTimeScale)),
+      offsetDelta: sampleSignedRandom(resolveRandomAmplitude(randomOffset)),
+      positionOffsetDelta: sampleRandomPerAxis(randomPositionOffset),
+      rotationOffsetDelta: sampleRandomPerAxis(randomRotationOffset),
+      scaleOffsetDelta: sampleRandomPerAxis(randomScaleOffset),
+    }
+  }
+  const randomProfile = randomProfileRef.current
+
+  const positionVelocityAxes = resolveExplicitAxesForVec3Like(positionVelocity)
+  const rotationVelocityAxes = resolveExplicitAxesForVec3Like(rotationVelocity)
+  const scaleVelocityAxes = resolveExplicitAxesForVec3Like(scaleVelocity)
+  const positionOffsetAxes = resolveExplicitAxesForPerAxisOverride(positionOffset)
+  const rotationOffsetAxes = resolveExplicitAxesForPerAxisOverride(rotationOffset)
+  const scaleOffsetAxes = resolveExplicitAxesForPerAxisOverride(scaleOffset)
+
+  const randomizedPositionVelocity = applyRandomDelta(
+    normalizeVec3Like(positionVelocity),
+    randomProfile.positionVelocityDelta,
+    positionVelocityAxes,
+  )
+  const randomizedRotationVelocityDeg = applyRandomDelta(
+    normalizeVec3Like(rotationVelocity),
+    randomProfile.rotationVelocityDelta,
+    rotationVelocityAxes,
+  )
+  const randomizedScaleVelocity = applyRandomDelta(
+    normalizeVec3Like(scaleVelocity),
+    randomProfile.scaleVelocityDelta,
+    scaleVelocityAxes,
+  )
+  const baseTimeScale = resolveTimeScale(timeScale ?? 1)
+  const effectiveTimeScale = Math.max(0, baseTimeScale + randomProfile.timeScaleDelta)
+
   const computedConfig = useMemo<MotionTrackConfig>(() => ({
     positionLoopMode: resolvePerAxisLoopMode(effectiveLoopMode, positionLoopMode),
     rotationLoopMode: resolvePerAxisLoopMode(effectiveLoopMode, rotationLoopMode),
@@ -459,18 +592,20 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
     positionEasing: resolvePerAxisEasing(effectiveEasing, positionEasing),
     rotationEasing: resolvePerAxisEasing(effectiveEasing, rotationEasing),
     scaleEasing: resolvePerAxisEasing(effectiveEasing, scaleEasing),
-    positionVelocity: normalizeVec3Like(positionVelocity),
-    rotationVelocity: normalizeVec3Like(rotationVelocity).map(v => v * DEG2RAD) as Vec3,
-    scaleVelocity: normalizeVec3Like(scaleVelocity),
+    positionVelocity: randomizedPositionVelocity,
+    rotationVelocity: randomizedRotationVelocityDeg.map(v => v * DEG2RAD) as Vec3,
+    scaleVelocity: randomizedScaleVelocity,
+    timeScale: effectiveTimeScale,
     positionRange,
     rotationRange: rangeMapToRadians(rotationRange),
     scaleRange,
   }), [
     effectiveLoopMode,
     effectiveEasing,
-    positionVelocity,
-    rotationVelocity,
-    scaleVelocity,
+    randomizedPositionVelocity,
+    randomizedRotationVelocityDeg,
+    randomizedScaleVelocity,
+    effectiveTimeScale,
     positionRange,
     rotationRange,
     scaleRange,
@@ -522,10 +657,12 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
         config.rotationEasing,
         state.rotationProgress,
       )
+      const scaledLinearVelocity = scaleVec3(localLinearVelocity, config.timeScale)
+      const scaledAngularVelocity = scaleVec3(localAngularVelocity, config.timeScale)
 
       return {
-        linearVelocity: toWorldVelocity(localLinearVelocity, object, parentWorldQuaternion, worldLinearVelocityScratch),
-        angularVelocity: toWorldVelocity(localAngularVelocity, object, parentWorldQuaternion, worldAngularVelocityScratch),
+        linearVelocity: toWorldVelocity(scaledLinearVelocity, object, parentWorldQuaternion, worldLinearVelocityScratch),
+        angularVelocity: toWorldVelocity(scaledAngularVelocity, object, parentWorldQuaternion, worldAngularVelocityScratch),
       }
     },
   }), [parentWorldQuaternion, worldLinearVelocityScratch, worldAngularVelocityScratch])
@@ -554,10 +691,22 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
     const rotStarts = resolvePerAxisOffset(globalRangeStart, rotationRangeStart)
     const sclStarts = resolvePerAxisOffset(globalRangeStart, scaleRangeStart)
 
-    const globalOffset = offset ?? 0
-    const posOffsets = resolvePerAxisOffset(globalOffset, positionOffset)
-    const rotOffsets = resolvePerAxisOffset(globalOffset, rotationOffset)
-    const sclOffsets = resolvePerAxisOffset(globalOffset, scaleOffset)
+    const globalOffset = offset === undefined ? 0 : offset + randomProfile.offsetDelta
+    const posOffsets = applyRandomDelta(
+      resolvePerAxisOffset(globalOffset, positionOffset),
+      randomProfile.positionOffsetDelta,
+      positionOffsetAxes,
+    )
+    const rotOffsets = applyRandomDelta(
+      resolvePerAxisOffset(globalOffset, rotationOffset),
+      randomProfile.rotationOffsetDelta,
+      rotationOffsetAxes,
+    )
+    const sclOffsets = applyRandomDelta(
+      resolvePerAxisOffset(globalOffset, scaleOffset),
+      randomProfile.scaleOffsetDelta,
+      scaleOffsetAxes,
+    )
 
     const hasAnyStart = posStarts.some(v => v !== 0) || rotStarts.some(v => v !== 0) || sclStarts.some(v => v !== 0)
     const hasAnyOffset = posOffsets.some(v => v !== 0) || rotOffsets.some(v => v !== 0) || sclOffsets.some(v => v !== 0)
