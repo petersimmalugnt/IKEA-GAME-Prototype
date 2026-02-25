@@ -167,6 +167,7 @@ export type GridClonerProps = {
   count?: GridCount
   spacing?: Vec3
   offset?: Vec3
+  rotationOffset?: Vec3
   position?: Vec3
   rotation?: Vec3
   scale?: Vec3
@@ -999,6 +1000,7 @@ export function GridCloner({
   count = [1, 1, 1],
   spacing = [1, 1, 1],
   offset = [0, 0, 0],
+  rotationOffset = [0, 0, 0],
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = [1, 1, 1],
@@ -1024,8 +1026,8 @@ export function GridCloner({
   )
   const scaledSpacing = useMemo(() => scaleVec3(spacing, unitMultiplier), [spacing, unitMultiplier])
   const scaledOffset = useMemo(() => scaleVec3(offset, unitMultiplier), [offset, unitMultiplier])
-  const clonerPosition = useMemo<Vec3>(() => [...position], [position])
-  const baseRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
+  const clonerRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
+  const baseRotation = useMemo<Vec3>(() => toRadians(rotationOffset), [rotationOffset])
 
   const normalizedCount = useMemo<GridCount>(() => [
     clampCount(count[0]),
@@ -1256,7 +1258,7 @@ export function GridCloner({
             startZ + (z * sz) + oz,
           ]
 
-          let finalPosition = addVec3(localPosition, clonerPosition)
+          let finalPosition: Vec3 = [...localPosition]
           let finalRotation: Vec3 = [...baseRotation]
           let finalScale: Vec3 = [...scale]
           let hidden = false
@@ -1507,7 +1509,7 @@ export function GridCloner({
     scaledSpacing,
     scaledOffset,
     centered,
-    clonerPosition,
+    clonerRotation,
     baseRotation,
     scale,
     normalizedEffectors,
@@ -1541,10 +1543,16 @@ export function GridCloner({
     ? transforms
     : transforms.slice(0, visibleCount)
 
-  if (!enabled) return <>{children}</>
+  if (!enabled) {
+    return (
+      <group position={position} rotation={clonerRotation} scale={scale}>
+        {children}
+      </group>
+    )
+  }
 
   return (
-    <group>
+    <group position={position} rotation={clonerRotation} scale={scale}>
       {visibleTransforms.map((clone) => {
         if (templateChildren.length === 0) return null
         const selectedChildIndex = resolveDistributedChildIndex(
@@ -1676,7 +1684,7 @@ export function GridCloner({
           const thin = Math.max(0.002, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.015)
           const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
           const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
-          const fieldOrigin = addVec3(clonerPosition, fieldPosition)
+          const fieldOrigin = fieldPosition
           const planeSize = getPlaneDebugSize(axis, thin, debugBounds)
           const volumeSize = getPlaneDebugSize(axis, size, debugBounds)
 
