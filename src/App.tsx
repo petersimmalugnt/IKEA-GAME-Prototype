@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrthographicCamera } from '@react-three/drei'
 import { Leva } from 'leva'
@@ -30,6 +31,18 @@ export default function App() {
 
 function GameApp() {
   useSettingsVersion()
+  const [levaHidden, setLevaHidden] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === 'd') {
+        e.preventDefault()
+        setLevaHidden(h => !h)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const backgroundColor = getActiveBackground()
   const initialCameraPosition = SETTINGS.camera.mode === 'follow'
@@ -38,7 +51,7 @@ function GameApp() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: backgroundColor, cursor: 'none' }}>
-      <Leva collapsed />
+      <Leva collapsed hidden={levaHidden} />
       <ControlCenter />
       <ScoreHud />
       <Canvas
