@@ -66,11 +66,17 @@ export function CursorTrailCanvas() {
 
       if (history.length < 2) return
 
+      const smoothing = SETTINGS.cursor.trail.smoothing ?? 0.5
       ctx.beginPath()
       ctx.moveTo(history[0].x, history[0].y)
-      for (let i = 1; i < history.length; i++) {
-        ctx.lineTo(history[i].x, history[i].y)
+      for (let i = 0; i < history.length - 1; i++) {
+        const midX = (history[i].x + history[i + 1].x) / 2
+        const midY = (history[i].y + history[i + 1].y) / 2
+        const cpX = midX + (history[i].x - midX) * smoothing
+        const cpY = midY + (history[i].y - midY) * smoothing
+        ctx.quadraticCurveTo(cpX, cpY, midX, midY)
       }
+      ctx.lineTo(history[history.length - 1].x, history[history.length - 1].y)
       ctx.strokeStyle = SETTINGS.cursor.trail.color
       ctx.lineWidth = SETTINGS.cursor.trail.lineWidth ?? 4
       ctx.lineCap = 'round'

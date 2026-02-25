@@ -295,6 +295,7 @@ export const SETTINGS: Settings = {
       maxAge: 0.25,
       color: '#ffffff',
       lineWidth: 4,
+      smoothing: 0.5,
     },
   },
 };
