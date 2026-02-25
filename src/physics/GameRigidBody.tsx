@@ -46,6 +46,10 @@ function createAutoContagionEntityId(): string {
   return generateEntityId('contagion')
 }
 
+// User-facing mass values are authored in a larger range than Rapier additional mass.
+// This keeps prior gameplay feel while allowing intuitive input values (e.g. 5 instead of 0.05).
+const MASS_INPUT_SCALE = 0.01
+
 const _projVec = new THREE.Vector3()
 
 function projectToScreen(
@@ -202,11 +206,7 @@ export function GameRigidBody({
       return
     }
 
-    // Recompute collider-driven mass so custom mass acts as target total mass.
-    nextBody.recomputeMassPropertiesFromColliders()
-    const baseMass = Math.max(0, nextBody.mass())
-    const targetMass = Math.max(0, mass)
-    const additionalMass = Math.max(0, targetMass - baseMass)
+    const additionalMass = Math.max(0, mass * MASS_INPUT_SCALE)
     nextBody.setAdditionalMass(additionalMass, true)
   }, [mass])
 

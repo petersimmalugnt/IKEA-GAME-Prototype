@@ -493,7 +493,7 @@ export function BalloonGroup({
           angularVelocity={popped ? popRelease?.angularVelocity : undefined}
           linearDamping={popped ? tuning.linearDamping : undefined}
           angularDamping={popped ? tuning.angularDamping : undefined}
-          mass={popped ? 1 : undefined}
+          mass={popped ? 100 : undefined}
         />
       </group>
     </TransformMotion>
