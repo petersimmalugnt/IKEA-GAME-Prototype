@@ -10,7 +10,12 @@ export const CONE_BLOCK_HEIGHT_PRESETS = ['sm', 'md', 'lg'] as const
 export type ConeBlockSizePreset = (typeof CONE_BLOCK_SIZE_PRESETS)[number]
 export type ConeBlockHeightPreset = (typeof CONE_BLOCK_HEIGHT_PRESETS)[number]
 
-export type ConeBlockElementProps = Simplify<Omit<ConeElementProps, 'radius' | 'height' | 'align'> & {
+// Hardcoded visual/collider resolution for ConeBlockElement.
+// Tune these values manually for perf/quality tradeoff.
+const CONE_BLOCK_VISUAL_SEGMENTS = 12
+const CONE_BLOCK_COLLIDER_SEGMENTS = 6
+
+export type ConeBlockElementProps = Simplify<Omit<ConeElementProps, 'radius' | 'height' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: ConeBlockSizePreset
     heightPreset?: ConeBlockHeightPreset
     align?: Align3
@@ -67,6 +72,8 @@ export const ConeBlockElement: ConeBlockElementComponent = forwardRef<PositionTa
             {...props}
             radius={radius}
             height={height}
+            segments={CONE_BLOCK_VISUAL_SEGMENTS}
+            colliderSegments={CONE_BLOCK_COLLIDER_SEGMENTS}
             align={finalAlign}
         />
     )

@@ -335,10 +335,10 @@ export function BalloonGroup({
                             onPointerEnter={handleBalloonPointerEnter}
                         />
                         {/* Enlarged invisible hit sphere to catch fast cursor swipes */}
-                        <mesh onPointerEnter={handleBalloonPointerEnter}>
-                            <sphereGeometry args={[0.3, 8, 6]} />
-                            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-                        </mesh>
+                        {/* <mesh onPointerEnter={handleBalloonPointerEnter} position={[0, 0.15, 0]}>
+                            <sphereGeometry args={[.1, 6, 6]} />
+                            <meshBasicMaterial transparent opacity={.1} depthWrite={false} />
+                        </mesh> */}
                         <SplineElement points={[[0, 0, 0], [0, WRAP_TOP_Y, 0]]} segments={1} />
                         <SplineElement
                             points={WRAP_POINTS}

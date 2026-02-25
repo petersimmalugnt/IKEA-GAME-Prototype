@@ -20,6 +20,7 @@ import { DomeElement } from '@/primitives/DomeElement'
 import { ConeElement } from '@/primitives/ConeElement'
 import { StepsElement } from '@/primitives/StepsElement'
 import { toRadians } from '@/scene/SceneHelpers'
+import { TransformMotion } from '@/scene/TransformMotion'
 import { SeededImprovedNoise } from '@/utils/seededNoise'
 
 export const GRID_CLONER_AXES = ['x', 'y', 'z'] as const
@@ -202,6 +203,15 @@ export type GridClonerProps = {
   contagionColor?: MaterialColorIndex
 }
 
+export type FractureProps = {
+  children: ReactNode
+  position?: Vec3
+  rotation?: Vec3
+  enabled?: boolean
+  gridUnit?: GridUnit
+  showDebugEffectors?: boolean
+}
+
 type ResolvedGridPhysics = {
   type: PhysicsBodyType
   mass?: number
@@ -231,6 +241,25 @@ type TemplateCloneChild = {
     collider: Exclude<GridCollider, { shape: 'auto' }>
     colliderOffset: Vec3
   }
+}
+
+type FractureTemplateChild = {
+  element: ReactElement<Record<string, unknown>>
+  props: Record<string, unknown>
+  basePosition: Vec3
+  baseRotation: Vec3
+  baseScale: Vec3
+}
+
+type FractureChildTransform = {
+  key: string
+  index: number
+  position: Vec3
+  rotation: Vec3
+  scale: Vec3
+  hidden: boolean
+  color?: number
+  materialColors?: Record<string, number>
 }
 
 const IDENTITY_POSITION: Vec3 = [0, 0, 0]
@@ -547,6 +576,16 @@ function isVec3(value: unknown): value is Vec3 {
     && typeof value[0] === 'number'
     && typeof value[1] === 'number'
     && typeof value[2] === 'number'
+}
+
+function usesRadianRotationProps(type: unknown): boolean {
+  return typeof type === 'string' || type === TransformMotion
+}
+
+function resolveChildRotationRadians(type: unknown, rotation: unknown): Vec3 {
+  if (!isVec3(rotation)) return IDENTITY_ROTATION
+  if (usesRadianRotationProps(type)) return rotation
+  return toRadians(rotation)
 }
 
 function isAlign3(value: unknown): value is Align3 {
@@ -1665,6 +1704,580 @@ export function GridCloner({
           return (
             <group
               key={`linear-field-debug-${index}`}
+              userData={{ excludeFromOutlines: true }}
+              renderOrder={2000}
+              position={fieldOrigin}
+              rotation={fieldRotation}
+            >
+              <mesh position={volumeCenter}>
+                <boxGeometry args={volumeSize} />
+                <meshBasicMaterial color={lineColor} transparent opacity={0.08} depthWrite={false} />
+              </mesh>
+
+              <mesh position={startLocal}>
+                <boxGeometry args={planeSize} />
+                <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
+              </mesh>
+
+              <mesh position={endLocal}>
+                <boxGeometry args={planeSize} />
+                <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
+              </mesh>
+
+              {remapMarker && (
+                <mesh position={remapMarker}>
+                  <boxGeometry args={planeSize} />
+                  <meshBasicMaterial color="#74b9ff" wireframe transparent opacity={0.9} depthWrite={false} />
+                </mesh>
+              )}
+
+              <line>
+                <bufferGeometry>
+                  <bufferAttribute attach="attributes-position" args={[arrowLinePositions, 3]} />
+                </bufferGeometry>
+                <lineBasicMaterial color={lineColor} transparent opacity={0.9} depthWrite={false} />
+              </line>
+
+              <mesh
+                position={[
+                  arrowEnd[0] + (axisDirection[0] * directionSign * headScale * 0.3),
+                  arrowEnd[1] + (axisDirection[1] * directionSign * headScale * 0.3),
+                  arrowEnd[2] + (axisDirection[2] * directionSign * headScale * 0.3),
+                ]}
+                rotation={arrowHeadRotation}
+              >
+                <coneGeometry args={[headScale * 0.2, headScale * 0.6, 12]} />
+                <meshBasicMaterial color={lineColor} transparent opacity={0.9} depthWrite={false} />
+              </mesh>
+            </group>
+          )
+        })}
+    </group>
+  )
+}
+
+/** Fracture applies effectors to direct children without generating clones. */
+export function Fracture({
+  children,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  enabled = true,
+  gridUnit,
+  showDebugEffectors,
+}: FractureProps) {
+  const unitMultiplier = useMemo(
+    () => resolveGridUnitMultiplier(gridUnit),
+    [gridUnit],
+  )
+  const fractureRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
+  const allChildren = useMemo(() => Children.toArray(children), [children])
+  const parsedChildren = useMemo(() => {
+    const objectChildren: ReactElement<Record<string, unknown>>[] = []
+    const childEffectors: GridEffector[] = []
+
+    allChildren.forEach((child) => {
+      if (!isValidElement(child)) {
+        return
+      }
+
+      const effectorType = getEffectorComponentType(child.type)
+      if (!effectorType) {
+        objectChildren.push(child as ReactElement<Record<string, unknown>>)
+        return
+      }
+
+      const props = (child.props ?? {}) as Record<string, unknown>
+      if (effectorType === 'linear') {
+        childEffectors.push({
+          type: 'linear',
+          ...(props as LinearFieldEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'random') {
+        childEffectors.push({
+          type: 'random',
+          ...(props as RandomEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'noise') {
+        childEffectors.push({
+          type: 'noise',
+          ...(props as NoiseEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'time') {
+        childEffectors.push({
+          type: 'time',
+          ...(props as TimeEffectorProps),
+        })
+        return
+      }
+
+      childEffectors.push({
+        type: 'step',
+        ...(props as StepEffectorProps),
+      })
+    })
+
+    return {
+      objectChildren,
+      childEffectors,
+    }
+  }, [allChildren])
+
+  const templateChildren = useMemo<FractureTemplateChild[]>(() => {
+    return parsedChildren.objectChildren.map((element) => {
+      const props = (element.props ?? {}) as Record<string, unknown>
+      const basePosition = isVec3(props.position) ? props.position : IDENTITY_POSITION
+      const baseRotation = resolveChildRotationRadians(element.type, props.rotation)
+      const baseScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+      return {
+        element,
+        props,
+        basePosition,
+        baseRotation,
+        baseScale,
+      }
+    })
+  }, [parsedChildren.objectChildren])
+
+  const scaledEffectors = useMemo(
+    () => parsedChildren.childEffectors.map((effector) => scaleEffectorByUnit(effector, unitMultiplier)),
+    [parsedChildren.childEffectors, unitMultiplier],
+  )
+  const normalizedEffectors = useMemo(
+    () => scaledEffectors.map((effector) => {
+      let normalized: GridEffector = {
+        ...effector,
+      }
+      if (effector.rotation) {
+        normalized = {
+          ...normalized,
+          rotation: toRadians(effector.rotation),
+        }
+      }
+      if (isLinearEffector(effector) && effector.fieldRotation) {
+        normalized = {
+          ...normalized,
+          fieldRotation: toRadians(effector.fieldRotation),
+        } as GridEffector
+      }
+      return normalized
+    }),
+    [scaledEffectors],
+  )
+  const hasTimeEffector = useMemo(
+    () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
+    [normalizedEffectors],
+  )
+  const hasAnimatedNoiseEffector = useMemo(
+    () => normalizedEffectors.some((effector) => (
+      effector.type === 'noise'
+      && effector.enabled !== false
+      && hasNonZeroVec3(resolveNoiseMotion(effector.noisePositionSpeed))
+    )),
+    [normalizedEffectors],
+  )
+  const [frameTime, setFrameTime] = useState(0)
+  useFrame(({ clock }) => {
+    if (!hasTimeEffector && !hasAnimatedNoiseEffector) return
+    setFrameTime(clock.getElapsedTime())
+  })
+  const noiseGenerators = useMemo(
+    () => normalizedEffectors.map((effector) => {
+      if (effector.type !== 'noise') return null
+      return new SeededImprovedNoise(effector.seed ?? 1337)
+    }),
+    [normalizedEffectors],
+  )
+
+  const shouldShowDebugEffectors = showDebugEffectors ?? SETTINGS.debug.enabled
+  const debugBounds = useMemo<Vec3>(() => {
+    if (templateChildren.length === 0) return [0.5, 0.5, 0.5]
+
+    let minX = Number.POSITIVE_INFINITY
+    let minY = Number.POSITIVE_INFINITY
+    let minZ = Number.POSITIVE_INFINITY
+    let maxX = Number.NEGATIVE_INFINITY
+    let maxY = Number.NEGATIVE_INFINITY
+    let maxZ = Number.NEGATIVE_INFINITY
+
+    templateChildren.forEach((child) => {
+      const [x, y, z] = child.basePosition
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      minZ = Math.min(minZ, z)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+      maxZ = Math.max(maxZ, z)
+    })
+
+    return [
+      Math.max(0.25, (maxX - minX) + 0.5),
+      Math.max(0.25, (maxY - minY) + 0.5),
+      Math.max(0.25, (maxZ - minZ) + 0.5),
+    ]
+  }, [templateChildren])
+
+  const transforms = useMemo<FractureChildTransform[]>(() => {
+    const totalChildren = templateChildren.length
+
+    return templateChildren.map((child, index) => {
+      const localPosition: Vec3 = [...child.basePosition]
+      let finalPosition: Vec3 = [...child.basePosition]
+      let finalRotation: Vec3 = [...child.baseRotation]
+      let finalScale: Vec3 = [...child.baseScale]
+      let hidden = false
+      let color: number | undefined
+      const materialColors: Record<string, number> = {}
+
+      normalizedEffectors.forEach((effector, effectorIndex) => {
+        if (effector.enabled === false) return
+
+        if (isLinearEffector(effector)) {
+          const weight = evaluateLinearFieldWeight(localPosition, effector)
+          if (weight === 0) return
+          const amount = weight
+          const clampedAmount = clamp01(amount)
+
+          if (effector.position) {
+            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+          }
+          if (effector.rotation) {
+            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
+          }
+          if (effector.scale) {
+            finalScale = addScaledVec3(finalScale, effector.scale, amount)
+          }
+
+          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
+            hidden = true
+          }
+
+          const nextColor = resolveColorValue(effector.color, clampedAmount)
+          if (nextColor !== undefined) {
+            color = nextColor
+          }
+
+          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
+          return
+        }
+
+        if (isStepEffector(effector)) {
+          const amount = evaluateStepWeight(index, totalChildren, effector)
+          if (amount === 0) return
+          const clampedAmount = clamp01(amount)
+
+          if (effector.position) {
+            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+          }
+          if (effector.rotation) {
+            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
+          }
+          if (effector.scale) {
+            finalScale = addScaledVec3(finalScale, effector.scale, amount)
+          }
+
+          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
+            hidden = true
+          }
+
+          const nextColor = resolveColorValue(effector.color, clampedAmount)
+          if (nextColor !== undefined) {
+            color = nextColor
+          }
+
+          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
+          return
+        }
+
+        if (effector.type === 'random') {
+          const seed = effector.seed ?? 1337
+          const strength = clamp01(effector.strength ?? 1)
+          if (strength <= 0) return
+
+          if (effector.position) {
+            finalPosition = [
+              finalPosition[0] + (randomSigned(seed, index, effectorIndex, 11) * effector.position[0] * strength),
+              finalPosition[1] + (randomSigned(seed, index, effectorIndex, 12) * effector.position[1] * strength),
+              finalPosition[2] + (randomSigned(seed, index, effectorIndex, 13) * effector.position[2] * strength),
+            ]
+          }
+
+          if (effector.rotation) {
+            finalRotation = [
+              finalRotation[0] + (randomSigned(seed, index, effectorIndex, 21) * effector.rotation[0] * strength),
+              finalRotation[1] + (randomSigned(seed, index, effectorIndex, 22) * effector.rotation[1] * strength),
+              finalRotation[2] + (randomSigned(seed, index, effectorIndex, 23) * effector.rotation[2] * strength),
+            ]
+          }
+
+          if (effector.scale) {
+            finalScale = [
+              finalScale[0] + (randomSigned(seed, index, effectorIndex, 31) * effector.scale[0] * strength),
+              finalScale[1] + (randomSigned(seed, index, effectorIndex, 32) * effector.scale[1] * strength),
+              finalScale[2] + (randomSigned(seed, index, effectorIndex, 33) * effector.scale[2] * strength),
+            ]
+          }
+
+          const hideChance = clamp01((effector.hideProbability ?? 0) * strength)
+          if ((effector.hidden && random01(seed, index, effectorIndex, 41) < strength)
+            || random01(seed, index, effectorIndex, 42) < hideChance) {
+            hidden = true
+          }
+
+          if (effector.color !== undefined) {
+            if (Array.isArray(effector.color) && effector.color.length > 0) {
+              const i = Math.floor(random01(seed, index, effectorIndex, 51) * effector.color.length)
+              color = effector.color[Math.min(effector.color.length - 1, i)]
+            } else if (typeof effector.color === 'number') {
+              if (random01(seed, index, effectorIndex, 52) < strength) {
+                color = effector.color
+              }
+            }
+          }
+
+          if (effector.materialColors) {
+            Object.entries(effector.materialColors).forEach(([key, value]) => {
+              if (Array.isArray(value) && value.length > 0) {
+                const i = Math.floor(random01(seed, index, effectorIndex, 61) * value.length)
+                materialColors[key] = value[Math.min(value.length - 1, i)]
+              } else if (typeof value === 'number') {
+                if (random01(seed, index, effectorIndex, 62) < strength) {
+                  materialColors[key] = value
+                }
+              }
+            })
+          }
+          return
+        }
+
+        if (effector.type === 'time') {
+          const strength = clamp01(effector.strength ?? 1)
+          if (strength <= 0) return
+
+          const weight = evaluateTimeWeight(frameTime, index, effector)
+          const amount = weight * strength
+          if (amount <= 0) return
+          const clampedAmount = clamp01(amount)
+
+          if (effector.position) {
+            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
+          }
+
+          if (effector.rotation) {
+            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
+          }
+
+          if (effector.scale) {
+            finalScale = addScaledVec3(finalScale, effector.scale, amount)
+          }
+
+          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
+            hidden = true
+          }
+
+          const nextColor = resolveColorValue(effector.color, clampedAmount)
+          if (nextColor !== undefined) {
+            color = nextColor
+          }
+
+          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
+          return
+        }
+
+        const strength = clamp01(effector.strength ?? 1)
+        if (strength <= 0) return
+
+        const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(effector.seed ?? 1337)
+        const freq = normalizeFrequency(effector.frequency)
+        const staticOffset = effector.offset ?? IDENTITY_POSITION
+        const noisePosition = resolveNoiseMotion(effector.noisePosition)
+        const noisePositionSpeed = resolveNoiseMotion(effector.noisePositionSpeed)
+        const animatedNoisePosition: Vec3 = [
+          staticOffset[0] + noisePosition[0] + (noisePositionSpeed[0] * frameTime),
+          staticOffset[1] + noisePosition[1] + (noisePositionSpeed[1] * frameTime),
+          staticOffset[2] + noisePosition[2] + (noisePositionSpeed[2] * frameTime),
+        ]
+
+        const sampleX = (localPosition[0] * freq[0]) + animatedNoisePosition[0]
+        const sampleY = (localPosition[1] * freq[1]) + animatedNoisePosition[1]
+        const sampleZ = (localPosition[2] * freq[2]) + animatedNoisePosition[2]
+
+        const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
+        const noisePosX = noiseGenerator.noise(sampleX + 11.31, sampleY + 7.77, sampleZ + 3.19)
+        const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
+        const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
+        const normalized = clamp01((noiseBase + 1) / 2)
+
+        if (effector.position) {
+          finalPosition = [
+            finalPosition[0] + (noisePosX * effector.position[0] * strength),
+            finalPosition[1] + (noisePosY * effector.position[1] * strength),
+            finalPosition[2] + (noisePosZ * effector.position[2] * strength),
+          ]
+        }
+
+        if (effector.rotation) {
+          finalRotation = [
+            finalRotation[0] + (noisePosX * effector.rotation[0] * strength),
+            finalRotation[1] + (noisePosY * effector.rotation[1] * strength),
+            finalRotation[2] + (noisePosZ * effector.rotation[2] * strength),
+          ]
+        }
+
+        if (effector.scale) {
+          finalScale = [
+            finalScale[0] + (noisePosX * effector.scale[0] * strength),
+            finalScale[1] + (noisePosY * effector.scale[1] * strength),
+            finalScale[2] + (noisePosZ * effector.scale[2] * strength),
+          ]
+        }
+
+        if (effector.hidden && normalized >= (effector.hideThreshold ?? 0.65)) {
+          hidden = true
+        }
+
+        const nextColor = resolveColorValue(effector.color, normalized)
+        if (nextColor !== undefined && normalized <= strength) {
+          color = nextColor
+        }
+
+        if (normalized <= strength) {
+          applyMaterialColorValues(materialColors, effector.materialColors, normalized)
+        }
+      })
+
+      return {
+        key: `fracture-${index}`,
+        index,
+        position: finalPosition,
+        rotation: finalRotation,
+        scale: normalizeScale(finalScale),
+        hidden,
+        ...(color !== undefined ? { color } : {}),
+        ...(Object.keys(materialColors).length > 0 ? { materialColors } : {}),
+      }
+    })
+  }, [
+    frameTime,
+    noiseGenerators,
+    normalizedEffectors,
+    templateChildren,
+  ])
+
+  if (!enabled) {
+    return (
+      <group position={position} rotation={fractureRotation}>
+        {children}
+      </group>
+    )
+  }
+
+  return (
+    <group position={position} rotation={fractureRotation}>
+      {transforms.map((transform) => {
+        const templateChild = templateChildren[transform.index]
+        if (!templateChild) return null
+
+        const childElement = templateChild.element
+        const childProps = templateChild.props
+        const nextProps: Record<string, unknown> = {
+          key: `fracture-child-${transform.index}`,
+          position: IDENTITY_POSITION,
+          rotation: IDENTITY_ROTATION,
+          scale: IDENTITY_SCALE,
+        }
+
+        if (transform.hidden) {
+          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'hidden')) {
+            nextProps.hidden = true
+          }
+          nextProps.visible = false
+        }
+
+        if (transform.color !== undefined) {
+          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'color')) {
+            nextProps.color = transform.color
+          } else {
+            nextProps.materialColor0 = transform.color
+          }
+        }
+
+        if (transform.materialColors) {
+          Object.entries(transform.materialColors).forEach(([key, value]) => {
+            if (isPrimitiveType(childElement.type) && key.startsWith('materialColor')) return
+            nextProps[key] = value
+          })
+        }
+
+        const renderedChild = cloneElement(childElement, nextProps)
+
+        return (
+          <group
+            key={transform.key}
+            position={transform.position}
+            rotation={transform.rotation}
+            scale={transform.scale}
+          >
+            {renderedChild}
+          </group>
+        )
+      })}
+
+      {shouldShowDebugEffectors && normalizedEffectors
+        .filter((effector): effector is LinearFieldEffectorConfig => isLinearEffector(effector) && effector.enabled !== false)
+        .map((effector, index) => {
+          const axis = effector.axis ?? 'x'
+          const center = effector.center ?? 0
+          const size = Math.max(0.001, Math.abs(effector.size ?? 1))
+          const half = size / 2
+          const axisIndex = axisToIndex(axis)
+          const axisDirection = getAxisDirection(axis)
+          const directionSign = effector.invert ? -1 : 1
+          const headScale = Math.max(0.03, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.04)
+          const lineColor = effector.invert ? '#ff9f43' : '#2ecc71'
+          const thin = Math.max(0.002, Math.min(debugBounds[0], debugBounds[1], debugBounds[2]) * 0.015)
+          const fieldOrigin = effector.fieldPosition ?? IDENTITY_POSITION
+          const fieldRotation = effector.fieldRotation ?? IDENTITY_ROTATION
+          const planeSize = getPlaneDebugSize(axis, thin, debugBounds)
+          const volumeSize = getPlaneDebugSize(axis, size, debugBounds)
+
+          const startLocal: Vec3 = [0, 0, 0]
+          startLocal[axisIndex] = center - half
+          const endLocal: Vec3 = [0, 0, 0]
+          endLocal[axisIndex] = center + half
+          const volumeCenter: Vec3 = [0, 0, 0]
+          volumeCenter[axisIndex] = center
+
+          const arrowStart = directionSign > 0 ? startLocal : endLocal
+          const arrowEnd = directionSign > 0 ? endLocal : startLocal
+          const arrowHeadRotation = getArrowHeadRotation(axis, directionSign > 0)
+          const arrowLinePositions = new Float32Array([
+            arrowStart[0], arrowStart[1], arrowStart[2],
+            arrowEnd[0], arrowEnd[1], arrowEnd[2],
+          ])
+
+          let remapMarker: Vec3 | null = null
+          const innerOffset = clamp01(effector.innerOffset ?? 0)
+          if ((effector.enableRemap ?? false) && innerOffset > 0) {
+            const marker: Vec3 = [0, 0, 0]
+            const markerPosition = directionSign > 0
+              ? (center - half) + (innerOffset * size)
+              : (center + half) - (innerOffset * size)
+            marker[axisIndex] = markerPosition
+            remapMarker = marker
+          }
+
+          return (
+            <group
+              key={`fracture-linear-field-debug-${index}`}
               userData={{ excludeFromOutlines: true }}
               renderOrder={2000}
               position={fieldOrigin}

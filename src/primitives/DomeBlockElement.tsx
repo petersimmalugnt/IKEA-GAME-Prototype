@@ -7,7 +7,12 @@ import type { Simplify } from './ElementBaseProps'
 export const DOME_BLOCK_SIZE_PRESETS = ['lg', 'md', 'sm', 'xs'] as const
 export type DomeBlockSizePreset = (typeof DOME_BLOCK_SIZE_PRESETS)[number]
 
-export type DomeBlockElementProps = Simplify<Omit<DomeElementProps, 'radius' | 'align'> & {
+// Hardcoded visual/collider resolution for DomeBlockElement.
+// Tune these values manually for perf/quality tradeoff.
+const DOME_BLOCK_VISUAL_SEGMENTS = 12
+const DOME_BLOCK_COLLIDER_SEGMENTS = 6
+
+export type DomeBlockElementProps = Simplify<Omit<DomeElementProps, 'radius' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: DomeBlockSizePreset
     align?: Align3
 }>
@@ -42,6 +47,8 @@ export const DomeBlockElement: DomeBlockElementComponent = forwardRef<PositionTa
             ref={ref}
             {...props}
             radius={radius}
+            segments={DOME_BLOCK_VISUAL_SEGMENTS}
+            colliderSegments={DOME_BLOCK_COLLIDER_SEGMENTS}
             align={finalAlign}
         />
     )

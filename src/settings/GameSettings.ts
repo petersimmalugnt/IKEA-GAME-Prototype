@@ -293,10 +293,10 @@ export const SETTINGS: Settings = {
   cursor: {
     minPopVelocity: 300,
     trail: {
-      maxAge: 0.25,
+      maxAge: .2,
       color: '#ffffff',
-      lineWidth: 4,
-      smoothing: 0.5,
+      lineWidth: 3,
+      smoothing: .75,
     },
   },
 };
