@@ -12,8 +12,8 @@ export type CylinderBlockHeightPreset = (typeof CYLINDER_BLOCK_HEIGHT_PRESETS)[n
 
 // Hardcoded visual/collider resolution for CylinderBlockElement.
 // Tune these values manually for perf/quality tradeoff.
-const CYLINDER_BLOCK_VISUAL_SEGMENTS = 12
-const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 6
+const CYLINDER_BLOCK_VISUAL_SEGMENTS = 16
+const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 8
 
 export type CylinderBlockElementProps = Simplify<Omit<CylinderElementProps, 'radius' | 'height' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: CylinderBlockSizePreset
