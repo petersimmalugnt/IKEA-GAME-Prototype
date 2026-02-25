@@ -37,6 +37,7 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
   physics,
   mass,
   friction,
+  restitution,
   lockRotations,
   linearVelocity,
   angularVelocity,
@@ -120,6 +121,7 @@ export const CubeElement = forwardRef<PositionTargetHandle, CubeElementProps>(fu
       angularDamping={angularDamping}
       mass={mass}
       friction={friction}
+      restitution={restitution}
       lockRotations={lockRotations}
       entityId={resolvedEntityId}
       contagionCarrier={contagionCarrier}

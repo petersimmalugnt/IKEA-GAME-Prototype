@@ -70,6 +70,7 @@ export type GridPhysicsConfig = {
   type?: PhysicsBodyType
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
 }
 export type GridPhysics = PhysicsBodyType | GridPhysicsConfig
@@ -216,6 +217,7 @@ type ResolvedGridPhysics = {
   type: PhysicsBodyType
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
 }
 
@@ -1200,6 +1202,7 @@ export function GridCloner({
         type: physics.type ?? 'fixed',
         mass: physics.mass,
         friction: physics.friction,
+        restitution: physics.restitution,
         lockRotations: physics.lockRotations,
       }
     }
@@ -1641,6 +1644,7 @@ export function GridCloner({
             rotation={clone.rotation}
             mass={resolvedPhysics.mass}
             friction={resolvedPhysics.friction}
+            restitution={resolvedPhysics.restitution}
             lockRotations={resolvedPhysics.lockRotations}
             entityId={cloneEntityId}
             contagionCarrier={resolvedCloneContagionCarrier}

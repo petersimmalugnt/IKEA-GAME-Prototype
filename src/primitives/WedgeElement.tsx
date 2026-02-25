@@ -124,6 +124,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
     physics,
     mass,
     friction,
+    restitution,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -222,7 +223,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
                 colorIndex: contagionColor ?? resolvedColor,
             }}
         >
-            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} />
+            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
             {mesh}
         </GameRigidBody>
     )

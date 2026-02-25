@@ -141,6 +141,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
     physics,
     mass,
     friction,
+    restitution,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -234,6 +235,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
                         key={i}
                         args={col.halfExtents}
                         position={absPos}
+                        restitution={restitution}
                     />
                 )
             })}

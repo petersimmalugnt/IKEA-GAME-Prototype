@@ -21,6 +21,7 @@ export type PhysicsProps = ContagionProps & {
   physics?: PhysicsBodyType
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
@@ -34,7 +35,7 @@ type ColliderType = 'cuboid' | 'cylinder' | 'ball'
 
 type PhysicsWrapperProps = Omit<
   RigidBodyProps,
-  'type' | 'position' | 'rotation' | 'mass' | 'friction' | 'linearVelocity' | 'angularVelocity' | 'linearDamping' | 'angularDamping'
+  'type' | 'position' | 'rotation' | 'mass' | 'friction' | 'restitution' | 'linearVelocity' | 'angularVelocity' | 'linearDamping' | 'angularDamping'
 > & ContagionProps & {
   physics?: PhysicsBodyType
   colliderType?: ColliderType
@@ -49,6 +50,7 @@ type PhysicsWrapperProps = Omit<
   angularDamping?: number
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
   onCollisionActivated?: (payload: CollisionEnterPayload | IntersectionEnterPayload) => void
   children: ReactNode
@@ -68,6 +70,7 @@ export function PhysicsWrapper({
   angularDamping,
   mass,
   friction,
+  restitution,
   lockRotations,
   entityId,
   contagionCarrier,
@@ -129,11 +132,20 @@ export function PhysicsWrapper({
           args={colliderArgs as [number, number]}
           position={colliderPosition}
           sensor={colliderSensor}
+          restitution={restitution}
         />
       )
     }
     if (colliderType === 'ball') {
-      return <BallCollider ref={colliderRef} args={colliderArgs as [number]} position={colliderPosition} sensor={colliderSensor} />
+      return (
+        <BallCollider
+          ref={colliderRef}
+          args={colliderArgs as [number]}
+          position={colliderPosition}
+          sensor={colliderSensor}
+          restitution={restitution}
+        />
+      )
     }
     return (
       <CuboidCollider
@@ -141,6 +153,7 @@ export function PhysicsWrapper({
         args={colliderArgs as [number, number, number]}
         position={colliderPosition}
         sensor={colliderSensor}
+        restitution={restitution}
       />
     )
   })()

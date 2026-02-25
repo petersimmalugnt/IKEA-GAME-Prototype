@@ -106,6 +106,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
     physics,
     mass,
     friction,
+    restitution,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -214,7 +215,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
                 colorIndex: contagionColor ?? resolvedColor,
             }}
         >
-            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} />
+            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
             {mesh}
         </GameRigidBody>
     )

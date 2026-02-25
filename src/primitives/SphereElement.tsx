@@ -34,6 +34,7 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
   physics,
   mass,
   friction,
+  restitution,
   lockRotations,
   entityId,
   contagionCarrier,
@@ -102,6 +103,7 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
       rotation={rotationRadians}
       mass={mass}
       friction={friction}
+      restitution={restitution}
       lockRotations={lockRotations}
       entityId={entityId}
       contagionCarrier={contagionCarrier}

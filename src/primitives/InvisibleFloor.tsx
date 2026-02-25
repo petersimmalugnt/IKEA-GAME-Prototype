@@ -7,13 +7,19 @@ const FLOOR_SIZE = FLOOR_HALF_EXTENT * 2;
 
 export function InvisibleFloor({
   shadowColor = SETTINGS.colors.shadow,
+  restitution,
 }: {
   shadowColor?: string;
+  restitution?: number;
 }) {
   return (
     <group position={[0, 0, 0]}>
       <RigidBody type="fixed">
-        <CuboidCollider args={[FLOOR_HALF_EXTENT, 0.01, FLOOR_HALF_EXTENT]} position={[0, -0.01, 0]} />
+        <CuboidCollider
+          args={[FLOOR_HALF_EXTENT, 0.01, FLOOR_HALF_EXTENT]}
+          position={[0, -0.01, 0]}
+          restitution={restitution}
+        />
       </RigidBody>
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} renderOrder={-1}>

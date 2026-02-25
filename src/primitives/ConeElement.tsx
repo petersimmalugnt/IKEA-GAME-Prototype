@@ -38,6 +38,7 @@ export const ConeElement = forwardRef<PositionTargetHandle, ConeElementProps>(fu
     physics,
     mass,
     friction,
+    restitution,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -128,7 +129,7 @@ export const ConeElement = forwardRef<PositionTargetHandle, ConeElementProps>(fu
                 colorIndex: contagionColor ?? resolvedColor,
             }}
         >
-            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} />
+            <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
             {mesh}
         </GameRigidBody>
     )

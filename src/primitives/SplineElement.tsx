@@ -17,6 +17,7 @@ export type SplineElementProps = {
   physics?: GamePhysicsBodyType
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
@@ -51,6 +52,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   physics,
   mass,
   friction,
+  restitution,
   lockRotations,
   position,
   rotation = [0, 0, 0],
@@ -209,6 +211,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
           args={col.args}
           position={col.position}
           rotation={col.rotation}
+          restitution={restitution}
         />
       ))}
       <primitive object={line2} visible={visible} />

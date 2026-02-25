@@ -38,6 +38,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   physics,
   mass,
   friction,
+  restitution,
   lockRotations,
   entityId,
   contagionCarrier,
@@ -128,7 +129,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
         colorIndex: contagionColor ?? resolvedColor,
       }}
     >
-      <ConvexHullCollider args={[hullVertices]} position={anchorOffset} />
+      <ConvexHullCollider args={[hullVertices]} position={anchorOffset} restitution={restitution} />
       {mesh}
     </GameRigidBody>
   )
