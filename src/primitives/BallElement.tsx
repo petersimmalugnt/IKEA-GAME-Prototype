@@ -11,6 +11,8 @@ export type BallSizePreset = (typeof BALL_SIZE_PRESETS)[number]
 // Tune this value manually for perf/quality tradeoff.
 const BALL_VISUAL_SEGMENTS = 12
 const BALL_COLLIDER_SEGMENTS = 6
+const BALL_LINEAR_DAMPING = 0.5
+const BALL_ANGULAR_DAMPING = 10
 
 export type BallElementProps = Simplify<Omit<SphereElementProps, 'radius' | 'align' | 'segments'> & {
     sizePreset?: BallSizePreset
@@ -49,7 +51,8 @@ export const BallElement: BallElementComponent = forwardRef<PositionTargetHandle
             radius={radius}
             segments={BALL_VISUAL_SEGMENTS}
             align={finalAlign}
-            angularDamping={10}
+            linearDamping={BALL_LINEAR_DAMPING}
+            angularDamping={BALL_ANGULAR_DAMPING}
         />
     )
 })
