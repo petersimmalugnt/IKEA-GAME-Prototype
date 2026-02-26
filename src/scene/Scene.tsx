@@ -72,7 +72,8 @@ export function Scene() {
               /> */}
 
               {/* CAMERA TRACKER */}
-              <TransformMotion positionVelocity={{ z: 0 }} >
+
+              <TransformMotion positionVelocity={{ z: -0.5 }} positionRange={{ z: [-3, 3] }} >
                 {/* Spawn marker */}
                 <CubeElement
                   ref={spawnMarkerRef}
@@ -87,7 +88,7 @@ export function Scene() {
                   size={[5, 0.025, 0.025]}
                   hidden
                 />
-                <BlockElement ref={playerRef} hidden />
+                <BlockElement ref={playerRef} />
               </TransformMotion>
 
               {/* ENDLESS TILED LEVELS */}
