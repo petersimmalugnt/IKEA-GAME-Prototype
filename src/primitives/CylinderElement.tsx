@@ -11,6 +11,10 @@ import { getAlignOffset, type Align3 } from '@/geometry/align'
 import { useContagionColorOverride } from '@/gameplay/gameplayStore'
 import type { ElementRenderProps, ElementTransformProps, Simplify } from './ElementBaseProps'
 
+// Targeted stack-stability boost for dynamic cylinders.
+// This avoids raising global world solver iterations.
+const CYLINDER_DYNAMIC_ADDITIONAL_SOLVER_ITERATIONS = 2
+
 export type CylinderElementProps = Simplify<ElementTransformProps & ElementRenderProps & PhysicsProps & {
   radius?: number
   height?: number
@@ -103,6 +107,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   if (mass !== undefined) rbProps.mass = mass
   if (friction !== undefined) rbProps.friction = friction
   if (lockRotations) rbProps.lockRotations = true
+  if (physics === 'dynamic') rbProps.additionalSolverIterations = CYLINDER_DYNAMIC_ADDITIONAL_SOLVER_ITERATIONS
 
   return (
     <GameRigidBody

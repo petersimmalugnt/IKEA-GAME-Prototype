@@ -4884,8 +4884,8 @@
   ],
   "builderSettings": {
     "palette": {
-      "source": "gameActive",
-      "override": "greyscale"
+      "source": "override",
+      "override": "green"
     }
   },
   "sceneMetrics": {

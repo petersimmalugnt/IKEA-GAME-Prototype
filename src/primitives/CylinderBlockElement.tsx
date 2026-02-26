@@ -14,6 +14,8 @@ export type CylinderBlockHeightPreset = (typeof CYLINDER_BLOCK_HEIGHT_PRESETS)[n
 // Tune these values manually for perf/quality tradeoff.
 const CYLINDER_BLOCK_VISUAL_SEGMENTS = 16
 const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 8
+const CYLINDER_BLOCK_DEFAULT_LINEAR_DAMPING = 0.12
+const CYLINDER_BLOCK_DEFAULT_ANGULAR_DAMPING = 0.3
 
 export type CylinderBlockElementProps = Simplify<Omit<CylinderElementProps, 'radius' | 'height' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: CylinderBlockSizePreset
@@ -56,6 +58,8 @@ export const CylinderBlockElement: CylinderBlockElementComponent = forwardRef<Po
     heightPreset = 'sm',
     align,
     color = 1,
+    linearDamping,
+    angularDamping,
     ...props
 }, ref) {
     const { radius, height } = useMemo(
@@ -77,6 +81,8 @@ export const CylinderBlockElement: CylinderBlockElementComponent = forwardRef<Po
             height={height}
             segments={CYLINDER_BLOCK_VISUAL_SEGMENTS}
             colliderSegments={CYLINDER_BLOCK_COLLIDER_SEGMENTS}
+            linearDamping={linearDamping ?? CYLINDER_BLOCK_DEFAULT_LINEAR_DAMPING}
+            angularDamping={angularDamping ?? CYLINDER_BLOCK_DEFAULT_ANGULAR_DAMPING}
             align={finalAlign}
         />
     )
