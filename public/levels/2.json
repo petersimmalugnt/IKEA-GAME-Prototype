@@ -5,32 +5,82 @@
       "id": "3ef4f3b9-a33d-4860-9fc5-980e2c854dab",
       "nodeType": "object",
       "type": "GridCloner",
-      "position": [0, 0.5, 0],
-      "rotation": [0, 0, 0],
+      "position": [
+        0,
+        0.5,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
       "props": {
-        "count": [16, 1, 16],
-        "spacing": [6, 1, 5.3],
-        "offset": [0, 0, 0],
-        "scale": [0.3, 1, 0.3],
-        "centered": true,
+        "count": [
+          16,
+          1,
+          16
+        ],
+        "spacing": [
+          6,
+          1,
+          5.3
+        ],
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          0.3,
+          1,
+          0.3
+        ],
         "transformMode": "cloner",
         "childDistribution": "iterate",
         "childRandomSeed": 1337,
         "gridUnit": "md",
         "enabled": true,
         "contagionCarrier": false,
-        "contagionInfectable": true
+        "contagionInfectable": true,
+        "anchor": {
+          "x": "center",
+          "y": "center",
+          "z": "center"
+        }
       },
       "children": [
         {
           "id": "3c51eac7-d9d4-46f5-be11-635dd138fc79",
           "nodeType": "object",
           "type": "CubeElement",
-          "position": [0, 0.5, 0],
-          "rotation": [0, 0, 0],
+          "position": [
+            0,
+            0.5,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
           "props": {
-            "size": [1, 1, 1],
-            "color": 0,
+            "size": [
+              1,
+              1,
+              1
+            ],
+            "color": 3,
             "singleTone": false,
             "hidden": false,
             "contagionCarrier": false,
@@ -41,7 +91,10 @@
     }
   ],
   "unitSize": 0.1,
-  "gridSize": [128, 128],
+  "gridSize": [
+    128,
+    128
+  ],
   "builderSettings": {
     "palette": {
       "source": "gameActive",
