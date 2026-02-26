@@ -33,6 +33,7 @@ export const DOME_BLOCK_RADII_M: Record<DomeBlockSizePreset, number> = {
 export const DomeBlockElement: DomeBlockElementComponent = forwardRef<PositionTargetHandle, DomeBlockElementProps>(function DomeBlockElement({
     sizePreset = 'lg',
     align,
+    color = 1,
     ...props
 }, ref) {
     const radius = DOME_BLOCK_RADII_M[sizePreset]
@@ -46,6 +47,7 @@ export const DomeBlockElement: DomeBlockElementComponent = forwardRef<PositionTa
         <DomeElement
             ref={ref}
             {...props}
+            color={color}
             radius={radius}
             segments={DOME_BLOCK_VISUAL_SEGMENTS}
             colliderSegments={DOME_BLOCK_COLLIDER_SEGMENTS}

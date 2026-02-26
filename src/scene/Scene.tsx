@@ -73,7 +73,7 @@ export function Scene() {
 
               {/* CAMERA TRACKER */}
 
-              <TransformMotion positionVelocity={{ z: -0.5 }} positionRange={{ z: [-3, 3] }} >
+              <TransformMotion positionVelocity={{ z: -0.2 }} >
                 {/* Spawn marker */}
                 <CubeElement
                   ref={spawnMarkerRef}

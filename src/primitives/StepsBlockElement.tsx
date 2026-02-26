@@ -53,6 +53,7 @@ export const StepsBlockElement: StepsBlockElementComponent = forwardRef<Position
     sizePreset = 'lg',
     heightPreset = 'sm',
     align,
+    color = 1,
     ...props
 }, ref) {
     const finalSize = useMemo<Vec3>(
@@ -69,6 +70,7 @@ export const StepsBlockElement: StepsBlockElementComponent = forwardRef<Position
         <StepsElement
             ref={ref}
             {...props}
+            color={color}
             width={finalSize[0]}
             height={finalSize[1]}
             depth={finalSize[2]}

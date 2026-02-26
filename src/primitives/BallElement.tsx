@@ -35,6 +35,7 @@ export const BALL_RADII_M: Record<BallSizePreset, number> = {
 export const BallElement: BallElementComponent = forwardRef<PositionTargetHandle, BallElementProps>(function BallElement({
     sizePreset = 'lg',
     align,
+    color = 1,
     linearDamping = BALL_LINEAR_DAMPING,
     angularDamping = BALL_ANGULAR_DAMPING,
     ...props
@@ -50,6 +51,7 @@ export const BallElement: BallElementComponent = forwardRef<PositionTargetHandle
         <SphereElement
             ref={ref}
             {...props}
+            color={color}
             radius={radius}
             segments={BALL_VISUAL_SEGMENTS}
             align={finalAlign}

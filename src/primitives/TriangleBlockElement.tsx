@@ -59,6 +59,7 @@ export const TriangleBlockElement: TriangleBlockElementComponent = forwardRef<Po
     heightPreset = 'sm',
     plane = 'y',
     align,
+    color = 1,
     ...props
 }, ref) {
     const finalSize = useMemo<Vec3>(
@@ -75,6 +76,7 @@ export const TriangleBlockElement: TriangleBlockElementComponent = forwardRef<Po
         <WedgeElement
             ref={ref}
             {...props}
+            color={color}
             width={finalSize[0]}
             height={finalSize[1]}
             depth={finalSize[2]}

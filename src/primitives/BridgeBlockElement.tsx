@@ -47,7 +47,7 @@ export type BridgeBlockElementComponent = ForwardRefExoticComponent<
 export const BridgeBlockElement: BridgeBlockElementComponent = forwardRef<PositionTargetHandle, BridgeBlockElementProps>(function BridgeBlockElement({
   plane = 'x',
   align,
-  color = 0,
+  color = 1,
   singleTone = true,
   hidden = false,
   visible = true,

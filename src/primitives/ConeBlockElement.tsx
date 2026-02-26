@@ -54,6 +54,7 @@ export const ConeBlockElement: ConeBlockElementComponent = forwardRef<PositionTa
     sizePreset = 'lg',
     heightPreset = 'sm',
     align,
+    color = 1,
     ...props
 }, ref) {
     const { radius, height } = useMemo(
@@ -70,6 +71,7 @@ export const ConeBlockElement: ConeBlockElementComponent = forwardRef<PositionTa
         <ConeElement
             ref={ref}
             {...props}
+            color={color}
             radius={radius}
             height={height}
             segments={CONE_BLOCK_VISUAL_SEGMENTS}

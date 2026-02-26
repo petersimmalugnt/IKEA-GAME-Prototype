@@ -64,7 +64,7 @@ export const HalfCylinderBlockElement: HalfCylinderBlockElementComponent = forwa
   sizePreset = 'md',
   plane = 'y',
   align,
-  color = 0,
+  color = 1,
   singleTone = true,
   hidden = false,
   visible = true,

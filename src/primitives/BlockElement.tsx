@@ -60,6 +60,7 @@ export const BlockElement: BlockElementComponent = forwardRef<PositionTargetHand
   heightPreset = 'sm',
   plane = 'y',
   align,
+  color = 1,
   ...props
 }, ref) {
   const finalSize = useMemo<Vec3>(
@@ -76,6 +77,7 @@ export const BlockElement: BlockElementComponent = forwardRef<PositionTargetHand
     <CubeElement
       ref={ref}
       {...props}
+      color={color}
       size={finalSize}
       align={finalAlign}
     />

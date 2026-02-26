@@ -120,7 +120,19 @@ type SharedEffectorBase = SharedEffectorChannels & {
   blendMode?: EffectorBlendMode
 }
 
-export type LinearFieldEffectorConfig = SharedEffectorBase & {
+type SharedRemapProps = {
+  enableRemap?: boolean
+  innerOffset?: number
+  remapMin?: number
+  remapMax?: number
+  clampMin?: boolean
+  clampMax?: boolean
+  contourMode?: ContourMode
+  contourSteps?: number
+  contourMultiplier?: number
+}
+
+export type LinearFieldEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'linear'
   axis?: AxisName
   center?: number
@@ -128,34 +140,16 @@ export type LinearFieldEffectorConfig = SharedEffectorBase & {
   fieldPosition?: Vec3
   fieldRotation?: Vec3
   invert?: boolean
-  enableRemap?: boolean
-  innerOffset?: number
-  remapMin?: number
-  remapMax?: number
-  clampMin?: boolean
-  clampMax?: boolean
-  contourMode?: ContourMode
-  contourSteps?: number
-  contourMultiplier?: number
 }
 
-export type SphericalFieldEffectorConfig = SharedEffectorBase & {
+export type SphericalFieldEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'spherical'
   fieldPosition?: Vec3
   radius?: number
   invert?: boolean
-  enableRemap?: boolean
-  innerOffset?: number
-  remapMin?: number
-  remapMax?: number
-  clampMin?: boolean
-  clampMax?: boolean
-  contourMode?: ContourMode
-  contourSteps?: number
-  contourMultiplier?: number
 }
 
-export type RandomEffectorConfig = SharedEffectorBase & {
+export type RandomEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'random'
   seed?: number
   hideProbability?: number
@@ -164,7 +158,7 @@ export type RandomEffectorConfig = SharedEffectorBase & {
   signedScale?: boolean
 }
 
-export type NoiseEffectorConfig = SharedEffectorBase & {
+export type NoiseEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'noise'
   seed?: number
   frequency?: number | Vec3
@@ -186,7 +180,7 @@ export type TimeEffectorConfig = SharedEffectorBase & {
   cloneOffset?: number
 }
 
-export type StepEffectorConfig = SharedEffectorBase & {
+export type StepEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'step'
   profile?: StepProfile
   easing?: EasingName
@@ -507,22 +501,22 @@ function applyContour(
   return applyEasing(clamp01(value), mode)
 }
 
-function remapFieldWeight(
+function remapEffectorWeight(
   progress: number,
-  effector: LinearFieldEffectorConfig | SphericalFieldEffectorConfig,
+  remap: SharedRemapProps,
 ): number {
-  if (!(effector.enableRemap ?? true)) {
+  if (!(remap.enableRemap ?? true)) {
     return clamp01(progress)
   }
 
   let value = progress
-  const innerOffset = clamp01(effector.innerOffset ?? 0)
+  const innerOffset = clamp01(remap.innerOffset ?? 0)
   if (innerOffset > 0) {
     value = (value - innerOffset) / Math.max(0.00001, 1 - innerOffset)
   }
 
-  const remapMin = effector.remapMin ?? 0
-  const remapMax = effector.remapMax ?? 1
+  const remapMin = remap.remapMin ?? 0
+  const remapMax = remap.remapMax ?? 1
   const remapSpan = remapMax - remapMin
   if (Math.abs(remapSpan) > 0.00001) {
     value = (value - remapMin) / remapSpan
@@ -530,16 +524,16 @@ function remapFieldWeight(
     value = 0
   }
 
-  const shouldClampMin = effector.clampMin ?? true
-  const shouldClampMax = effector.clampMax ?? true
+  const shouldClampMin = remap.clampMin ?? true
+  const shouldClampMax = remap.clampMax ?? true
   if (shouldClampMin && value < 0) value = 0
   if (shouldClampMax && value > 1) value = 1
 
-  const contourMode = effector.contourMode ?? 'none'
-  const contourSteps = effector.contourSteps ?? 6
+  const contourMode = remap.contourMode ?? 'none'
+  const contourSteps = remap.contourSteps ?? 6
   value = applyContour(value, contourMode, contourSteps)
 
-  const contourMultiplier = effector.contourMultiplier ?? 1
+  const contourMultiplier = remap.contourMultiplier ?? 1
   return value * contourMultiplier
 }
 
@@ -563,10 +557,7 @@ function evaluateTimeWeight(timeSeconds: number, cloneIndex: number, effector: T
   return applyEasing(wrap01(progress), easing)
 }
 
-function evaluateStepWeight(cloneIndex: number, cloneCount: number, effector: StepEffectorConfig): number {
-  const strength = clamp01(effector.strength ?? 1)
-  if (strength <= 0) return 0
-
+function evaluateStepProgress(cloneIndex: number, cloneCount: number, effector: StepEffectorConfig): number {
   const span = cloneCount - 1
   const baseProgress = span <= 0 ? 0 : cloneIndex / span
   const phaseOffset = effector.phaseOffset ?? 0
@@ -576,11 +567,11 @@ function evaluateStepWeight(cloneIndex: number, cloneCount: number, effector: St
   if (profile === 'hump') {
     const hump = Math.sin(shifted * Math.PI)
     const humpEasing = effector.humpEasing ?? 'smooth'
-    return applyEasing(clamp01(hump), humpEasing) * strength
+    return applyEasing(clamp01(hump), humpEasing)
   }
 
   const easing = effector.easing ?? 'smooth'
-  return applyEasing(clamp01(shifted), easing) * strength
+  return applyEasing(clamp01(shifted), easing)
 }
 
 function resolveBlendMode(mode: GridEffector['blendMode']): NonNullable<GridEffector['blendMode']> {
@@ -674,7 +665,6 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
 
     let wCurrent = 0
     let amountForColor = 0
-    let noiseNormalized = 0
     let randomSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
     let positionNoiseX = 0
     let positionNoiseY = 0
@@ -693,18 +683,20 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
       amountForColor = evaluateSphericalFieldWeight(localPosition, effector)
       wCurrent = clamp01(amountForColor)
     } else if (effector.type === 'step') {
-      amountForColor = evaluateStepWeight(instanceIndex, instanceCount, effector)
+      const stepProgress = evaluateStepProgress(instanceIndex, instanceCount, effector)
+      amountForColor = remapEffectorWeight(stepProgress, effector) * strength
       wCurrent = clamp01(amountForColor)
     } else if (effector.type === 'time') {
       amountForColor = evaluateTimeWeight(timeSeconds, instanceIndex, effector) * strength
       wCurrent = clamp01(amountForColor)
     } else if (effector.type === 'random') {
       if (strength <= 0) return
-      wCurrent = strength
       randomSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
+      const randomProgress = random01(randomSeed, instanceIndex, effectorIndex, 7)
+      amountForColor = remapEffectorWeight(randomProgress, effector) * strength
+      wCurrent = clamp01(amountForColor)
     } else {
       if (strength <= 0) return
-      wCurrent = strength
       const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedEffectorSeeds[effectorIndex] ?? 1)
       const freq = normalizeFrequency(effector.frequency)
       const staticOffset = effector.offset ?? IDENTITY_POSITION
@@ -722,8 +714,9 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
       const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
       const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
       const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
-      noiseNormalized = clamp01((noiseBase + 1) / 2)
-      amountForColor = noiseNormalized
+      const noiseProgress = clamp01((noiseBase + 1) / 2)
+      amountForColor = remapEffectorWeight(noiseProgress, effector) * strength
+      wCurrent = clamp01(amountForColor)
       positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
       positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
       positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
@@ -837,48 +830,12 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
       }
     }
 
-    if (effector.type === 'linear'
-      || effector.type === 'spherical'
-      || effector.type === 'step'
-      || effector.type === 'time') {
-      const clampedAmount = clamp01(amountForColor)
-      const nextColor = resolveColorValue(effector.color, clampedAmount)
-      if (nextColor !== undefined) {
-        color = nextColor
-      }
-      applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-      return
-    }
-
-    if (effector.type === 'random') {
-      if (effector.color !== undefined) {
-        if (Array.isArray(effector.color) && effector.color.length > 0) {
-          const i = Math.floor(random01(randomSeed, instanceIndex, effectorIndex, 51) * effector.color.length)
-          color = effector.color[Math.min(effector.color.length - 1, i)]
-        } else if (typeof effector.color === 'number' && random01(randomSeed, instanceIndex, effectorIndex, 52) < wCurrent) {
-          color = effector.color
-        }
-      }
-      if (effector.materialColors) {
-        Object.entries(effector.materialColors).forEach(([key, value]) => {
-          if (Array.isArray(value) && value.length > 0) {
-            const i = Math.floor(random01(randomSeed, instanceIndex, effectorIndex, 61) * value.length)
-            materialColors[key] = value[Math.min(value.length - 1, i)]
-          } else if (typeof value === 'number' && random01(randomSeed, instanceIndex, effectorIndex, 62) < wCurrent) {
-            materialColors[key] = value
-          }
-        })
-      }
-      return
-    }
-
-    const nextColor = resolveColorValue(effector.color, noiseNormalized)
-    if (nextColor !== undefined && noiseNormalized <= wCurrent) {
+    const clampedAmount = clamp01(amountForColor)
+    const nextColor = resolveColorValue(effector.color, clampedAmount)
+    if (nextColor !== undefined) {
       color = nextColor
     }
-    if (noiseNormalized <= wCurrent) {
-      applyMaterialColorValues(materialColors, effector.materialColors, noiseNormalized)
-    }
+    applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
   })
 
   const position = addVec3(basePosition, positionDelta)
@@ -1362,7 +1319,7 @@ function evaluateLinearFieldWeight(localPosition: Vec3, effector: LinearFieldEff
     progress = 1 - progress
   }
 
-  return remapFieldWeight(progress, effector) * strength
+  return remapEffectorWeight(progress, effector) * strength
 }
 
 function evaluateSphericalFieldWeight(localPosition: Vec3, effector: SphericalFieldEffectorConfig): number {
@@ -1379,7 +1336,7 @@ function evaluateSphericalFieldWeight(localPosition: Vec3, effector: SphericalFi
     progress = 1 - progress
   }
 
-  return remapFieldWeight(progress, effector) * strength
+  return remapEffectorWeight(progress, effector) * strength
 }
 
 function getPlaneDebugSize(axis: AxisName, size: number, bounds: Vec3): Vec3 {

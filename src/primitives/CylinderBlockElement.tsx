@@ -55,6 +55,7 @@ export const CylinderBlockElement: CylinderBlockElementComponent = forwardRef<Po
     sizePreset = 'lg',
     heightPreset = 'sm',
     align,
+    color = 1,
     ...props
 }, ref) {
     const { radius, height } = useMemo(
@@ -71,6 +72,7 @@ export const CylinderBlockElement: CylinderBlockElementComponent = forwardRef<Po
         <CylinderElement
             ref={ref}
             {...props}
+            color={color}
             radius={radius}
             height={height}
             segments={CYLINDER_BLOCK_VISUAL_SEGMENTS}
