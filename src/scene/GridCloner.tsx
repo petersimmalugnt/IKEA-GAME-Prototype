@@ -31,6 +31,7 @@ import { TransformMotion } from '@/scene/TransformMotion'
 import { SeededImprovedNoise } from '@/utils/seededNoise'
 
 export const GRID_CLONER_AXES = ['x', 'y', 'z'] as const
+export const GRID_CLONER_ANCHORS = ['start', 'center', 'end'] as const
 export const GRID_CLONER_TRANSFORM_MODES = ['child', 'cloner'] as const
 export const GRID_CLONER_CHILD_DISTRIBUTIONS = ['iterate', 'random'] as const
 export const GRID_CLONER_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
@@ -40,6 +41,7 @@ export const GRID_CLONER_STEP_PROFILES = ['ramp', 'hump'] as const
 
 export type GridCount = [number, number, number]
 export type AxisName = (typeof GRID_CLONER_AXES)[number]
+export type GridAxisAnchor = (typeof GRID_CLONER_ANCHORS)[number]
 export type TransformMode = (typeof GRID_CLONER_TRANSFORM_MODES)[number]
 export type ChildDistribution = (typeof GRID_CLONER_CHILD_DISTRIBUTIONS)[number]
 export type LoopMode = (typeof GRID_CLONER_LOOP_MODES)[number]
@@ -49,6 +51,11 @@ export type GridUnit = GridUnitPreset | number
 export type ContourBaseMode = (typeof GRID_CLONER_CONTOUR_BASE_MODES)[number]
 export type ContourMode = ContourBaseMode | EasingName
 export type StepProfile = (typeof GRID_CLONER_STEP_PROFILES)[number]
+export type GridAnchor3 = {
+  x: GridAxisAnchor
+  y: GridAxisAnchor
+  z: GridAxisAnchor
+}
 
 export type GridCollider =
   | {
@@ -123,6 +130,9 @@ export type RandomEffectorConfig = SharedEffectorBase & {
   type: 'random'
   seed?: number
   hideProbability?: number
+  signedPosition?: boolean
+  signedRotation?: boolean
+  signedScale?: boolean
 }
 
 export type NoiseEffectorConfig = SharedEffectorBase & {
@@ -132,6 +142,9 @@ export type NoiseEffectorConfig = SharedEffectorBase & {
   offset?: Vec3
   noisePosition?: Vec3
   noisePositionSpeed?: Vec3
+  signedPosition?: boolean
+  signedRotation?: boolean
+  signedScale?: boolean
 }
 
 export type TimeEffectorConfig = SharedEffectorBase & {
@@ -178,6 +191,8 @@ export type GridClonerProps = {
   position?: Vec3
   rotation?: Vec3
   scale?: Vec3
+  anchor?: Partial<GridAnchor3> | GridAnchor3
+  /** Legacy fallback for old level data that pre-dates per-axis anchors. */
   centered?: boolean
   /** 'child' | 'cloner' */
   transformMode?: TransformMode
@@ -566,6 +581,41 @@ function random01(seed: number, a: number, b = 0, c = 0): number {
 
 function randomSigned(seed: number, a: number, b = 0, c = 0): number {
   return (random01(seed, a, b, c) * 2) - 1
+}
+
+const DEFAULT_GRID_ANCHOR: GridAnchor3 = {
+  x: 'center',
+  y: 'center',
+  z: 'center',
+}
+
+function isGridAxisAnchor(value: unknown): value is GridAxisAnchor {
+  return value === 'start' || value === 'center' || value === 'end'
+}
+
+function resolveGridAnchor(anchor: GridClonerProps['anchor'], centeredLegacy: boolean | undefined): GridAnchor3 {
+  const legacyDefault: GridAxisAnchor = centeredLegacy === false ? 'start' : 'center'
+  const candidate = (anchor && typeof anchor === 'object') ? anchor as Partial<GridAnchor3> : undefined
+  return {
+    x: isGridAxisAnchor(candidate?.x) ? candidate.x : legacyDefault,
+    y: isGridAxisAnchor(candidate?.y) ? candidate.y : legacyDefault,
+    z: isGridAxisAnchor(candidate?.z) ? candidate.z : legacyDefault,
+  }
+}
+
+function resolveAxisStart(anchorMode: GridAxisAnchor, count: number, spacing: number): number {
+  const span = (count - 1) * spacing
+  if (anchorMode === 'start') return 0
+  if (anchorMode === 'end') return -span
+  return -span / 2
+}
+
+function resolveRandomSample(seed: number, a: number, b: number, c: number, signed: boolean): number {
+  return signed ? randomSigned(seed, a, b, c) : random01(seed, a, b, c)
+}
+
+function resolveNoiseSample(noiseValue: number, signed: boolean): number {
+  return signed ? noiseValue : clamp01((noiseValue + 1) / 2)
 }
 
 function createRandomSeed(): number {
@@ -1079,7 +1129,8 @@ export function GridCloner({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = [1, 1, 1],
-  centered = true,
+  anchor = DEFAULT_GRID_ANCHOR,
+  centered,
   transformMode = 'cloner',
   childDistribution = 'iterate',
   childRandomSeed = 1337,
@@ -1104,6 +1155,10 @@ export function GridCloner({
   const scaledOffset = useMemo(() => scaleVec3(offset, unitMultiplier), [offset, unitMultiplier])
   const clonerRotation = useMemo<Vec3>(() => toRadians(rotation), [rotation])
   const baseRotation = useMemo<Vec3>(() => toRadians(rotationOffset), [rotationOffset])
+  const resolvedAnchor = useMemo<GridAnchor3>(
+    () => resolveGridAnchor(anchor, centered),
+    [anchor, centered],
+  )
 
   const normalizedCount = useMemo<GridCount>(() => [
     clampCount(count[0]),
@@ -1332,9 +1387,9 @@ export function GridCloner({
     const [ox, oy, oz] = scaledOffset
     const totalClones = cx * cy * cz
 
-    const startX = centered ? -((cx - 1) * sx) / 2 : 0
-    const startY = centered ? -((cy - 1) * sy) / 2 : 0
-    const startZ = centered ? -((cz - 1) * sz) / 2 : 0
+    const startX = resolveAxisStart(resolvedAnchor.x, cx, sx)
+    const startY = resolveAxisStart(resolvedAnchor.y, cy, sy)
+    const startZ = resolveAxisStart(resolvedAnchor.z, cz, sz)
 
     const result: CloneTransform[] = []
     let flatIndex = 0
@@ -1419,28 +1474,31 @@ export function GridCloner({
               const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
               const strength = clamp01(effector.strength ?? 1)
               if (strength <= 0) return
+              const signedPosition = effector.signedPosition === true
+              const signedRotation = effector.signedRotation === true
+              const signedScale = effector.signedScale === true
 
               if (effector.position) {
                 finalPosition = [
-                  finalPosition[0] + (randomSigned(seed, flatIndex, effectorIndex, 11) * effector.position[0] * strength),
-                  finalPosition[1] + (randomSigned(seed, flatIndex, effectorIndex, 12) * effector.position[1] * strength),
-                  finalPosition[2] + (randomSigned(seed, flatIndex, effectorIndex, 13) * effector.position[2] * strength),
+                  finalPosition[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 11, signedPosition) * effector.position[0] * strength),
+                  finalPosition[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 12, signedPosition) * effector.position[1] * strength),
+                  finalPosition[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 13, signedPosition) * effector.position[2] * strength),
                 ]
               }
 
               if (effector.rotation) {
                 finalRotation = [
-                  finalRotation[0] + (randomSigned(seed, flatIndex, effectorIndex, 21) * effector.rotation[0] * strength),
-                  finalRotation[1] + (randomSigned(seed, flatIndex, effectorIndex, 22) * effector.rotation[1] * strength),
-                  finalRotation[2] + (randomSigned(seed, flatIndex, effectorIndex, 23) * effector.rotation[2] * strength),
+                  finalRotation[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 21, signedRotation) * effector.rotation[0] * strength),
+                  finalRotation[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 22, signedRotation) * effector.rotation[1] * strength),
+                  finalRotation[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 23, signedRotation) * effector.rotation[2] * strength),
                 ]
               }
 
               if (effector.scale) {
                 finalScale = [
-                  finalScale[0] + (randomSigned(seed, flatIndex, effectorIndex, 31) * effector.scale[0] * strength),
-                  finalScale[1] + (randomSigned(seed, flatIndex, effectorIndex, 32) * effector.scale[1] * strength),
-                  finalScale[2] + (randomSigned(seed, flatIndex, effectorIndex, 33) * effector.scale[2] * strength),
+                  finalScale[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 31, signedScale) * effector.scale[0] * strength),
+                  finalScale[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 32, signedScale) * effector.scale[1] * strength),
+                  finalScale[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 33, signedScale) * effector.scale[2] * strength),
                 ]
               }
 
@@ -1534,28 +1592,37 @@ export function GridCloner({
             const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
             const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
             const normalized = clamp01((noiseBase + 1) / 2)
+            const positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
+            const positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
+            const positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
+            const rotationNoiseX = resolveNoiseSample(noisePosX, effector.signedRotation === true)
+            const rotationNoiseY = resolveNoiseSample(noisePosY, effector.signedRotation === true)
+            const rotationNoiseZ = resolveNoiseSample(noisePosZ, effector.signedRotation === true)
+            const scaleNoiseX = resolveNoiseSample(noisePosX, effector.signedScale === true)
+            const scaleNoiseY = resolveNoiseSample(noisePosY, effector.signedScale === true)
+            const scaleNoiseZ = resolveNoiseSample(noisePosZ, effector.signedScale === true)
 
             if (effector.position) {
               finalPosition = [
-                finalPosition[0] + (noisePosX * effector.position[0] * strength),
-                finalPosition[1] + (noisePosY * effector.position[1] * strength),
-                finalPosition[2] + (noisePosZ * effector.position[2] * strength),
+                finalPosition[0] + (positionNoiseX * effector.position[0] * strength),
+                finalPosition[1] + (positionNoiseY * effector.position[1] * strength),
+                finalPosition[2] + (positionNoiseZ * effector.position[2] * strength),
               ]
             }
 
             if (effector.rotation) {
               finalRotation = [
-                finalRotation[0] + (noisePosX * effector.rotation[0] * strength),
-                finalRotation[1] + (noisePosY * effector.rotation[1] * strength),
-                finalRotation[2] + (noisePosZ * effector.rotation[2] * strength),
+                finalRotation[0] + (rotationNoiseX * effector.rotation[0] * strength),
+                finalRotation[1] + (rotationNoiseY * effector.rotation[1] * strength),
+                finalRotation[2] + (rotationNoiseZ * effector.rotation[2] * strength),
               ]
             }
 
             if (effector.scale) {
               finalScale = [
-                finalScale[0] + (noisePosX * effector.scale[0] * strength),
-                finalScale[1] + (noisePosY * effector.scale[1] * strength),
-                finalScale[2] + (noisePosZ * effector.scale[2] * strength),
+                finalScale[0] + (scaleNoiseX * effector.scale[0] * strength),
+                finalScale[1] + (scaleNoiseY * effector.scale[1] * strength),
+                finalScale[2] + (scaleNoiseZ * effector.scale[2] * strength),
               ]
             }
 
@@ -1598,7 +1665,9 @@ export function GridCloner({
     normalizedCount,
     scaledSpacing,
     scaledOffset,
-    centered,
+    resolvedAnchor.x,
+    resolvedAnchor.y,
+    resolvedAnchor.z,
     clonerRotation,
     baseRotation,
     scale,
@@ -2120,28 +2189,31 @@ export function Fracture({
           const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
           const strength = clamp01(effector.strength ?? 1)
           if (strength <= 0) return
+          const signedPosition = effector.signedPosition === true
+          const signedRotation = effector.signedRotation === true
+          const signedScale = effector.signedScale === true
 
           if (effector.position) {
             finalPosition = [
-              finalPosition[0] + (randomSigned(seed, index, effectorIndex, 11) * effector.position[0] * strength),
-              finalPosition[1] + (randomSigned(seed, index, effectorIndex, 12) * effector.position[1] * strength),
-              finalPosition[2] + (randomSigned(seed, index, effectorIndex, 13) * effector.position[2] * strength),
+              finalPosition[0] + (resolveRandomSample(seed, index, effectorIndex, 11, signedPosition) * effector.position[0] * strength),
+              finalPosition[1] + (resolveRandomSample(seed, index, effectorIndex, 12, signedPosition) * effector.position[1] * strength),
+              finalPosition[2] + (resolveRandomSample(seed, index, effectorIndex, 13, signedPosition) * effector.position[2] * strength),
             ]
           }
 
           if (effector.rotation) {
             finalRotation = [
-              finalRotation[0] + (randomSigned(seed, index, effectorIndex, 21) * effector.rotation[0] * strength),
-              finalRotation[1] + (randomSigned(seed, index, effectorIndex, 22) * effector.rotation[1] * strength),
-              finalRotation[2] + (randomSigned(seed, index, effectorIndex, 23) * effector.rotation[2] * strength),
+              finalRotation[0] + (resolveRandomSample(seed, index, effectorIndex, 21, signedRotation) * effector.rotation[0] * strength),
+              finalRotation[1] + (resolveRandomSample(seed, index, effectorIndex, 22, signedRotation) * effector.rotation[1] * strength),
+              finalRotation[2] + (resolveRandomSample(seed, index, effectorIndex, 23, signedRotation) * effector.rotation[2] * strength),
             ]
           }
 
           if (effector.scale) {
             finalScale = [
-              finalScale[0] + (randomSigned(seed, index, effectorIndex, 31) * effector.scale[0] * strength),
-              finalScale[1] + (randomSigned(seed, index, effectorIndex, 32) * effector.scale[1] * strength),
-              finalScale[2] + (randomSigned(seed, index, effectorIndex, 33) * effector.scale[2] * strength),
+              finalScale[0] + (resolveRandomSample(seed, index, effectorIndex, 31, signedScale) * effector.scale[0] * strength),
+              finalScale[1] + (resolveRandomSample(seed, index, effectorIndex, 32, signedScale) * effector.scale[1] * strength),
+              finalScale[2] + (resolveRandomSample(seed, index, effectorIndex, 33, signedScale) * effector.scale[2] * strength),
             ]
           }
 
@@ -2235,28 +2307,37 @@ export function Fracture({
         const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
         const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
         const normalized = clamp01((noiseBase + 1) / 2)
+        const positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
+        const positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
+        const positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
+        const rotationNoiseX = resolveNoiseSample(noisePosX, effector.signedRotation === true)
+        const rotationNoiseY = resolveNoiseSample(noisePosY, effector.signedRotation === true)
+        const rotationNoiseZ = resolveNoiseSample(noisePosZ, effector.signedRotation === true)
+        const scaleNoiseX = resolveNoiseSample(noisePosX, effector.signedScale === true)
+        const scaleNoiseY = resolveNoiseSample(noisePosY, effector.signedScale === true)
+        const scaleNoiseZ = resolveNoiseSample(noisePosZ, effector.signedScale === true)
 
         if (effector.position) {
           finalPosition = [
-            finalPosition[0] + (noisePosX * effector.position[0] * strength),
-            finalPosition[1] + (noisePosY * effector.position[1] * strength),
-            finalPosition[2] + (noisePosZ * effector.position[2] * strength),
+            finalPosition[0] + (positionNoiseX * effector.position[0] * strength),
+            finalPosition[1] + (positionNoiseY * effector.position[1] * strength),
+            finalPosition[2] + (positionNoiseZ * effector.position[2] * strength),
           ]
         }
 
         if (effector.rotation) {
           finalRotation = [
-            finalRotation[0] + (noisePosX * effector.rotation[0] * strength),
-            finalRotation[1] + (noisePosY * effector.rotation[1] * strength),
-            finalRotation[2] + (noisePosZ * effector.rotation[2] * strength),
+            finalRotation[0] + (rotationNoiseX * effector.rotation[0] * strength),
+            finalRotation[1] + (rotationNoiseY * effector.rotation[1] * strength),
+            finalRotation[2] + (rotationNoiseZ * effector.rotation[2] * strength),
           ]
         }
 
         if (effector.scale) {
           finalScale = [
-            finalScale[0] + (noisePosX * effector.scale[0] * strength),
-            finalScale[1] + (noisePosY * effector.scale[1] * strength),
-            finalScale[2] + (noisePosZ * effector.scale[2] * strength),
+            finalScale[0] + (scaleNoiseX * effector.scale[0] * strength),
+            finalScale[1] + (scaleNoiseY * effector.scale[1] * strength),
+            finalScale[2] + (scaleNoiseZ * effector.scale[2] * strength),
           ]
         }
 
