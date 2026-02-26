@@ -12,7 +12,16 @@ function parseLevelMessage(data: string): LevelData | null {
 
     if (obj.version !== 6) return null
     if (!Array.isArray(obj.nodes)) return null
-    return { version: 6, nodes: obj.nodes }
+    const next: LevelData = { version: 6, nodes: obj.nodes }
+    if (obj.sceneMetrics && typeof obj.sceneMetrics === 'object') {
+      const metrics = obj.sceneMetrics as Record<string, unknown>
+      if (metrics.highestVertexY === null) {
+        next.sceneMetrics = { highestVertexY: null }
+      } else if (typeof metrics.highestVertexY === 'number' && Number.isFinite(metrics.highestVertexY)) {
+        next.sceneMetrics = { highestVertexY: metrics.highestVertexY }
+      }
+    }
+    return next
   } catch {
     return null
   }

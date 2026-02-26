@@ -16,6 +16,10 @@ export type LevelNode = {
   children?: LevelNode[]
 }
 
+export type LevelSceneMetrics = {
+  highestVertexY: number | null
+}
+
 export type LevelData = {
   version: 6
   nodes: LevelNode[]
@@ -23,6 +27,8 @@ export type LevelData = {
   unitSize?: number
   /** Grid dimensions [width, height] in cells; used for debug grid. */
   gridSize?: [number, number]
+  /** Optional save-time metadata from levelbuilder. */
+  sceneMetrics?: LevelSceneMetrics
 }
 
 const VALID_NODE_TYPES = new Set<string>(['object', 'effector'])
@@ -91,6 +97,14 @@ export function parseLevelFileJson(raw: unknown): LevelData {
   if (typeof data.unitSize === 'number') result.unitSize = data.unitSize
   if (Array.isArray(data.gridSize) && data.gridSize.length >= 2 && typeof data.gridSize[0] === 'number' && typeof data.gridSize[1] === 'number') {
     result.gridSize = [data.gridSize[0], data.gridSize[1]]
+  }
+  if (data.sceneMetrics && typeof data.sceneMetrics === 'object') {
+    const metrics = data.sceneMetrics as Record<string, unknown>
+    if (metrics.highestVertexY === null) {
+      result.sceneMetrics = { highestVertexY: null }
+    } else if (typeof metrics.highestVertexY === 'number' && Number.isFinite(metrics.highestVertexY)) {
+      result.sceneMetrics = { highestVertexY: metrics.highestVertexY }
+    }
   }
   return result
 }

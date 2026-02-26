@@ -101,5 +101,8 @@
       "source": "gameActive",
       "override": "green"
     }
+  },
+  "sceneMetrics": {
+    "highestVertexY": null
   }
 }

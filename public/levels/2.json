@@ -80,7 +80,7 @@
               1,
               1
             ],
-            "color": 1,
+            "color": 2,
             "singleTone": false,
             "hidden": false,
             "contagionCarrier": false,
@@ -88,6 +88,37 @@
           }
         }
       ]
+    },
+    {
+      "id": "f88da2ac-bc08-4880-b86b-c7e73965c1ca",
+      "nodeType": "object",
+      "type": "BlockElement",
+      "position": [
+        0,
+        1.7,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "props": {
+        "sizePreset": "lg",
+        "heightPreset": "sm",
+        "plane": "y",
+        "color": 1,
+        "singleTone": false,
+        "hidden": false,
+        "physics": "dynamic",
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      }
     }
   ],
   "unitSize": 0.1,
@@ -100,5 +131,8 @@
       "source": "gameActive",
       "override": "green"
     }
+  },
+  "sceneMetrics": {
+    "highestVertexY": null
   }
 }
