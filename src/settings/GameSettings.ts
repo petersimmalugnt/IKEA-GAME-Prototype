@@ -207,6 +207,7 @@ export const SETTINGS: Settings = {
       lookAtOffset: [0, 0, 0], // Extra offset på kamerans lookAt
       followLerp: 0.025, // Kamera-drag position (0.01=trögt, 0.1=snappigt)
       lookAtLerp: 0.04, // Kamera-drag för lookAt-target
+      zClampMode: "tilingOnly", // 'tilingOnly' = no-backtracking bara när level tiling är aktiv. Sätt 'never' för loop/backtracking-scenarion.
       lockRotation: true, // Låser kamerans rotation för stabil ortografisk/isometrisk känsla
       followAxes: { x: true, y: true, z: true }, // Följ bara sidled + djup, lås höjd
       lookAtAxes: { x: true, y: true, z: true }, // Lås valda axlar för lookAt

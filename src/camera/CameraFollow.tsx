@@ -16,6 +16,15 @@ type CameraFollowProps = {
   directionalLightRef: RefObject<THREE.DirectionalLight | null>
 }
 
+function shouldClampCameraZ(
+  zClampMode: 'always' | 'tilingOnly' | 'never',
+  tilingEnabled: boolean,
+): boolean {
+  if (zClampMode === 'always') return true
+  if (zClampMode === 'never') return false
+  return tilingEnabled
+}
+
 function writeLockedQuaternion(out: THREE.Quaternion) {
   const follow = SETTINGS.camera.follow
   _orientationFrom.set(...follow.offset)
@@ -51,6 +60,8 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef, directionalLig
   const previousMode = useRef<'static' | 'follow' | null>(null)
   const previousTargetId = useRef<string | null>(null)
   const minCameraZ = useRef(Infinity)
+  const clampEnabledRef = useRef<boolean | null>(null)
+  const warnedTilingBacktrackRiskRef = useRef(false)
 
   useFrame((_state, delta) => {
     if (SETTINGS.camera.mode === 'static') {
@@ -71,11 +82,37 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef, directionalLig
       updateFocusRef(cameraFocusRef, lookAtCurrent.current)
       previousMode.current = 'static'
       previousTargetId.current = null
+      clampEnabledRef.current = null
+      minCameraZ.current = Infinity
       return
     }
 
     const followSettings = SETTINGS.camera.follow
     const staticSettings = SETTINGS.camera.static
+    const tilingEnabled = SETTINGS.level.tiling.enabled
+    const zClampMode = followSettings.zClampMode ?? 'tilingOnly'
+    const shouldClampZ = shouldClampCameraZ(zClampMode, tilingEnabled)
+
+    if (tilingEnabled && zClampMode === 'never' && !warnedTilingBacktrackRiskRef.current) {
+      warnedTilingBacktrackRiskRef.current = true
+      console.warn(
+        '[CameraFollow] level tiling is enabled while camera.follow.zClampMode="never". Backtracking camera Z can create segment culling/spawn gaps.',
+      )
+    } else if (!(tilingEnabled && zClampMode === 'never')) {
+      warnedTilingBacktrackRiskRef.current = false
+    }
+
+    if (clampEnabledRef.current !== shouldClampZ) {
+      if (shouldClampZ) {
+        // Transition off -> on: seed clamp from current camera position to avoid visual jumps.
+        minCameraZ.current = camera.position.z
+      } else {
+        // Transition on -> off: fully release historical Z lock.
+        minCameraZ.current = Infinity
+      }
+      clampEnabledRef.current = shouldClampZ
+    }
+
     if (followSettings.lockRotation) {
       writeLockedQuaternion(lockedQuaternion.current)
     }
@@ -98,7 +135,10 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef, directionalLig
       followSettings.lookAtAxes.z ? targetPos.z + followSettings.lookAtOffset[2] : staticSettings.lookAt[2],
     )
 
-    _cameraTarget.z = Math.min(_cameraTarget.z, minCameraZ.current)
+    // No-backtracking clamp is policy-driven to keep camera/tiling coupling explicit.
+    if (shouldClampZ) {
+      _cameraTarget.z = Math.min(_cameraTarget.z, minCameraZ.current)
+    }
 
     const modeChanged = previousMode.current !== 'follow'
     const targetChanged = previousTargetId.current !== followSettings.targetId
@@ -119,7 +159,9 @@ export function CameraFollow({ getTargetPosition, cameraFocusRef, directionalLig
     } else {
       camera.lookAt(lookAtCurrent.current)
     }
-    minCameraZ.current = Math.min(minCameraZ.current, camera.position.z)
+    if (shouldClampZ) {
+      minCameraZ.current = Math.min(minCameraZ.current, camera.position.z)
+    }
     updateFocusRef(cameraFocusRef, lookAtCurrent.current)
 
     const light = directionalLightRef.current

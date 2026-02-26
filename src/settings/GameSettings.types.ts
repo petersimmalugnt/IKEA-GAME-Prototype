@@ -22,6 +22,7 @@ export type PaletteAutoMidSettings = {
 export const PALETTE_VARIANT_NAMES = ['classic', 'greyscale', 'green'] as const
 export const SMAA_PRESET_NAMES = ['low', 'medium', 'high', 'ultra'] as const
 export const CAMERA_MODES = ['static', 'follow'] as const
+export const CAMERA_FOLLOW_Z_CLAMP_MODES = ['always', 'tilingOnly', 'never'] as const
 export const STREAMING_CENTER_SOURCES = ['target', 'cameraFocus'] as const
 export const RENDER_STYLES = ['toon', 'pixel', 'retroPixelPass'] as const
 export const CONTROL_INPUT_SOURCES = ['keyboard', 'external', 'hybrid'] as const
@@ -30,6 +31,7 @@ export const EXTERNAL_CONTROL_MODES = ['digital', 'absolute'] as const
 export type PaletteVariantName = (typeof PALETTE_VARIANT_NAMES)[number]
 export type SMAAPresetName = (typeof SMAA_PRESET_NAMES)[number]
 export type CameraMode = (typeof CAMERA_MODES)[number]
+export type CameraFollowZClampMode = (typeof CAMERA_FOLLOW_Z_CLAMP_MODES)[number]
 export type StreamingCenterSource = (typeof STREAMING_CENTER_SOURCES)[number]
 export type RenderStyle = (typeof RENDER_STYLES)[number]
 export type ControlInputSource = (typeof CONTROL_INPUT_SOURCES)[number]
@@ -166,6 +168,7 @@ export type Settings = {
       lookAtOffset: Vec3
       followLerp: number
       lookAtLerp: number
+      zClampMode: CameraFollowZClampMode
       lockRotation: boolean
       followAxes: AxisMask
       lookAtAxes: AxisMask

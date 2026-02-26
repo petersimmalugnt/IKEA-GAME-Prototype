@@ -30,6 +30,9 @@ export function LevelTileManager() {
   useFrame(() => {
     if (!tiling.enabled || !initialized) return
 
+    // Tiling spawn/cull uses camera-derived center. If camera backtracking is allowed
+    // (see SETTINGS.camera.follow.zClampMode), this center can move backwards and expose
+    // already-culled segments. Keep this coupling explicit in camera settings.
     const followOffsetZ = SETTINGS.camera.mode === 'follow' ? SETTINGS.camera.follow.offset[2] : 0
     const viewCenterZ = camera.position.z - followOffsetZ
     const { lookAheadDistance, cullBehindDistance } = tiling
