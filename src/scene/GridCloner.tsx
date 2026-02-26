@@ -108,8 +108,8 @@ type SharedEffectorChannels = {
   position?: Vec3
   rotation?: Vec3
   scale?: Vec3
-  hidden?: boolean
-  hideThreshold?: number
+  exclude?: boolean
+  excludeThreshold?: number
   color?: EffectorColorValue
   materialColors?: EffectorMaterialColorValue
 }
@@ -152,7 +152,7 @@ export type SphericalFieldEffectorConfig = SharedEffectorBase & SharedRemapProps
 export type RandomEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'random'
   seed?: number
-  hideProbability?: number
+  excludeProbability?: number
   signedPosition?: boolean
   signedRotation?: boolean
   signedScale?: boolean
@@ -277,7 +277,7 @@ type CloneTransform = {
   position: Vec3
   rotation: Vec3
   scale: Vec3
-  hidden: boolean
+  excluded: boolean
   color?: number
   materialColors?: Record<string, number>
 }
@@ -308,7 +308,7 @@ type FractureChildTransform = {
   position: Vec3
   rotation: Vec3
   scale: Vec3
-  hidden: boolean
+  excluded: boolean
   color?: number
   materialColors?: Record<string, number>
 }
@@ -609,9 +609,15 @@ function scaleBlendDeltas(value: Vec3, amount: number): Vec3 {
   return [value[0] * amount, value[1] * amount, value[2] * amount]
 }
 
-function resolveHiddenThreshold(effector: GridEffector): number {
-  if (effector.type === 'noise') return effector.hideThreshold ?? 0.65
-  return effector.hideThreshold ?? 0.5
+function resolveExcludeThreshold(effector: GridEffector): number {
+  if (effector.type === 'noise') return effector.excludeThreshold ?? 0.65
+  return effector.excludeThreshold ?? 0.5
+}
+
+function hasExcludeChannel(effector: GridEffector): boolean {
+  if (effector.exclude === true) return true
+  if (effector.type === 'random') return clamp01(effector.excludeProbability ?? 0) > 0
+  return false
 }
 
 type EvaluateEffectorStackOptions = {
@@ -631,7 +637,7 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
   position: Vec3
   rotation: Vec3
   scale: Vec3
-  hidden: boolean
+  excluded: boolean
   color?: number
   materialColors?: Record<string, number>
 } {
@@ -651,9 +657,11 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
   let positionDelta: Vec3 = [0, 0, 0]
   let rotationDelta: Vec3 = [0, 0, 0]
   let scaleDelta: Vec3 = [0, 0, 0]
-  let hiddenScore = 0
+  let excludeScore = 0
   let prevWeight = 0
   let hasAppliedEffector = false
+  let prevExcludeWeight = 0
+  let hasAppliedExclude = false
   let color: number | undefined
   const materialColors: Record<string, number> = {}
 
@@ -662,6 +670,7 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
 
     const blendMode = resolveBlendMode(effector.blendMode)
     const strength = clamp01(effector.strength ?? 1)
+    const usesExcludeChannel = hasExcludeChannel(effector)
 
     let wCurrent = 0
     let amountForColor = 0
@@ -675,6 +684,8 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
     let scaleNoiseX = 0
     let scaleNoiseY = 0
     let scaleNoiseZ = 0
+    let staticExcludeProgress = 0
+    let hasStaticExcludeProgress = false
 
     if (effector.type === 'linear') {
       amountForColor = evaluateLinearFieldWeight(localPosition, effector)
@@ -715,6 +726,19 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
       const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
       const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
       const noiseProgress = clamp01((noiseBase + 1) / 2)
+      if (usesExcludeChannel) {
+        const staticNoisePosition: Vec3 = [
+          staticOffset[0] + noisePosition[0],
+          staticOffset[1] + noisePosition[1],
+          staticOffset[2] + noisePosition[2],
+        ]
+        const staticSampleX = (localPosition[0] * freq[0]) + staticNoisePosition[0]
+        const staticSampleY = (localPosition[1] * freq[1]) + staticNoisePosition[1]
+        const staticSampleZ = (localPosition[2] * freq[2]) + staticNoisePosition[2]
+        const staticNoiseBase = noiseGenerator.noise(staticSampleX, staticSampleY, staticSampleZ)
+        staticExcludeProgress = clamp01((staticNoiseBase + 1) / 2)
+        hasStaticExcludeProgress = true
+      }
       amountForColor = remapEffectorWeight(noiseProgress, effector) * strength
       wCurrent = clamp01(amountForColor)
       positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
@@ -729,117 +753,153 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
     }
 
     const clipWeight = clamp01(wCurrent)
+    let excludeCurrent = clipWeight
+    if (usesExcludeChannel) {
+      if (effector.type === 'time') {
+        // Exclude stays static to avoid frame-to-frame mount churn.
+        excludeCurrent = clamp01(evaluateTimeWeight(0, instanceIndex, effector) * strength)
+      } else if (effector.type === 'noise' && hasStaticExcludeProgress) {
+        // Exclude ignores animated noise speed for the same reason.
+        excludeCurrent = clamp01(remapEffectorWeight(staticExcludeProgress, effector) * strength)
+      }
+    }
+    const excludeClipWeight = clamp01(excludeCurrent)
+
     if (blendMode === 'clip') {
       if (hasAppliedEffector) {
         positionDelta = scaleBlendDeltas(positionDelta, clipWeight)
         rotationDelta = scaleBlendDeltas(rotationDelta, clipWeight)
         scaleDelta = scaleBlendDeltas(scaleDelta, clipWeight)
-        hiddenScore *= clipWeight
       }
       prevWeight = clipWeight
       hasAppliedEffector = true
+
+      if (usesExcludeChannel) {
+        if (hasAppliedExclude) {
+          excludeScore *= excludeClipWeight
+        }
+        prevExcludeWeight = excludeClipWeight
+        hasAppliedExclude = true
+      }
       return
     }
 
-    if (wCurrent <= 0) return
+    let wEffective = 0
+    if (wCurrent > 0) {
+      wEffective = clipWeight
+      if (hasAppliedEffector) {
+        if (blendMode === 'normal') {
+          positionDelta = [0, 0, 0]
+          rotationDelta = [0, 0, 0]
+          scaleDelta = [0, 0, 0]
+        } else if (blendMode !== 'add') {
+          wEffective = blendWeight(blendMode, prevWeight, clipWeight)
+        }
+      }
 
-    let wEffective = clipWeight
-    if (hasAppliedEffector) {
-      if (blendMode === 'normal') {
-        positionDelta = [0, 0, 0]
-        rotationDelta = [0, 0, 0]
-        scaleDelta = [0, 0, 0]
-        hiddenScore = 0
-      } else if (blendMode !== 'add') {
-        wEffective = blendWeight(blendMode, prevWeight, clipWeight)
+      wEffective = clamp01(wEffective)
+      prevWeight = wEffective
+      hasAppliedEffector = true
+      if (wEffective > 0) {
+        if (effector.type === 'random') {
+          // Random uses LinearField-like scalar application; no per-axis jitter after remap.
+          const positionScalar = resolveRandomChannelScalar(
+            randomSeed,
+            instanceIndex,
+            effectorIndex,
+            11,
+            effector.signedPosition === true,
+            wEffective,
+          )
+          const rotationScalar = resolveRandomChannelScalar(
+            randomSeed,
+            instanceIndex,
+            effectorIndex,
+            21,
+            effector.signedRotation === true,
+            wEffective,
+          )
+          const scaleScalar = resolveRandomChannelScalar(
+            randomSeed,
+            instanceIndex,
+            effectorIndex,
+            31,
+            effector.signedScale === true,
+            wEffective,
+          )
+
+          if (effector.position) {
+            positionDelta = addScaledVec3(positionDelta, effector.position, positionScalar)
+          }
+          if (effector.rotation) {
+            rotationDelta = addScaledVec3(rotationDelta, effector.rotation, rotationScalar)
+          }
+          if (effector.scale) {
+            scaleDelta = addScaledVec3(scaleDelta, effector.scale, scaleScalar)
+          }
+        } else if (effector.type === 'noise') {
+          if (effector.position) {
+            positionDelta = [
+              positionDelta[0] + (positionNoiseX * effector.position[0] * wEffective),
+              positionDelta[1] + (positionNoiseY * effector.position[1] * wEffective),
+              positionDelta[2] + (positionNoiseZ * effector.position[2] * wEffective),
+            ]
+          }
+          if (effector.rotation) {
+            rotationDelta = [
+              rotationDelta[0] + (rotationNoiseX * effector.rotation[0] * wEffective),
+              rotationDelta[1] + (rotationNoiseY * effector.rotation[1] * wEffective),
+              rotationDelta[2] + (rotationNoiseZ * effector.rotation[2] * wEffective),
+            ]
+          }
+          if (effector.scale) {
+            scaleDelta = [
+              scaleDelta[0] + (scaleNoiseX * effector.scale[0] * wEffective),
+              scaleDelta[1] + (scaleNoiseY * effector.scale[1] * wEffective),
+              scaleDelta[2] + (scaleNoiseZ * effector.scale[2] * wEffective),
+            ]
+          }
+        } else {
+          if (effector.position) {
+            positionDelta = addScaledVec3(positionDelta, effector.position, wEffective)
+          }
+          if (effector.rotation) {
+            rotationDelta = addScaledVec3(rotationDelta, effector.rotation, wEffective)
+          }
+          if (effector.scale) {
+            scaleDelta = addScaledVec3(scaleDelta, effector.scale, wEffective)
+          }
+        }
       }
     }
 
-    wEffective = clamp01(wEffective)
-    prevWeight = wEffective
-    hasAppliedEffector = true
+    if (usesExcludeChannel) {
+      let excludeEffective = excludeClipWeight
+      if (hasAppliedExclude) {
+        if (blendMode === 'normal') {
+          excludeScore = 0
+        } else if (blendMode !== 'add') {
+          excludeEffective = blendWeight(blendMode, prevExcludeWeight, excludeClipWeight)
+        }
+      }
+      excludeEffective = clamp01(excludeEffective)
+      prevExcludeWeight = excludeEffective
+      hasAppliedExclude = true
+      if (excludeEffective > 0) {
+        if (effector.exclude && excludeEffective >= resolveExcludeThreshold(effector)) {
+          excludeScore = Math.max(excludeScore, excludeEffective)
+        }
+
+        if (effector.type === 'random') {
+          const excludeChance = clamp01((effector.excludeProbability ?? 0) * excludeEffective)
+          if (excludeChance > 0 && random01(randomSeed, instanceIndex, effectorIndex, 42) < excludeChance) {
+            excludeScore = Math.max(excludeScore, excludeChance)
+          }
+        }
+      }
+    }
+
     if (wEffective <= 0) return
-
-    if (effector.type === 'random') {
-      // Random uses LinearField-like scalar application; no per-axis jitter after remap.
-      const positionScalar = resolveRandomChannelScalar(
-        randomSeed,
-        instanceIndex,
-        effectorIndex,
-        11,
-        effector.signedPosition === true,
-        wEffective,
-      )
-      const rotationScalar = resolveRandomChannelScalar(
-        randomSeed,
-        instanceIndex,
-        effectorIndex,
-        21,
-        effector.signedRotation === true,
-        wEffective,
-      )
-      const scaleScalar = resolveRandomChannelScalar(
-        randomSeed,
-        instanceIndex,
-        effectorIndex,
-        31,
-        effector.signedScale === true,
-        wEffective,
-      )
-
-      if (effector.position) {
-        positionDelta = addScaledVec3(positionDelta, effector.position, positionScalar)
-      }
-      if (effector.rotation) {
-        rotationDelta = addScaledVec3(rotationDelta, effector.rotation, rotationScalar)
-      }
-      if (effector.scale) {
-        scaleDelta = addScaledVec3(scaleDelta, effector.scale, scaleScalar)
-      }
-    } else if (effector.type === 'noise') {
-      if (effector.position) {
-        positionDelta = [
-          positionDelta[0] + (positionNoiseX * effector.position[0] * wEffective),
-          positionDelta[1] + (positionNoiseY * effector.position[1] * wEffective),
-          positionDelta[2] + (positionNoiseZ * effector.position[2] * wEffective),
-        ]
-      }
-      if (effector.rotation) {
-        rotationDelta = [
-          rotationDelta[0] + (rotationNoiseX * effector.rotation[0] * wEffective),
-          rotationDelta[1] + (rotationNoiseY * effector.rotation[1] * wEffective),
-          rotationDelta[2] + (rotationNoiseZ * effector.rotation[2] * wEffective),
-        ]
-      }
-      if (effector.scale) {
-        scaleDelta = [
-          scaleDelta[0] + (scaleNoiseX * effector.scale[0] * wEffective),
-          scaleDelta[1] + (scaleNoiseY * effector.scale[1] * wEffective),
-          scaleDelta[2] + (scaleNoiseZ * effector.scale[2] * wEffective),
-        ]
-      }
-    } else {
-      if (effector.position) {
-        positionDelta = addScaledVec3(positionDelta, effector.position, wEffective)
-      }
-      if (effector.rotation) {
-        rotationDelta = addScaledVec3(rotationDelta, effector.rotation, wEffective)
-      }
-      if (effector.scale) {
-        scaleDelta = addScaledVec3(scaleDelta, effector.scale, wEffective)
-      }
-    }
-
-    if (effector.hidden && wEffective >= resolveHiddenThreshold(effector)) {
-      hiddenScore = Math.max(hiddenScore, wEffective)
-    }
-
-    if (effector.type === 'random') {
-      const hideChance = clamp01((effector.hideProbability ?? 0) * wEffective)
-      if (hideChance > 0 && random01(randomSeed, instanceIndex, effectorIndex, 42) < hideChance) {
-        hiddenScore = Math.max(hiddenScore, hideChance)
-      }
-    }
 
     const clampedAmount = clamp01(amountForColor)
     const nextColor = resolveColorValue(effector.color, clampedAmount)
@@ -857,7 +917,7 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
     position,
     rotation,
     scale,
-    hidden: hiddenScore > 0,
+    excluded: excludeScore > 0,
     ...(color !== undefined ? { color } : {}),
     ...(Object.keys(materialColors).length > 0 ? { materialColors } : {}),
   }
@@ -1799,11 +1859,13 @@ export function GridCloner({
             position: evaluated.position,
             rotation: evaluated.rotation,
             scale: evaluated.scale,
-            hidden: evaluated.hidden,
+            excluded: evaluated.excluded,
             color: evaluated.color,
             materialColors: evaluated.materialColors,
           }
-          if (collisionActivatedPhysics && collisionActivatedClones[computedClone.key]) {
+          if (computedClone.excluded) {
+            result.push(computedClone)
+          } else if (collisionActivatedPhysics && collisionActivatedClones[computedClone.key]) {
             result.push(collisionActivatedClones[computedClone.key])
           } else {
             result.push(computedClone)
@@ -1866,6 +1928,7 @@ export function GridCloner({
   return (
     <group position={position} rotation={clonerRotation} scale={scale}>
       {visibleTransforms.map((clone) => {
+        if (clone.excluded) return null
         if (templateChildren.length === 0) return null
         const selectedChildIndex = resolveDistributedChildIndex(
           resolvedChildDistribution,
@@ -1901,13 +1964,6 @@ export function GridCloner({
           nextProps.position = IDENTITY_POSITION
           nextProps.rotation = IDENTITY_ROTATION
           nextProps.scale = IDENTITY_SCALE
-        }
-
-        if (clone.hidden) {
-          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'hidden')) {
-            nextProps.hidden = true
-          }
-          nextProps.visible = false
         }
 
         if (cloneVisualColor !== undefined) {
@@ -2332,7 +2388,7 @@ export function Fracture({
         position: evaluated.position,
         rotation: evaluated.rotation,
         scale: evaluated.scale,
-        hidden: evaluated.hidden,
+        excluded: evaluated.excluded,
         ...(evaluated.color !== undefined ? { color: evaluated.color } : {}),
         ...(evaluated.materialColors ? { materialColors: evaluated.materialColors } : {}),
       }
@@ -2356,6 +2412,7 @@ export function Fracture({
   return (
     <group position={position} rotation={fractureRotation} scale={scale}>
       {transforms.map((transform) => {
+        if (transform.excluded) return null
         const templateChild = templateChildren[transform.index]
         if (!templateChild) return null
 
@@ -2366,13 +2423,6 @@ export function Fracture({
           position: IDENTITY_POSITION,
           rotation: IDENTITY_ROTATION,
           scale: IDENTITY_SCALE,
-        }
-
-        if (transform.hidden) {
-          if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'hidden')) {
-            nextProps.hidden = true
-          }
-          nextProps.visible = false
         }
 
         if (transform.color !== undefined) {
