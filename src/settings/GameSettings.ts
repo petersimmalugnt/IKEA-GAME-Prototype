@@ -339,7 +339,7 @@ export const SETTINGS: Settings = {
         "/sounds/swoosh/swoosh4.wav",
         "/sounds/swoosh/swoosh65.wav",
       ],
-      volume: 0.3,
+      volume: 0,
       minVelocity: 300,
       maxVelocity: 2000,
       cooldownMs: 300,
