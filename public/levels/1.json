@@ -2,12 +2,12 @@
   "version": 6,
   "nodes": [
     {
-      "id": "3ef4f3b9-a33d-4860-9fc5-980e2c854dab",
+      "id": "b5553891-0f4f-4858-b25b-23e1c14b7367",
       "nodeType": "object",
       "type": "GridCloner",
       "position": [
         0,
-        0.3,
+        0,
         0
       ],
       "rotation": [
@@ -22,47 +22,51 @@
       ],
       "props": {
         "count": [
-          21,
+          30,
           1,
-          22
+          30
         ],
         "spacing": [
-          6,
+          2.6,
           1,
-          5.3
+          2.6
         ],
         "offset": [
           0,
           0,
           0
         ],
-        "scale": [
-          0.1,
-          0.5,
-          0.3
+        "rotationOffset": [
+          0,
+          0,
+          0
         ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "anchor": {
+          "x": "center",
+          "y": "center",
+          "z": "center"
+        },
         "transformMode": "cloner",
         "childDistribution": "iterate",
         "childRandomSeed": 1337,
         "gridUnit": "md",
         "enabled": true,
         "contagionCarrier": false,
-        "contagionInfectable": true,
-        "physics": "dynamic",
-        "anchor": {
-          "x": "center",
-          "y": "center",
-          "z": "center"
-        }
+        "contagionInfectable": true
       },
       "children": [
         {
-          "id": "3c51eac7-d9d4-46f5-be11-635dd138fc79",
+          "id": "7616f5db-2204-41fc-b17f-9424ae599e98",
           "nodeType": "object",
-          "type": "CubeElement",
+          "type": "BlockElement",
           "position": [
             0,
-            0.5,
+            0,
             0
           ],
           "rotation": [
@@ -76,16 +80,69 @@
             1
           ],
           "props": {
-            "size": [
-              1,
-              1,
-              1
-            ],
-            "color": 0,
+            "sizePreset": "sm",
+            "heightPreset": "lg",
+            "plane": "y",
+            "color": 1,
             "singleTone": false,
             "hidden": false,
+            "physics": "dynamic",
             "contagionCarrier": false,
             "contagionInfectable": true
+          }
+        },
+        {
+          "id": "17bb9b18-9f8d-4f5c-8cc4-f26855f1ff1b",
+          "nodeType": "effector",
+          "type": "NoiseEffector",
+          "props": {
+            "enabled": true,
+            "strength": 1,
+            "enableRemap": true,
+            "innerOffset": 0,
+            "remapMin": 0,
+            "remapMax": 0.3,
+            "clampMin": true,
+            "clampMax": true,
+            "contourMode": "none",
+            "contourSteps": 6,
+            "contourMultiplier": 1,
+            "frequency": 0.56,
+            "offset": [
+              0,
+              0,
+              0
+            ],
+            "noisePosition": [
+              0,
+              0,
+              0
+            ],
+            "noisePositionSpeed": [
+              0,
+              0,
+              0
+            ],
+            "position": [
+              0,
+              0,
+              0
+            ],
+            "rotation": [
+              0,
+              360,
+              0
+            ],
+            "scale": [
+              0,
+              -0.9,
+              0
+            ],
+            "signedPosition": false,
+            "signedRotation": true,
+            "signedScale": false,
+            "hidden": false,
+            "hideThreshold": 0.65
           }
         }
       ]
