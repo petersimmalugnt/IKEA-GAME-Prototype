@@ -4,7 +4,7 @@ import { Balloon20 } from "@/assets/models/Balloon20";
 import { Balloon24 } from "@/assets/models/Balloon24";
 import { Balloon28 } from "@/assets/models/Balloon28";
 import { Balloon32 } from "@/assets/models/Balloon32";
-import { playFelt, playPop } from "@/audio/SoundManager";
+import { playPop } from "@/audio/SoundManager";
 import {
   useBalloonLifecycleRegistry,
   type BalloonLifecyclePopMeta,
@@ -25,7 +25,7 @@ import {
   type MaterialColorIndex,
   type Vec3,
 } from "@/settings/GameSettings";
-import { useFrame, useThree, type ThreeElements } from "@react-three/fiber";
+import { useThree, type ThreeElements } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
@@ -474,7 +474,6 @@ export function BalloonGroup({
   const probeRef = useRef<THREE.Group | null>(null);
   const payloadRef = useRef<PositionTargetHandle | null>(null);
   const popReleaseRef = useRef<PopRelease | null>(null);
-  const feltPlayedRef = useRef(false);
   const randomColorRef = useRef<MaterialColorIndex | null>(null);
   const randomDropTypeRef = useRef<BalloonDropType | null>(null);
   const probeWorld = useMemo(() => new THREE.Vector3(), []);
@@ -630,14 +629,6 @@ export function BalloonGroup({
     });
   }, [onRegisterCullZ, probeWorld]);
 
-  useFrame(() => {
-    if (!popped || feltPlayedRef.current) return;
-    const pos = payloadRef.current?.getPosition();
-    if (pos && pos.y < 0.05) {
-      feltPlayedRef.current = true;
-      playFelt();
-    }
-  });
   const popRelease = popReleaseRef.current;
 
   return (
@@ -708,6 +699,7 @@ export function BalloonGroup({
             color={resolvedColor}
             align={BALLOON_GROUP_SETTINGS.payload.ball.align}
             physics={popped ? "dynamic" : undefined}
+            collisionSound="felt"
             contagionCarrier={popped}
             contagionInfectable={false}
             contagionColor={resolvedColor}
@@ -735,6 +727,7 @@ export function BalloonGroup({
             align={BALLOON_GROUP_SETTINGS.payload.block.align}
             plane={BALLOON_GROUP_SETTINGS.payload.block.plane}
             physics={popped ? "dynamic" : undefined}
+            collisionSound="felt"
             contagionCarrier={popped}
             contagionInfectable={false}
             contagionColor={resolvedColor}

@@ -39,6 +39,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   mass,
   friction,
   restitution,
+  collisionSound,
   lockRotations,
   entityId,
   contagionCarrier,
@@ -123,6 +124,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
       {...rbProps}
       type={physics}
       colliders={false}
+      collisionSound={collisionSound}
       contagion={{
         entityId,
         carrier: contagionCarrier === true,

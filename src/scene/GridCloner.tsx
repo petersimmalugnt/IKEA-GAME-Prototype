@@ -1,6 +1,7 @@
 import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SETTINGS, type MaterialColorIndex, type Vec3 } from '@/settings/GameSettings'
+import type { CollisionSound } from '@/settings/GameSettings.types'
 import { applyEasing, clamp01, type EasingName } from '@/utils/easing'
 import { isCollisionActivatedPhysicsType, type GamePhysicsBodyType } from '@/physics/physicsTypes'
 import { getAlignOffset, type Align3 } from '@/geometry/align'
@@ -194,6 +195,7 @@ export type GridClonerProps = {
    * | 'noneToDynamicOnCollision' | 'solidNoneToDynamicOnCollision' | 'animNoneToDynamicOnCollision'
    */
   physics?: GridPhysics
+  collisionSound?: CollisionSound
   showDebugEffectors?: boolean
   entityPrefix?: string
   /**
@@ -1011,6 +1013,7 @@ export function GridCloner({
   enabled = true,
   gridUnit,
   physics,
+  collisionSound,
   showDebugEffectors,
   entityPrefix,
   contagionCarrier,
@@ -1654,6 +1657,7 @@ export function GridCloner({
             mass={resolvedPhysics.mass}
             friction={resolvedPhysics.friction}
             restitution={resolvedPhysics.restitution}
+            collisionSound={collisionSound}
             lockRotations={resolvedPhysics.lockRotations}
             entityId={cloneEntityId}
             contagionCarrier={resolvedCloneContagionCarrier}

@@ -40,6 +40,10 @@ export type SoundCategorySettings = {
   volume: number
 }
 
+export const SOUND_POOL_NAMES = ['pop', 'felt', 'steel', 'swoosh'] as const
+export type SoundPoolName = (typeof SOUND_POOL_NAMES)[number]
+export type CollisionSound = 'none' | SoundPoolName
+
 export type SwooshSoundSettings = SoundCategorySettings & {
   minVelocity: number
   maxVelocity: number

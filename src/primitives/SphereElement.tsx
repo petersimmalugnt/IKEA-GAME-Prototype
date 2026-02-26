@@ -35,6 +35,7 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
   mass,
   friction,
   restitution,
+  collisionSound,
   lockRotations,
   linearVelocity,
   angularVelocity,
@@ -108,6 +109,7 @@ export const SphereElement = forwardRef<PositionTargetHandle, SphereElementProps
       mass={mass}
       friction={friction}
       restitution={restitution}
+      collisionSound={collisionSound}
       lockRotations={lockRotations}
       linearVelocity={linearVelocity}
       angularVelocity={angularVelocity}

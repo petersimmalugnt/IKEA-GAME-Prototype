@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { playSteel } from '@/audio/SoundManager'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
 import { onEntityUnregister } from '@/entities/entityStore'
 import { emitScorePop } from '@/input/scorePopEmitter'
@@ -325,8 +324,6 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       if (!contagionChanged) {
         return state
       }
-
-      playSteel()
 
       return {
         ...state,

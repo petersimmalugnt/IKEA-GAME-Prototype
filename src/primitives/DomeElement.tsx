@@ -107,6 +107,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
     mass,
     friction,
     restitution,
+    collisionSound,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -209,6 +210,7 @@ export const DomeElement = forwardRef<PositionTargetHandle, DomeElementProps>(fu
             {...rbProps}
             type={physics}
             colliders={false}
+            collisionSound={collisionSound}
             contagion={{
                 entityId,
                 carrier: contagionCarrier === true,

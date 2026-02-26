@@ -125,6 +125,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
     mass,
     friction,
     restitution,
+    collisionSound,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -217,6 +218,7 @@ export const WedgeElement = forwardRef<PositionTargetHandle, WedgeElementProps>(
             {...rbProps}
             type={physics}
             colliders={false}
+            collisionSound={collisionSound}
             contagion={{
                 entityId,
                 carrier: contagionCarrier === true,

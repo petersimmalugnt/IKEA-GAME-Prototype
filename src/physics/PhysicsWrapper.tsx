@@ -9,6 +9,7 @@ import {
   type RapierCollider,
 } from '@react-three/rapier'
 import type { Vec3 } from '@/settings/GameSettings'
+import type { CollisionSound } from '@/settings/GameSettings.types'
 import { GameRigidBody } from '../physics/GameRigidBody'
 import type { GameRigidBodyContagion } from '../physics/GameRigidBody'
 import type { GamePhysicsBodyType } from '../physics/physicsTypes'
@@ -22,6 +23,7 @@ export type PhysicsProps = ContagionProps & {
   mass?: number
   friction?: number
   restitution?: number
+  collisionSound?: CollisionSound
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
@@ -51,6 +53,7 @@ type PhysicsWrapperProps = Omit<
   mass?: number
   friction?: number
   restitution?: number
+  collisionSound?: CollisionSound
   lockRotations?: boolean
   onCollisionActivated?: (payload: CollisionEnterPayload | IntersectionEnterPayload) => void
   children: ReactNode
@@ -71,6 +74,7 @@ export function PhysicsWrapper({
   mass,
   friction,
   restitution,
+  collisionSound,
   lockRotations,
   entityId,
   contagionCarrier,
@@ -175,6 +179,7 @@ export function PhysicsWrapper({
       {...rbProps}
       type={physics}
       contagion={contagion}
+      collisionSound={collisionSound}
       onCollisionActivated={handleCollisionActivated}
     >
       {collider}

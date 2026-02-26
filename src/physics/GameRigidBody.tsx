@@ -19,6 +19,8 @@ import {
   resolvePreCollisionBodyType,
   type GamePhysicsBodyType,
 } from './physicsTypes'
+import { pingSoundPool } from '@/audio/SoundManager'
+import type { CollisionSound, SoundPoolName } from '@/settings/GameSettings.types'
 
 export type GameRigidBodyContagion = {
   entityId?: string
@@ -33,6 +35,7 @@ export type GameRigidBodyProps = Omit<RigidBodyProps, 'type' | 'onCollisionEnter
   onIntersectionEnter?: (payload: IntersectionEnterPayload) => void
   onCollisionActivated?: (payload: CollisionEnterPayload | IntersectionEnterPayload) => void
   contagion?: GameRigidBodyContagion
+  collisionSound?: CollisionSound
 }
 
 function isColliderElement(node: ReactNode): node is ReactElement<Record<string, unknown>> {
@@ -44,6 +47,11 @@ function isColliderElement(node: ReactNode): node is ReactElement<Record<string,
 
 function createAutoContagionEntityId(): string {
   return generateEntityId('contagion')
+}
+
+function resolveCollisionSoundPool(collisionSound: CollisionSound | undefined): SoundPoolName | null {
+  if (collisionSound === 'none') return null
+  return collisionSound ?? 'steel'
 }
 
 // User-facing mass values are authored in a larger range than Rapier additional mass.
@@ -98,6 +106,7 @@ export function GameRigidBody({
   quaternion,
   scale,
   mass,
+  collisionSound,
   ...props
 }: GameRigidBodyProps) {
   const { rapier } = useRapier()
@@ -114,6 +123,10 @@ export function GameRigidBody({
   const activationFiredRef = useRef(false)
   const enqueueContagionPair = useGameplayStore((state) => state.enqueueCollisionPair)
   const contagionEnabled = SETTINGS.gameplay.contagion.enabled
+  const resolvedCollisionSound = useMemo(
+    () => resolveCollisionSoundPool(collisionSound),
+    [collisionSound],
+  )
   const autoContagionEntityIdRef = useRef<string>(createAutoContagionEntityId())
   const childArray = useMemo(() => Children.toArray(children), [children])
   const hasExplicitColliderChildren = useMemo(
@@ -252,6 +265,9 @@ export function GameRigidBody({
   }, [collisionActivated, onCollisionActivated, sensorPreCollision, setAttachedCollidersSensor, promoteToDynamicImmediately])
 
   const dispatchCollisionEnter = useCallback((payload: CollisionEnterPayload) => {
+    if (resolvedCollisionSound) {
+      pingSoundPool(resolvedCollisionSound)
+    }
     if (contagionEnabled) {
       const targetEntity = resolveCollisionEntity(payload, 'target')
       const otherEntity = resolveCollisionEntity(payload, 'other')
@@ -266,7 +282,7 @@ export function GameRigidBody({
       enqueueContagionPair(targetEntity, otherEntity)
     }
     onCollisionEnter?.(payload)
-  }, [contagionEnabled, enqueueContagionPair, onCollisionEnter])
+  }, [resolvedCollisionSound, contagionEnabled, enqueueContagionPair, onCollisionEnter])
 
   const handleCollisionEnter = useCallback((payload: CollisionEnterPayload) => {
     activate(payload)

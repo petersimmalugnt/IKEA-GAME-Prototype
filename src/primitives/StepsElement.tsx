@@ -142,6 +142,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
     mass,
     friction,
     restitution,
+    collisionSound,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -218,6 +219,7 @@ export const StepsElement = forwardRef<PositionTargetHandle, StepsElementProps>(
             {...rbProps}
             type={physics}
             colliders={false}
+            collisionSound={collisionSound}
             contagion={{
                 entityId,
                 carrier: contagionCarrier === true,

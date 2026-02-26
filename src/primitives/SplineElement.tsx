@@ -6,6 +6,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js'
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { SETTINGS, type Vec3 } from '@/settings/GameSettings'
+import type { CollisionSound } from '@/settings/GameSettings.types'
 import { GameRigidBody } from '@/physics/GameRigidBody'
 import type { GamePhysicsBodyType } from '@/physics/physicsTypes'
 import { toRadians } from '@/scene/SceneHelpers'
@@ -18,6 +19,7 @@ export type SplineElementProps = {
   mass?: number
   friction?: number
   restitution?: number
+  collisionSound?: CollisionSound
   lockRotations?: boolean
   position?: Vec3
   rotation?: Vec3
@@ -54,6 +56,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   mass,
   friction,
   restitution,
+  collisionSound,
   lockRotations,
   position,
   rotation = [0, 0, 0],
@@ -207,6 +210,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
       {...rbProps}
       type={physics}
       colliders={false}
+      collisionSound={collisionSound}
       {...(scale !== undefined ? { scale } : {})}
     >
       {colliders.map((col, i) => (

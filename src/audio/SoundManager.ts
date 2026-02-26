@@ -1,15 +1,9 @@
 import { SETTINGS } from "@/settings/GameSettings";
 import type { SoundCategorySettings } from "@/settings/GameSettings";
-
-type SoundCategory = "pop" | "felt" | "steel" | "swoosh";
-
-type CategoryState = {
-  buffers: AudioBuffer[];
-  index: number;
-};
+import type { SoundPoolName } from "@/settings/GameSettings.types";
+import { pingSamplePool, setSamplePoolBuffers } from "@/audio/samplePlayer";
 
 let ctx: AudioContext | null = null;
-const categories = new Map<SoundCategory, CategoryState>();
 let preloaded = false;
 let resumeListenerAttached = false;
 
@@ -60,14 +54,14 @@ async function decodeFile(
 
 async function loadCategory(
   audioCtx: AudioContext,
-  name: SoundCategory,
+  name: SoundPoolName,
   settings: SoundCategorySettings,
 ): Promise<void> {
   const results = await Promise.all(
     settings.files.map((file) => decodeFile(audioCtx, file)),
   );
   const buffers = results.filter((b): b is AudioBuffer => b !== null);
-  categories.set(name, { buffers, index: 0 });
+  setSamplePoolBuffers(name, buffers);
 }
 
 export async function preload(): Promise<void> {
@@ -85,25 +79,20 @@ export async function preload(): Promise<void> {
   ]);
 }
 
-function playCategory(name: SoundCategory, volumeScale = 1): void {
+function playCategory(name: SoundPoolName, volumeScale = 1): void {
   if (!SETTINGS.sounds.enabled) return;
 
-  const state = categories.get(name);
-  if (!state || state.buffers.length === 0) return;
-
   const audioCtx = getOrCreateContext();
-  const buffer = state.buffers[state.index];
-  state.index = (state.index + 1) % state.buffers.length;
+  pingSamplePool(
+    audioCtx,
+    audioCtx.destination,
+    name,
+    SETTINGS.sounds[name].volume * volumeScale,
+  );
+}
 
-  const source = audioCtx.createBufferSource();
-  source.buffer = buffer;
-
-  const gain = audioCtx.createGain();
-  gain.gain.value = SETTINGS.sounds[name].volume * volumeScale;
-
-  source.connect(gain);
-  gain.connect(audioCtx.destination);
-  source.start();
+export function pingSoundPool(name: SoundPoolName, volumeScale = 1): void {
+  playCategory(name, volumeScale);
 }
 
 export function playPop(): void {

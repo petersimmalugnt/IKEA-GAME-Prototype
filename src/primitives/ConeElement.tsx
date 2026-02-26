@@ -39,6 +39,7 @@ export const ConeElement = forwardRef<PositionTargetHandle, ConeElementProps>(fu
     mass,
     friction,
     restitution,
+    collisionSound,
     lockRotations,
     entityId,
     contagionCarrier,
@@ -123,6 +124,7 @@ export const ConeElement = forwardRef<PositionTargetHandle, ConeElementProps>(fu
             {...rbProps}
             type={physics}
             colliders={false}
+            collisionSound={collisionSound}
             contagion={{
                 entityId,
                 carrier: contagionCarrier === true,
