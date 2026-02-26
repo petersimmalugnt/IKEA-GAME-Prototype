@@ -761,29 +761,40 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
     if (wEffective <= 0) return
 
     if (effector.type === 'random') {
-      const signedPosition = effector.signedPosition === true
-      const signedRotation = effector.signedRotation === true
-      const signedScale = effector.signedScale === true
+      // Random uses LinearField-like scalar application; no per-axis jitter after remap.
+      const positionScalar = resolveRandomChannelScalar(
+        randomSeed,
+        instanceIndex,
+        effectorIndex,
+        11,
+        effector.signedPosition === true,
+        wEffective,
+      )
+      const rotationScalar = resolveRandomChannelScalar(
+        randomSeed,
+        instanceIndex,
+        effectorIndex,
+        21,
+        effector.signedRotation === true,
+        wEffective,
+      )
+      const scaleScalar = resolveRandomChannelScalar(
+        randomSeed,
+        instanceIndex,
+        effectorIndex,
+        31,
+        effector.signedScale === true,
+        wEffective,
+      )
+
       if (effector.position) {
-        positionDelta = [
-          positionDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 11, signedPosition) * effector.position[0] * wEffective),
-          positionDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 12, signedPosition) * effector.position[1] * wEffective),
-          positionDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 13, signedPosition) * effector.position[2] * wEffective),
-        ]
+        positionDelta = addScaledVec3(positionDelta, effector.position, positionScalar)
       }
       if (effector.rotation) {
-        rotationDelta = [
-          rotationDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 21, signedRotation) * effector.rotation[0] * wEffective),
-          rotationDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 22, signedRotation) * effector.rotation[1] * wEffective),
-          rotationDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 23, signedRotation) * effector.rotation[2] * wEffective),
-        ]
+        rotationDelta = addScaledVec3(rotationDelta, effector.rotation, rotationScalar)
       }
       if (effector.scale) {
-        scaleDelta = [
-          scaleDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 31, signedScale) * effector.scale[0] * wEffective),
-          scaleDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 32, signedScale) * effector.scale[1] * wEffective),
-          scaleDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 33, signedScale) * effector.scale[2] * wEffective),
-        ]
+        scaleDelta = addScaledVec3(scaleDelta, effector.scale, scaleScalar)
       }
     } else if (effector.type === 'noise') {
       if (effector.position) {
@@ -886,10 +897,6 @@ function random01(seed: number, a: number, b = 0, c = 0): number {
   return (h >>> 0) / 4294967295
 }
 
-function randomSigned(seed: number, a: number, b = 0, c = 0): number {
-  return (random01(seed, a, b, c) * 2) - 1
-}
-
 const DEFAULT_GRID_ANCHOR: GridAnchor3 = {
   x: 'center',
   y: 'center',
@@ -917,8 +924,17 @@ function resolveAxisStart(anchorMode: GridAxisAnchor, count: number, spacing: nu
   return -span / 2
 }
 
-function resolveRandomSample(seed: number, a: number, b: number, c: number, signed: boolean): number {
-  return signed ? randomSigned(seed, a, b, c) : random01(seed, a, b, c)
+function resolveRandomChannelScalar(
+  seed: number,
+  instanceIndex: number,
+  effectorIndex: number,
+  salt: number,
+  signed: boolean,
+  amount: number,
+): number {
+  if (!signed) return amount
+  const direction = random01(seed, instanceIndex, effectorIndex, salt) < 0.5 ? -1 : 1
+  return amount * direction
 }
 
 function resolveNoiseSample(noiseValue: number, signed: boolean): number {
