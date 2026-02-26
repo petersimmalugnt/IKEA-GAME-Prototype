@@ -37,6 +37,17 @@ export const GRID_CLONER_CHILD_DISTRIBUTIONS = ['iterate', 'random'] as const
 export const GRID_CLONER_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
 export const GRID_CLONER_UNIT_PRESETS = ['lg', 'md', 'sm', 'xs'] as const
 export const GRID_CLONER_CONTOUR_BASE_MODES = ['none', 'quadratic', 'step', 'quantize'] as const
+export const GRID_CLONER_EFFECTOR_BLEND_MODES = [
+  'normal',
+  'min',
+  'subtract',
+  'multiply',
+  'overlay',
+  'max',
+  'add',
+  'screen',
+  'clip',
+] as const
 export const GRID_CLONER_STEP_PROFILES = ['ramp', 'hump'] as const
 
 export type GridCount = [number, number, number]
@@ -50,6 +61,7 @@ export type GridUnitPreset = (typeof GRID_CLONER_UNIT_PRESETS)[number]
 export type GridUnit = GridUnitPreset | number
 export type ContourBaseMode = (typeof GRID_CLONER_CONTOUR_BASE_MODES)[number]
 export type ContourMode = ContourBaseMode | EasingName
+export type EffectorBlendMode = (typeof GRID_CLONER_EFFECTOR_BLEND_MODES)[number]
 export type StepProfile = (typeof GRID_CLONER_STEP_PROFILES)[number]
 export type GridAnchor3 = {
   x: GridAxisAnchor
@@ -105,6 +117,7 @@ type SharedEffectorChannels = {
 type SharedEffectorBase = SharedEffectorChannels & {
   enabled?: boolean
   strength?: number
+  blendMode?: EffectorBlendMode
 }
 
 export type LinearFieldEffectorConfig = SharedEffectorBase & {
@@ -114,6 +127,22 @@ export type LinearFieldEffectorConfig = SharedEffectorBase & {
   size?: number
   fieldPosition?: Vec3
   fieldRotation?: Vec3
+  invert?: boolean
+  enableRemap?: boolean
+  innerOffset?: number
+  remapMin?: number
+  remapMax?: number
+  clampMin?: boolean
+  clampMax?: boolean
+  contourMode?: ContourMode
+  contourSteps?: number
+  contourMultiplier?: number
+}
+
+export type SphericalFieldEffectorConfig = SharedEffectorBase & {
+  type: 'spherical'
+  fieldPosition?: Vec3
+  radius?: number
   invert?: boolean
   enableRemap?: boolean
   innerOffset?: number
@@ -167,16 +196,18 @@ export type StepEffectorConfig = SharedEffectorBase & {
 
 export type GridEffector =
   | LinearFieldEffectorConfig
+  | SphericalFieldEffectorConfig
   | RandomEffectorConfig
   | NoiseEffectorConfig
   | TimeEffectorConfig
   | StepEffectorConfig
 export type LinearFieldEffectorProps = Omit<LinearFieldEffectorConfig, 'type'>
+export type SphericalFieldEffectorProps = Omit<SphericalFieldEffectorConfig, 'type'>
 export type RandomEffectorProps = Omit<RandomEffectorConfig, 'type'>
 export type NoiseEffectorProps = Omit<NoiseEffectorConfig, 'type'>
 export type TimeEffectorProps = Omit<TimeEffectorConfig, 'type'>
 export type StepEffectorProps = Omit<StepEffectorConfig, 'type'>
-type EffectorComponentType = 'linear' | 'random' | 'noise' | 'time' | 'step'
+type EffectorComponentType = 'linear' | 'spherical' | 'random' | 'noise' | 'time' | 'step'
 
 type EffectorMarkerComponent = {
   __gridEffectorType?: EffectorComponentType
@@ -314,12 +345,16 @@ function resolveGridUnitMultiplier(gridUnit: GridUnit | undefined): number {
 
 function getEffectorComponentType(type: unknown): EffectorComponentType | null {
   const marker = (type as EffectorMarkerComponent | undefined)?.__gridEffectorType
-  if (marker === 'linear' || marker === 'random' || marker === 'noise' || marker === 'time' || marker === 'step') return marker
+  if (marker === 'linear' || marker === 'spherical' || marker === 'random' || marker === 'noise' || marker === 'time' || marker === 'step') return marker
   return null
 }
 
 function isLinearEffector(effector: GridEffector): effector is LinearFieldEffectorConfig {
   return effector.type === 'linear'
+}
+
+function isSphericalEffector(effector: GridEffector): effector is SphericalFieldEffectorConfig {
+  return effector.type === 'spherical'
 }
 
 function isStepEffector(effector: GridEffector): effector is StepEffectorConfig {
@@ -472,8 +507,11 @@ function applyContour(
   return applyEasing(clamp01(value), mode)
 }
 
-function remapLinearWeight(progress: number, effector: LinearFieldEffectorConfig): number {
-  if (!(effector.enableRemap ?? false)) {
+function remapFieldWeight(
+  progress: number,
+  effector: LinearFieldEffectorConfig | SphericalFieldEffectorConfig,
+): number {
+  if (!(effector.enableRemap ?? true)) {
     return clamp01(progress)
   }
 
@@ -543,6 +581,318 @@ function evaluateStepWeight(cloneIndex: number, cloneCount: number, effector: St
 
   const easing = effector.easing ?? 'smooth'
   return applyEasing(clamp01(shifted), easing) * strength
+}
+
+function resolveBlendMode(mode: GridEffector['blendMode']): NonNullable<GridEffector['blendMode']> {
+  if (mode === 'normal'
+    || mode === 'min'
+    || mode === 'subtract'
+    || mode === 'multiply'
+    || mode === 'overlay'
+    || mode === 'max'
+    || mode === 'add'
+    || mode === 'screen'
+    || mode === 'clip') {
+    return mode
+  }
+  return 'add'
+}
+
+function blendWeight(
+  mode: NonNullable<GridEffector['blendMode']>,
+  previous: number,
+  current: number,
+): number {
+  const prev = clamp01(previous)
+  const curr = clamp01(current)
+  if (mode === 'min') return Math.min(prev, curr)
+  if (mode === 'subtract') return Math.max(0, prev - curr)
+  if (mode === 'multiply') return prev * curr
+  if (mode === 'overlay') return prev < 0.5 ? 2 * prev * curr : 1 - (2 * (1 - prev) * (1 - curr))
+  if (mode === 'max') return Math.max(prev, curr)
+  if (mode === 'screen') return 1 - ((1 - prev) * (1 - curr))
+  return curr
+}
+
+function scaleBlendDeltas(value: Vec3, amount: number): Vec3 {
+  return [value[0] * amount, value[1] * amount, value[2] * amount]
+}
+
+function resolveHiddenThreshold(effector: GridEffector): number {
+  if (effector.type === 'noise') return effector.hideThreshold ?? 0.65
+  return effector.hideThreshold ?? 0.5
+}
+
+type EvaluateEffectorStackOptions = {
+  localPosition: Vec3
+  effectors: GridEffector[]
+  instanceIndex: number
+  instanceCount: number
+  timeSeconds: number
+  resolvedEffectorSeeds: Array<number | null>
+  noiseGenerators: Array<SeededImprovedNoise | null>
+  basePosition: Vec3
+  baseRotation: Vec3
+  baseScale: Vec3
+}
+
+function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
+  position: Vec3
+  rotation: Vec3
+  scale: Vec3
+  hidden: boolean
+  color?: number
+  materialColors?: Record<string, number>
+} {
+  const {
+    localPosition,
+    effectors,
+    instanceIndex,
+    instanceCount,
+    timeSeconds,
+    resolvedEffectorSeeds,
+    noiseGenerators,
+    basePosition,
+    baseRotation,
+    baseScale,
+  } = options
+
+  let positionDelta: Vec3 = [0, 0, 0]
+  let rotationDelta: Vec3 = [0, 0, 0]
+  let scaleDelta: Vec3 = [0, 0, 0]
+  let hiddenScore = 0
+  let prevWeight = 0
+  let hasAppliedEffector = false
+  let color: number | undefined
+  const materialColors: Record<string, number> = {}
+
+  effectors.forEach((effector, effectorIndex) => {
+    if (effector.enabled === false) return
+
+    const blendMode = resolveBlendMode(effector.blendMode)
+    const strength = clamp01(effector.strength ?? 1)
+
+    let wCurrent = 0
+    let amountForColor = 0
+    let noiseNormalized = 0
+    let randomSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
+    let positionNoiseX = 0
+    let positionNoiseY = 0
+    let positionNoiseZ = 0
+    let rotationNoiseX = 0
+    let rotationNoiseY = 0
+    let rotationNoiseZ = 0
+    let scaleNoiseX = 0
+    let scaleNoiseY = 0
+    let scaleNoiseZ = 0
+
+    if (effector.type === 'linear') {
+      amountForColor = evaluateLinearFieldWeight(localPosition, effector)
+      wCurrent = clamp01(amountForColor)
+    } else if (effector.type === 'spherical') {
+      amountForColor = evaluateSphericalFieldWeight(localPosition, effector)
+      wCurrent = clamp01(amountForColor)
+    } else if (effector.type === 'step') {
+      amountForColor = evaluateStepWeight(instanceIndex, instanceCount, effector)
+      wCurrent = clamp01(amountForColor)
+    } else if (effector.type === 'time') {
+      amountForColor = evaluateTimeWeight(timeSeconds, instanceIndex, effector) * strength
+      wCurrent = clamp01(amountForColor)
+    } else if (effector.type === 'random') {
+      if (strength <= 0) return
+      wCurrent = strength
+      randomSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
+    } else {
+      if (strength <= 0) return
+      wCurrent = strength
+      const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedEffectorSeeds[effectorIndex] ?? 1)
+      const freq = normalizeFrequency(effector.frequency)
+      const staticOffset = effector.offset ?? IDENTITY_POSITION
+      const noisePosition = resolveNoiseMotion(effector.noisePosition)
+      const noisePositionSpeed = resolveNoiseMotion(effector.noisePositionSpeed)
+      const animatedNoisePosition: Vec3 = [
+        staticOffset[0] + noisePosition[0] + (noisePositionSpeed[0] * timeSeconds),
+        staticOffset[1] + noisePosition[1] + (noisePositionSpeed[1] * timeSeconds),
+        staticOffset[2] + noisePosition[2] + (noisePositionSpeed[2] * timeSeconds),
+      ]
+      const sampleX = (localPosition[0] * freq[0]) + animatedNoisePosition[0]
+      const sampleY = (localPosition[1] * freq[1]) + animatedNoisePosition[1]
+      const sampleZ = (localPosition[2] * freq[2]) + animatedNoisePosition[2]
+      const noisePosX = noiseGenerator.noise(sampleX + 11.31, sampleY + 7.77, sampleZ + 3.19)
+      const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
+      const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
+      const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
+      noiseNormalized = clamp01((noiseBase + 1) / 2)
+      amountForColor = noiseNormalized
+      positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
+      positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
+      positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
+      rotationNoiseX = resolveNoiseSample(noisePosX, effector.signedRotation === true)
+      rotationNoiseY = resolveNoiseSample(noisePosY, effector.signedRotation === true)
+      rotationNoiseZ = resolveNoiseSample(noisePosZ, effector.signedRotation === true)
+      scaleNoiseX = resolveNoiseSample(noisePosX, effector.signedScale === true)
+      scaleNoiseY = resolveNoiseSample(noisePosY, effector.signedScale === true)
+      scaleNoiseZ = resolveNoiseSample(noisePosZ, effector.signedScale === true)
+    }
+
+    const clipWeight = clamp01(wCurrent)
+    if (blendMode === 'clip') {
+      if (hasAppliedEffector) {
+        positionDelta = scaleBlendDeltas(positionDelta, clipWeight)
+        rotationDelta = scaleBlendDeltas(rotationDelta, clipWeight)
+        scaleDelta = scaleBlendDeltas(scaleDelta, clipWeight)
+        hiddenScore *= clipWeight
+      }
+      prevWeight = clipWeight
+      hasAppliedEffector = true
+      return
+    }
+
+    if (wCurrent <= 0) return
+
+    let wEffective = clipWeight
+    if (hasAppliedEffector) {
+      if (blendMode === 'normal') {
+        positionDelta = [0, 0, 0]
+        rotationDelta = [0, 0, 0]
+        scaleDelta = [0, 0, 0]
+        hiddenScore = 0
+      } else if (blendMode !== 'add') {
+        wEffective = blendWeight(blendMode, prevWeight, clipWeight)
+      }
+    }
+
+    wEffective = clamp01(wEffective)
+    prevWeight = wEffective
+    hasAppliedEffector = true
+    if (wEffective <= 0) return
+
+    if (effector.type === 'random') {
+      const signedPosition = effector.signedPosition === true
+      const signedRotation = effector.signedRotation === true
+      const signedScale = effector.signedScale === true
+      if (effector.position) {
+        positionDelta = [
+          positionDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 11, signedPosition) * effector.position[0] * wEffective),
+          positionDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 12, signedPosition) * effector.position[1] * wEffective),
+          positionDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 13, signedPosition) * effector.position[2] * wEffective),
+        ]
+      }
+      if (effector.rotation) {
+        rotationDelta = [
+          rotationDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 21, signedRotation) * effector.rotation[0] * wEffective),
+          rotationDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 22, signedRotation) * effector.rotation[1] * wEffective),
+          rotationDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 23, signedRotation) * effector.rotation[2] * wEffective),
+        ]
+      }
+      if (effector.scale) {
+        scaleDelta = [
+          scaleDelta[0] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 31, signedScale) * effector.scale[0] * wEffective),
+          scaleDelta[1] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 32, signedScale) * effector.scale[1] * wEffective),
+          scaleDelta[2] + (resolveRandomSample(randomSeed, instanceIndex, effectorIndex, 33, signedScale) * effector.scale[2] * wEffective),
+        ]
+      }
+    } else if (effector.type === 'noise') {
+      if (effector.position) {
+        positionDelta = [
+          positionDelta[0] + (positionNoiseX * effector.position[0] * wEffective),
+          positionDelta[1] + (positionNoiseY * effector.position[1] * wEffective),
+          positionDelta[2] + (positionNoiseZ * effector.position[2] * wEffective),
+        ]
+      }
+      if (effector.rotation) {
+        rotationDelta = [
+          rotationDelta[0] + (rotationNoiseX * effector.rotation[0] * wEffective),
+          rotationDelta[1] + (rotationNoiseY * effector.rotation[1] * wEffective),
+          rotationDelta[2] + (rotationNoiseZ * effector.rotation[2] * wEffective),
+        ]
+      }
+      if (effector.scale) {
+        scaleDelta = [
+          scaleDelta[0] + (scaleNoiseX * effector.scale[0] * wEffective),
+          scaleDelta[1] + (scaleNoiseY * effector.scale[1] * wEffective),
+          scaleDelta[2] + (scaleNoiseZ * effector.scale[2] * wEffective),
+        ]
+      }
+    } else {
+      if (effector.position) {
+        positionDelta = addScaledVec3(positionDelta, effector.position, wEffective)
+      }
+      if (effector.rotation) {
+        rotationDelta = addScaledVec3(rotationDelta, effector.rotation, wEffective)
+      }
+      if (effector.scale) {
+        scaleDelta = addScaledVec3(scaleDelta, effector.scale, wEffective)
+      }
+    }
+
+    if (effector.hidden && wEffective >= resolveHiddenThreshold(effector)) {
+      hiddenScore = Math.max(hiddenScore, wEffective)
+    }
+
+    if (effector.type === 'random') {
+      const hideChance = clamp01((effector.hideProbability ?? 0) * wEffective)
+      if (hideChance > 0 && random01(randomSeed, instanceIndex, effectorIndex, 42) < hideChance) {
+        hiddenScore = Math.max(hiddenScore, hideChance)
+      }
+    }
+
+    if (effector.type === 'linear'
+      || effector.type === 'spherical'
+      || effector.type === 'step'
+      || effector.type === 'time') {
+      const clampedAmount = clamp01(amountForColor)
+      const nextColor = resolveColorValue(effector.color, clampedAmount)
+      if (nextColor !== undefined) {
+        color = nextColor
+      }
+      applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
+      return
+    }
+
+    if (effector.type === 'random') {
+      if (effector.color !== undefined) {
+        if (Array.isArray(effector.color) && effector.color.length > 0) {
+          const i = Math.floor(random01(randomSeed, instanceIndex, effectorIndex, 51) * effector.color.length)
+          color = effector.color[Math.min(effector.color.length - 1, i)]
+        } else if (typeof effector.color === 'number' && random01(randomSeed, instanceIndex, effectorIndex, 52) < wCurrent) {
+          color = effector.color
+        }
+      }
+      if (effector.materialColors) {
+        Object.entries(effector.materialColors).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            const i = Math.floor(random01(randomSeed, instanceIndex, effectorIndex, 61) * value.length)
+            materialColors[key] = value[Math.min(value.length - 1, i)]
+          } else if (typeof value === 'number' && random01(randomSeed, instanceIndex, effectorIndex, 62) < wCurrent) {
+            materialColors[key] = value
+          }
+        })
+      }
+      return
+    }
+
+    const nextColor = resolveColorValue(effector.color, noiseNormalized)
+    if (nextColor !== undefined && noiseNormalized <= wCurrent) {
+      color = nextColor
+    }
+    if (noiseNormalized <= wCurrent) {
+      applyMaterialColorValues(materialColors, effector.materialColors, noiseNormalized)
+    }
+  })
+
+  const position = addVec3(basePosition, positionDelta)
+  const rotation = addVec3(baseRotation, rotationDelta)
+  const scale = normalizeScale(addVec3(baseScale, scaleDelta))
+
+  return {
+    position,
+    rotation,
+    scale,
+    hidden: hiddenScore > 0,
+    ...(color !== undefined ? { color } : {}),
+    ...(Object.keys(materialColors).length > 0 ? { materialColors } : {}),
+  }
 }
 
 function resolveColorValue(value: EffectorColorValue | undefined, amount: number): number | undefined {
@@ -1012,7 +1362,24 @@ function evaluateLinearFieldWeight(localPosition: Vec3, effector: LinearFieldEff
     progress = 1 - progress
   }
 
-  return remapLinearWeight(progress, effector) * strength
+  return remapFieldWeight(progress, effector) * strength
+}
+
+function evaluateSphericalFieldWeight(localPosition: Vec3, effector: SphericalFieldEffectorConfig): number {
+  const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
+  const radius = Math.max(0.00001, Math.abs(effector.radius ?? 20))
+  const dx = localPosition[0] - fieldPosition[0]
+  const dy = localPosition[1] - fieldPosition[1]
+  const dz = localPosition[2] - fieldPosition[2]
+  const distance = Math.sqrt((dx * dx) + (dy * dy) + (dz * dz))
+  const strength = clamp01(effector.strength ?? 1)
+
+  let progress = 1 - (distance / radius)
+  if (effector.invert) {
+    progress = 1 - progress
+  }
+
+  return remapFieldWeight(progress, effector) * strength
 }
 
 function getPlaneDebugSize(axis: AxisName, size: number, bounds: Vec3): Vec3 {
@@ -1043,6 +1410,15 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
       center: effector.center !== undefined ? effector.center * unitMultiplier : undefined,
       size: effector.size !== undefined ? effector.size * unitMultiplier : undefined,
       fieldPosition: effector.fieldPosition,
+      position: scaleOptionalVec3(effector.position, unitMultiplier),
+    }
+  }
+
+  if (isSphericalEffector(effector)) {
+    return {
+      ...effector,
+      fieldPosition: effector.fieldPosition,
+      radius: effector.radius !== undefined ? Math.abs(effector.radius * unitMultiplier) : undefined,
       position: scaleOptionalVec3(effector.position, unitMultiplier),
     }
   }
@@ -1090,6 +1466,13 @@ export function LinearFieldEffector(_props: LinearFieldEffectorProps) {
 }
 
 ; (LinearFieldEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'linear'
+
+/** Spherical field effector (C4D-like radial falloff in 3D). */
+export function SphericalFieldEffector(_props: SphericalFieldEffectorProps) {
+  return null
+}
+
+; (SphericalFieldEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'spherical'
 
 /** Deterministisk random-effector. */
 export function RandomEffector(_props: RandomEffectorProps) {
@@ -1187,6 +1570,14 @@ export function GridCloner({
         childEffectors.push({
           type: 'linear',
           ...(props as LinearFieldEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'spherical') {
+        childEffectors.push({
+          type: 'spherical',
+          ...(props as SphericalFieldEffectorProps),
         })
         return
       }
@@ -1401,255 +1792,29 @@ export function GridCloner({
             startY + (y * sy) + oy,
             startZ + (z * sz) + oz,
           ]
-
-          let finalPosition: Vec3 = [...localPosition]
-          let finalRotation: Vec3 = [...baseRotation]
-          let finalScale: Vec3 = [...scale]
-          let hidden = false
-          let color: number | undefined
-          const materialColors: Record<string, number> = {}
-
-          normalizedEffectors.forEach((effector, effectorIndex) => {
-            if (effector.enabled === false) return
-
-            if (isLinearEffector(effector)) {
-              const weight = evaluateLinearFieldWeight(localPosition, effector)
-              if (weight === 0) return
-              const amount = weight
-              const clampedAmount = clamp01(amount)
-
-              if (effector.position) {
-                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-              }
-              if (effector.rotation) {
-                finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-              }
-              if (effector.scale) {
-                finalScale = addScaledVec3(finalScale, effector.scale, amount)
-              }
-
-              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-                hidden = true
-              }
-
-              const nextColor = resolveColorValue(effector.color, clampedAmount)
-              if (nextColor !== undefined) {
-                color = nextColor
-              }
-
-              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-
-              return
-            }
-
-            if (isStepEffector(effector)) {
-              const amount = evaluateStepWeight(flatIndex, totalClones, effector)
-              if (amount === 0) return
-              const clampedAmount = clamp01(amount)
-
-              if (effector.position) {
-                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-              }
-              if (effector.rotation) {
-                finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-              }
-              if (effector.scale) {
-                finalScale = addScaledVec3(finalScale, effector.scale, amount)
-              }
-
-              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-                hidden = true
-              }
-
-              const nextColor = resolveColorValue(effector.color, clampedAmount)
-              if (nextColor !== undefined) {
-                color = nextColor
-              }
-
-              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-              return
-            }
-
-            if (effector.type === 'random') {
-              const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
-              const strength = clamp01(effector.strength ?? 1)
-              if (strength <= 0) return
-              const signedPosition = effector.signedPosition === true
-              const signedRotation = effector.signedRotation === true
-              const signedScale = effector.signedScale === true
-
-              if (effector.position) {
-                finalPosition = [
-                  finalPosition[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 11, signedPosition) * effector.position[0] * strength),
-                  finalPosition[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 12, signedPosition) * effector.position[1] * strength),
-                  finalPosition[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 13, signedPosition) * effector.position[2] * strength),
-                ]
-              }
-
-              if (effector.rotation) {
-                finalRotation = [
-                  finalRotation[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 21, signedRotation) * effector.rotation[0] * strength),
-                  finalRotation[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 22, signedRotation) * effector.rotation[1] * strength),
-                  finalRotation[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 23, signedRotation) * effector.rotation[2] * strength),
-                ]
-              }
-
-              if (effector.scale) {
-                finalScale = [
-                  finalScale[0] + (resolveRandomSample(seed, flatIndex, effectorIndex, 31, signedScale) * effector.scale[0] * strength),
-                  finalScale[1] + (resolveRandomSample(seed, flatIndex, effectorIndex, 32, signedScale) * effector.scale[1] * strength),
-                  finalScale[2] + (resolveRandomSample(seed, flatIndex, effectorIndex, 33, signedScale) * effector.scale[2] * strength),
-                ]
-              }
-
-              const hideChance = clamp01((effector.hideProbability ?? 0) * strength)
-              if ((effector.hidden && random01(seed, flatIndex, effectorIndex, 41) < strength)
-                || random01(seed, flatIndex, effectorIndex, 42) < hideChance) {
-                hidden = true
-              }
-
-              if (effector.color !== undefined) {
-                if (Array.isArray(effector.color) && effector.color.length > 0) {
-                  const i = Math.floor(random01(seed, flatIndex, effectorIndex, 51) * effector.color.length)
-                  color = effector.color[Math.min(effector.color.length - 1, i)]
-                } else if (typeof effector.color === 'number') {
-                  if (random01(seed, flatIndex, effectorIndex, 52) < strength) {
-                    color = effector.color
-                  }
-                }
-              }
-
-              if (effector.materialColors) {
-                Object.entries(effector.materialColors).forEach(([key, value]) => {
-                  if (Array.isArray(value) && value.length > 0) {
-                    const i = Math.floor(random01(seed, flatIndex, effectorIndex, 61) * value.length)
-                    materialColors[key] = value[Math.min(value.length - 1, i)]
-                  } else if (typeof value === 'number') {
-                    if (random01(seed, flatIndex, effectorIndex, 62) < strength) {
-                      materialColors[key] = value
-                    }
-                  }
-                })
-              }
-              return
-            }
-
-            if (effector.type === 'time') {
-              const strength = clamp01(effector.strength ?? 1)
-              if (strength <= 0) return
-
-              const weight = evaluateTimeWeight(frameTime, flatIndex, effector)
-              const amount = weight * strength
-              if (amount <= 0) return
-              const clampedAmount = clamp01(amount)
-
-              if (effector.position) {
-                finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-              }
-
-              if (effector.rotation) {
-                finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-              }
-
-              if (effector.scale) {
-                finalScale = addScaledVec3(finalScale, effector.scale, amount)
-              }
-
-              if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-                hidden = true
-              }
-
-              const nextColor = resolveColorValue(effector.color, clampedAmount)
-              if (nextColor !== undefined) {
-                color = nextColor
-              }
-
-              applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-              return
-            }
-
-            const strength = clamp01(effector.strength ?? 1)
-            if (strength <= 0) return
-
-            const resolvedNoiseSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
-            const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedNoiseSeed)
-            const freq = normalizeFrequency(effector.frequency)
-            const staticOffset = effector.offset ?? IDENTITY_POSITION
-            const noisePosition = resolveNoiseMotion(effector.noisePosition)
-            const noisePositionSpeed = resolveNoiseMotion(effector.noisePositionSpeed)
-            const animatedNoisePosition: Vec3 = [
-              staticOffset[0] + noisePosition[0] + (noisePositionSpeed[0] * frameTime),
-              staticOffset[1] + noisePosition[1] + (noisePositionSpeed[1] * frameTime),
-              staticOffset[2] + noisePosition[2] + (noisePositionSpeed[2] * frameTime),
-            ]
-
-            const sampleX = (localPosition[0] * freq[0]) + animatedNoisePosition[0]
-            const sampleY = (localPosition[1] * freq[1]) + animatedNoisePosition[1]
-            const sampleZ = (localPosition[2] * freq[2]) + animatedNoisePosition[2]
-
-            const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
-            const noisePosX = noiseGenerator.noise(sampleX + 11.31, sampleY + 7.77, sampleZ + 3.19)
-            const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
-            const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
-            const normalized = clamp01((noiseBase + 1) / 2)
-            const positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
-            const positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
-            const positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
-            const rotationNoiseX = resolveNoiseSample(noisePosX, effector.signedRotation === true)
-            const rotationNoiseY = resolveNoiseSample(noisePosY, effector.signedRotation === true)
-            const rotationNoiseZ = resolveNoiseSample(noisePosZ, effector.signedRotation === true)
-            const scaleNoiseX = resolveNoiseSample(noisePosX, effector.signedScale === true)
-            const scaleNoiseY = resolveNoiseSample(noisePosY, effector.signedScale === true)
-            const scaleNoiseZ = resolveNoiseSample(noisePosZ, effector.signedScale === true)
-
-            if (effector.position) {
-              finalPosition = [
-                finalPosition[0] + (positionNoiseX * effector.position[0] * strength),
-                finalPosition[1] + (positionNoiseY * effector.position[1] * strength),
-                finalPosition[2] + (positionNoiseZ * effector.position[2] * strength),
-              ]
-            }
-
-            if (effector.rotation) {
-              finalRotation = [
-                finalRotation[0] + (rotationNoiseX * effector.rotation[0] * strength),
-                finalRotation[1] + (rotationNoiseY * effector.rotation[1] * strength),
-                finalRotation[2] + (rotationNoiseZ * effector.rotation[2] * strength),
-              ]
-            }
-
-            if (effector.scale) {
-              finalScale = [
-                finalScale[0] + (scaleNoiseX * effector.scale[0] * strength),
-                finalScale[1] + (scaleNoiseY * effector.scale[1] * strength),
-                finalScale[2] + (scaleNoiseZ * effector.scale[2] * strength),
-              ]
-            }
-
-            if (effector.hidden && normalized >= (effector.hideThreshold ?? 0.65)) {
-              hidden = true
-            }
-
-            const nextColor = resolveColorValue(effector.color, normalized)
-            if (nextColor !== undefined && normalized <= strength) {
-              color = nextColor
-            }
-
-            if (normalized <= strength) {
-              applyMaterialColorValues(materialColors, effector.materialColors, normalized)
-            }
+          const evaluated = evaluateEffectorStack({
+            localPosition,
+            effectors: normalizedEffectors,
+            instanceIndex: flatIndex,
+            instanceCount: totalClones,
+            timeSeconds: frameTime,
+            resolvedEffectorSeeds,
+            noiseGenerators,
+            basePosition: localPosition,
+            baseRotation,
+            baseScale: scale,
           })
 
           const computedClone: CloneTransform = {
             key: `${x}-${y}-${z}`,
             index: flatIndex,
             localPosition,
-            position: finalPosition,
-            rotation: finalRotation,
-            scale: normalizeScale(finalScale),
-            hidden,
-            color,
-            materialColors: Object.keys(materialColors).length > 0 ? materialColors : undefined,
+            position: evaluated.position,
+            rotation: evaluated.rotation,
+            scale: evaluated.scale,
+            hidden: evaluated.hidden,
+            color: evaluated.color,
+            materialColors: evaluated.materialColors,
           }
           if (collisionActivatedPhysics && collisionActivatedClones[computedClone.key]) {
             result.push(collisionActivatedClones[computedClone.key])
@@ -1865,7 +2030,7 @@ export function GridCloner({
 
           let remapMarker: Vec3 | null = null
           const innerOffset = clamp01(effector.innerOffset ?? 0)
-          if ((effector.enableRemap ?? false) && innerOffset > 0) {
+          if ((effector.enableRemap ?? true) && innerOffset > 0) {
             const marker: Vec3 = [0, 0, 0]
             const markerPosition = directionSign > 0
               ? (center - half) + (innerOffset * size)
@@ -1925,6 +2090,42 @@ export function GridCloner({
             </group>
           )
         })}
+
+      {shouldShowDebugEffectors && normalizedEffectors
+        .filter((effector): effector is SphericalFieldEffectorConfig => isSphericalEffector(effector) && effector.enabled !== false)
+        .map((effector, index) => {
+          const radius = Math.max(0.001, Math.abs(effector.radius ?? 20))
+          const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
+          const lineColor = effector.invert ? '#ff9f43' : '#2ecc71'
+          const innerOffset = clamp01(effector.innerOffset ?? 0)
+          const innerRadius = Math.max(0.001, radius * (1 - innerOffset))
+
+          return (
+            <group
+              key={`spherical-field-debug-${index}`}
+              userData={{ excludeFromOutlines: true }}
+              renderOrder={2000}
+              position={fieldPosition}
+            >
+              <mesh>
+                <sphereGeometry args={[radius, 24, 18]} />
+                <meshBasicMaterial color={lineColor} transparent opacity={0.08} depthWrite={false} />
+              </mesh>
+
+              <mesh>
+                <sphereGeometry args={[radius, 24, 18]} />
+                <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
+              </mesh>
+
+              {(effector.enableRemap ?? true) && innerOffset > 0 && (
+                <mesh>
+                  <sphereGeometry args={[innerRadius, 24, 18]} />
+                  <meshBasicMaterial color="#74b9ff" wireframe transparent opacity={0.9} depthWrite={false} />
+                </mesh>
+              )}
+            </group>
+          )
+        })}
     </group>
   )
 }
@@ -1966,6 +2167,14 @@ export function Fracture({
         childEffectors.push({
           type: 'linear',
           ...(props as LinearFieldEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'spherical') {
+        childEffectors.push({
+          type: 'spherical',
+          ...(props as SphericalFieldEffectorProps),
         })
         return
       }
@@ -2117,253 +2326,28 @@ export function Fracture({
     const totalChildren = templateChildren.length
 
     return templateChildren.map((child, index) => {
-      const localPosition: Vec3 = [...child.basePosition]
-      let finalPosition: Vec3 = [...child.basePosition]
-      let finalRotation: Vec3 = [...child.baseRotation]
-      let finalScale: Vec3 = [...child.baseScale]
-      let hidden = false
-      let color: number | undefined
-      const materialColors: Record<string, number> = {}
-
-      normalizedEffectors.forEach((effector, effectorIndex) => {
-        if (effector.enabled === false) return
-
-        if (isLinearEffector(effector)) {
-          const weight = evaluateLinearFieldWeight(localPosition, effector)
-          if (weight === 0) return
-          const amount = weight
-          const clampedAmount = clamp01(amount)
-
-          if (effector.position) {
-            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-          }
-          if (effector.rotation) {
-            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-          }
-          if (effector.scale) {
-            finalScale = addScaledVec3(finalScale, effector.scale, amount)
-          }
-
-          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-            hidden = true
-          }
-
-          const nextColor = resolveColorValue(effector.color, clampedAmount)
-          if (nextColor !== undefined) {
-            color = nextColor
-          }
-
-          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-          return
-        }
-
-        if (isStepEffector(effector)) {
-          const amount = evaluateStepWeight(index, totalChildren, effector)
-          if (amount === 0) return
-          const clampedAmount = clamp01(amount)
-
-          if (effector.position) {
-            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-          }
-          if (effector.rotation) {
-            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-          }
-          if (effector.scale) {
-            finalScale = addScaledVec3(finalScale, effector.scale, amount)
-          }
-
-          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-            hidden = true
-          }
-
-          const nextColor = resolveColorValue(effector.color, clampedAmount)
-          if (nextColor !== undefined) {
-            color = nextColor
-          }
-
-          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-          return
-        }
-
-        if (effector.type === 'random') {
-          const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
-          const strength = clamp01(effector.strength ?? 1)
-          if (strength <= 0) return
-          const signedPosition = effector.signedPosition === true
-          const signedRotation = effector.signedRotation === true
-          const signedScale = effector.signedScale === true
-
-          if (effector.position) {
-            finalPosition = [
-              finalPosition[0] + (resolveRandomSample(seed, index, effectorIndex, 11, signedPosition) * effector.position[0] * strength),
-              finalPosition[1] + (resolveRandomSample(seed, index, effectorIndex, 12, signedPosition) * effector.position[1] * strength),
-              finalPosition[2] + (resolveRandomSample(seed, index, effectorIndex, 13, signedPosition) * effector.position[2] * strength),
-            ]
-          }
-
-          if (effector.rotation) {
-            finalRotation = [
-              finalRotation[0] + (resolveRandomSample(seed, index, effectorIndex, 21, signedRotation) * effector.rotation[0] * strength),
-              finalRotation[1] + (resolveRandomSample(seed, index, effectorIndex, 22, signedRotation) * effector.rotation[1] * strength),
-              finalRotation[2] + (resolveRandomSample(seed, index, effectorIndex, 23, signedRotation) * effector.rotation[2] * strength),
-            ]
-          }
-
-          if (effector.scale) {
-            finalScale = [
-              finalScale[0] + (resolveRandomSample(seed, index, effectorIndex, 31, signedScale) * effector.scale[0] * strength),
-              finalScale[1] + (resolveRandomSample(seed, index, effectorIndex, 32, signedScale) * effector.scale[1] * strength),
-              finalScale[2] + (resolveRandomSample(seed, index, effectorIndex, 33, signedScale) * effector.scale[2] * strength),
-            ]
-          }
-
-          const hideChance = clamp01((effector.hideProbability ?? 0) * strength)
-          if ((effector.hidden && random01(seed, index, effectorIndex, 41) < strength)
-            || random01(seed, index, effectorIndex, 42) < hideChance) {
-            hidden = true
-          }
-
-          if (effector.color !== undefined) {
-            if (Array.isArray(effector.color) && effector.color.length > 0) {
-              const i = Math.floor(random01(seed, index, effectorIndex, 51) * effector.color.length)
-              color = effector.color[Math.min(effector.color.length - 1, i)]
-            } else if (typeof effector.color === 'number') {
-              if (random01(seed, index, effectorIndex, 52) < strength) {
-                color = effector.color
-              }
-            }
-          }
-
-          if (effector.materialColors) {
-            Object.entries(effector.materialColors).forEach(([key, value]) => {
-              if (Array.isArray(value) && value.length > 0) {
-                const i = Math.floor(random01(seed, index, effectorIndex, 61) * value.length)
-                materialColors[key] = value[Math.min(value.length - 1, i)]
-              } else if (typeof value === 'number') {
-                if (random01(seed, index, effectorIndex, 62) < strength) {
-                  materialColors[key] = value
-                }
-              }
-            })
-          }
-          return
-        }
-
-        if (effector.type === 'time') {
-          const strength = clamp01(effector.strength ?? 1)
-          if (strength <= 0) return
-
-          const weight = evaluateTimeWeight(frameTime, index, effector)
-          const amount = weight * strength
-          if (amount <= 0) return
-          const clampedAmount = clamp01(amount)
-
-          if (effector.position) {
-            finalPosition = addScaledVec3(finalPosition, effector.position, amount)
-          }
-
-          if (effector.rotation) {
-            finalRotation = addScaledVec3(finalRotation, effector.rotation, amount)
-          }
-
-          if (effector.scale) {
-            finalScale = addScaledVec3(finalScale, effector.scale, amount)
-          }
-
-          if (effector.hidden && clampedAmount >= (effector.hideThreshold ?? 0.5)) {
-            hidden = true
-          }
-
-          const nextColor = resolveColorValue(effector.color, clampedAmount)
-          if (nextColor !== undefined) {
-            color = nextColor
-          }
-
-          applyMaterialColorValues(materialColors, effector.materialColors, clampedAmount)
-          return
-        }
-
-        const strength = clamp01(effector.strength ?? 1)
-        if (strength <= 0) return
-
-        const resolvedNoiseSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
-        const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedNoiseSeed)
-        const freq = normalizeFrequency(effector.frequency)
-        const staticOffset = effector.offset ?? IDENTITY_POSITION
-        const noisePosition = resolveNoiseMotion(effector.noisePosition)
-        const noisePositionSpeed = resolveNoiseMotion(effector.noisePositionSpeed)
-        const animatedNoisePosition: Vec3 = [
-          staticOffset[0] + noisePosition[0] + (noisePositionSpeed[0] * frameTime),
-          staticOffset[1] + noisePosition[1] + (noisePositionSpeed[1] * frameTime),
-          staticOffset[2] + noisePosition[2] + (noisePositionSpeed[2] * frameTime),
-        ]
-
-        const sampleX = (localPosition[0] * freq[0]) + animatedNoisePosition[0]
-        const sampleY = (localPosition[1] * freq[1]) + animatedNoisePosition[1]
-        const sampleZ = (localPosition[2] * freq[2]) + animatedNoisePosition[2]
-
-        const noiseBase = noiseGenerator.noise(sampleX, sampleY, sampleZ)
-        const noisePosX = noiseGenerator.noise(sampleX + 11.31, sampleY + 7.77, sampleZ + 3.19)
-        const noisePosY = noiseGenerator.noise(sampleX + 29.41, sampleY + 13.13, sampleZ + 5.71)
-        const noisePosZ = noiseGenerator.noise(sampleX + 47.91, sampleY + 19.19, sampleZ + 9.83)
-        const normalized = clamp01((noiseBase + 1) / 2)
-        const positionNoiseX = resolveNoiseSample(noisePosX, effector.signedPosition === true)
-        const positionNoiseY = resolveNoiseSample(noisePosY, effector.signedPosition === true)
-        const positionNoiseZ = resolveNoiseSample(noisePosZ, effector.signedPosition === true)
-        const rotationNoiseX = resolveNoiseSample(noisePosX, effector.signedRotation === true)
-        const rotationNoiseY = resolveNoiseSample(noisePosY, effector.signedRotation === true)
-        const rotationNoiseZ = resolveNoiseSample(noisePosZ, effector.signedRotation === true)
-        const scaleNoiseX = resolveNoiseSample(noisePosX, effector.signedScale === true)
-        const scaleNoiseY = resolveNoiseSample(noisePosY, effector.signedScale === true)
-        const scaleNoiseZ = resolveNoiseSample(noisePosZ, effector.signedScale === true)
-
-        if (effector.position) {
-          finalPosition = [
-            finalPosition[0] + (positionNoiseX * effector.position[0] * strength),
-            finalPosition[1] + (positionNoiseY * effector.position[1] * strength),
-            finalPosition[2] + (positionNoiseZ * effector.position[2] * strength),
-          ]
-        }
-
-        if (effector.rotation) {
-          finalRotation = [
-            finalRotation[0] + (rotationNoiseX * effector.rotation[0] * strength),
-            finalRotation[1] + (rotationNoiseY * effector.rotation[1] * strength),
-            finalRotation[2] + (rotationNoiseZ * effector.rotation[2] * strength),
-          ]
-        }
-
-        if (effector.scale) {
-          finalScale = [
-            finalScale[0] + (scaleNoiseX * effector.scale[0] * strength),
-            finalScale[1] + (scaleNoiseY * effector.scale[1] * strength),
-            finalScale[2] + (scaleNoiseZ * effector.scale[2] * strength),
-          ]
-        }
-
-        if (effector.hidden && normalized >= (effector.hideThreshold ?? 0.65)) {
-          hidden = true
-        }
-
-        const nextColor = resolveColorValue(effector.color, normalized)
-        if (nextColor !== undefined && normalized <= strength) {
-          color = nextColor
-        }
-
-        if (normalized <= strength) {
-          applyMaterialColorValues(materialColors, effector.materialColors, normalized)
-        }
+      const evaluated = evaluateEffectorStack({
+        localPosition: child.basePosition,
+        effectors: normalizedEffectors,
+        instanceIndex: index,
+        instanceCount: totalChildren,
+        timeSeconds: frameTime,
+        resolvedEffectorSeeds,
+        noiseGenerators,
+        basePosition: child.basePosition,
+        baseRotation: child.baseRotation,
+        baseScale: child.baseScale,
       })
 
       return {
         key: `fracture-${index}`,
         index,
-        position: finalPosition,
-        rotation: finalRotation,
-        scale: normalizeScale(finalScale),
-        hidden,
-        ...(color !== undefined ? { color } : {}),
-        ...(Object.keys(materialColors).length > 0 ? { materialColors } : {}),
+        position: evaluated.position,
+        rotation: evaluated.rotation,
+        scale: evaluated.scale,
+        hidden: evaluated.hidden,
+        ...(evaluated.color !== undefined ? { color: evaluated.color } : {}),
+        ...(evaluated.materialColors ? { materialColors: evaluated.materialColors } : {}),
       }
     })
   }, [
@@ -2468,7 +2452,7 @@ export function Fracture({
 
           let remapMarker: Vec3 | null = null
           const innerOffset = clamp01(effector.innerOffset ?? 0)
-          if ((effector.enableRemap ?? false) && innerOffset > 0) {
+          if ((effector.enableRemap ?? true) && innerOffset > 0) {
             const marker: Vec3 = [0, 0, 0]
             const markerPosition = directionSign > 0
               ? (center - half) + (innerOffset * size)
@@ -2525,6 +2509,42 @@ export function Fracture({
                 <coneGeometry args={[headScale * 0.2, headScale * 0.6, 12]} />
                 <meshBasicMaterial color={lineColor} transparent opacity={0.9} depthWrite={false} />
               </mesh>
+            </group>
+          )
+        })}
+
+      {shouldShowDebugEffectors && normalizedEffectors
+        .filter((effector): effector is SphericalFieldEffectorConfig => isSphericalEffector(effector) && effector.enabled !== false)
+        .map((effector, index) => {
+          const radius = Math.max(0.001, Math.abs(effector.radius ?? 20))
+          const fieldPosition = effector.fieldPosition ?? IDENTITY_POSITION
+          const lineColor = effector.invert ? '#ff9f43' : '#2ecc71'
+          const innerOffset = clamp01(effector.innerOffset ?? 0)
+          const innerRadius = Math.max(0.001, radius * (1 - innerOffset))
+
+          return (
+            <group
+              key={`fracture-spherical-field-debug-${index}`}
+              userData={{ excludeFromOutlines: true }}
+              renderOrder={2000}
+              position={fieldPosition}
+            >
+              <mesh>
+                <sphereGeometry args={[radius, 24, 18]} />
+                <meshBasicMaterial color={lineColor} transparent opacity={0.08} depthWrite={false} />
+              </mesh>
+
+              <mesh>
+                <sphereGeometry args={[radius, 24, 18]} />
+                <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.55} depthWrite={false} />
+              </mesh>
+
+              {(effector.enableRemap ?? true) && innerOffset > 0 && (
+                <mesh>
+                  <sphereGeometry args={[innerRadius, 24, 18]} />
+                  <meshBasicMaterial color="#74b9ff" wireframe transparent opacity={0.9} depthWrite={false} />
+                </mesh>
+              )}
             </group>
           )
         })}
