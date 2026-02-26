@@ -136,7 +136,14 @@ export const useLevelStore = create<LevelStoreState>((set, get) => ({
       const raw: unknown = await response.json()
       const data = parseLevelFileJson(raw)
 
-      set({ levelData: data, loading: false, error: null })
+      set((state) => ({
+        levelData: data,
+        loading: false,
+        error: null,
+        // Force remount on every loaded level so mount-based randomness
+        // (e.g. GridCloner unset seeds) and physics init are reapplied.
+        levelReloadKey: state.levelReloadKey + 1,
+      }))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error loading level'
       set({ error: errorMessage, loading: false, levelData: null })

@@ -223,7 +223,7 @@ export type GridClonerProps = {
   transformMode?: TransformMode
   /** 'iterate' | 'random' for multi-child template selection. */
   childDistribution?: ChildDistribution
-  /** Seed used only when childDistribution === 'random'. */
+  /** Seed used only when childDistribution === 'random'. Unset => random per mount. */
   childRandomSeed?: number
   enabled?: boolean
   /** Grid size preset ('lg' | 'md' | 'sm' | 'xs') or explicit multiplier. */
@@ -964,6 +964,20 @@ function resolveEffectorSeedForMount(
   return deriveEffectorSeedFromMount(mountSeed, effectorType, effectorIndex)
 }
 
+function deriveChildDistributionSeedFromMount(mountSeed: number): number {
+  const childDistributionSalt = 0x3f6d2b79
+  return hashSeed(mountSeed ^ childDistributionSalt)
+}
+
+function resolveChildDistributionSeedForMount(
+  seed: number | undefined,
+  mountSeed: number,
+): number {
+  const explicit = resolveExplicitSeed(seed)
+  if (explicit !== null) return explicit
+  return deriveChildDistributionSeedFromMount(mountSeed)
+}
+
 function resolveDistributedChildIndex(
   distribution: ChildDistribution,
   randomSeed: number,
@@ -1473,7 +1487,7 @@ export function GridCloner({
   centered,
   transformMode = 'cloner',
   childDistribution = 'iterate',
-  childRandomSeed = 1337,
+  childRandomSeed,
   enabled = true,
   gridUnit,
   physics,
@@ -1679,7 +1693,7 @@ export function GridCloner({
     [childDistribution],
   )
   const resolvedChildRandomSeed = useMemo(
-    () => (Number.isFinite(childRandomSeed) ? Math.trunc(childRandomSeed) : 1337),
+    () => resolveChildDistributionSeedForMount(childRandomSeed, mountSeedRef.current),
     [childRandomSeed],
   )
 
