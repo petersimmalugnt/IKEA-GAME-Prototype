@@ -25,6 +25,7 @@ import { Physics } from "@react-three/rapier";
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { LevelRenderer } from "@/LevelRenderer";
+import { WedgeElement } from "@/primitives/WedgeElement";
 
 export function Scene() {
   useSettingsVersion();

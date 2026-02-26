@@ -15,6 +15,7 @@ import { BallElement, BALL_RADII_M, type BallSizePreset } from '@/primitives/Bal
 import { DomeBlockElement, DOME_BLOCK_RADII_M, type DomeBlockSizePreset } from '@/primitives/DomeBlockElement'
 import { ConeBlockElement, resolveConeBlockSize, type ConeBlockSizePreset, type ConeBlockHeightPreset } from '@/primitives/ConeBlockElement'
 import { StepsBlockElement, resolveStepsBlockSize, type StepsBlockSizePreset, type StepsBlockHeightPreset } from '@/primitives/StepsBlockElement'
+import { BridgeBlockElement, resolveBridgeBlockSize, type BridgeBlockPlane } from '@/primitives/BridgeBlockElement'
 import { WedgeElement } from '@/primitives/WedgeElement'
 import { DomeElement } from '@/primitives/DomeElement'
 import { ConeElement } from '@/primitives/ConeElement'
@@ -626,6 +627,7 @@ function isPrimitiveType(type: unknown): boolean {
     || type === ConeElement
     || type === StepsBlockElement
     || type === StepsElement
+    || type === BridgeBlockElement
 }
 
 function resolveChildBaseColorIndex(
@@ -828,6 +830,17 @@ function resolveAutoColliderFromChild(
     const alignOffset = getAlignOffset([w, h, d] as Vec3, align)
     return {
       collider: { shape: 'cuboid', halfExtents: [w / 2, h / 2, d / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === BridgeBlockElement) {
+    const plane = (props.plane as BridgeBlockPlane) ?? 'x'
+    const size = resolveBridgeBlockSize(plane)
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset(size, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [size[0] / 2, size[1] / 2, size[2] / 2] },
       colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
     }
   }

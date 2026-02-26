@@ -4,13 +4,13 @@ Model: bridge.glb
 */
 
 import * as THREE from 'three'
-import { useRef, useEffect } from 'react'
+import { useMemo } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { ConvexHullCollider } from '@react-three/rapier'
 import type { ThreeElements } from '@react-three/fiber'
 import { C4DMesh, C4DMaterial, GameRigidBody } from '@/scene/SceneComponents'
 import type { GamePhysicsBodyType } from '@/scene/SceneComponents'
-import type { MaterialColorIndex } from '@/settings/GameSettings'
+import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
 import modelUrl from './bridge.glb?url'
 
 type MaterialColorSlot = 'materialColor0'
@@ -19,16 +19,26 @@ type GeneratedRigidBodySettings = {
   type: GamePhysicsBodyType
   mass?: number
   friction?: number
+  restitution?: number
   lockRotations?: boolean
   sensor?: boolean
   contagionCarrier?: boolean
   contagionInfectable?: boolean
 }
-type RigidBodySlot = 'rigidBodyOne'
 
-type BridgeProps = ThreeElements['group'] & {
+export type BridgeProps = ThreeElements['group'] & {
   materialColor0?: MaterialColorIndex
   materialHidden0?: boolean
+  singleTone?: boolean
+  physics?: GamePhysicsBodyType
+  mass?: number
+  friction?: number
+  restitution?: number
+  lockRotations?: boolean
+  linearVelocity?: Vec3
+  angularVelocity?: Vec3
+  linearDamping?: number
+  angularDamping?: number
   entityId?: string
   contagionCarrier?: boolean
   contagionInfectable?: boolean
@@ -36,7 +46,39 @@ type BridgeProps = ThreeElements['group'] & {
   rigidBodyOne?: Partial<GeneratedRigidBodySettings>
 }
 
-export function Bridge({ materialColor0 = 1, materialHidden0 = false, entityId, contagionCarrier, contagionInfectable, contagionColor, rigidBodyOne, ...props }: BridgeProps) {
+function coerceRigidBodyType(value: unknown): GamePhysicsBodyType | undefined {
+  if (value === 'fixed'
+    || value === 'dynamic'
+    || value === 'kinematicPosition'
+    || value === 'kinematicVelocity'
+    || value === 'noneToDynamicOnCollision'
+    || value === 'solidNoneToDynamicOnCollision'
+    || value === 'animNoneToDynamicOnCollision') {
+    return value
+  }
+  return undefined
+}
+
+export function Bridge({
+  materialColor0 = 1,
+  materialHidden0 = false,
+  singleTone = true,
+  physics,
+  mass,
+  friction,
+  restitution,
+  lockRotations,
+  linearVelocity,
+  angularVelocity,
+  linearDamping,
+  angularDamping,
+  entityId,
+  contagionCarrier,
+  contagionInfectable,
+  contagionColor,
+  rigidBodyOne,
+  ...props
+}: BridgeProps) {
   const { nodes } = useGLTF(modelUrl) as unknown as { nodes: Record<string, THREE.Mesh> }
 
   const materialColors: Record<MaterialColorSlot, MaterialColorIndex> = {
@@ -47,44 +89,64 @@ export function Bridge({ materialColor0 = 1, materialHidden0 = false, entityId, 
     materialHidden0,
   }
 
-  const rigidBodies: Record<RigidBodySlot, GeneratedRigidBodySettings> = {
-    rigidBodyOne: {
-      ...{ type: 'dynamic' },
-      ...(rigidBodyOne ?? {}),
-      ...(contagionCarrier !== undefined ? { contagionCarrier } : {}),
-      ...(contagionInfectable !== undefined ? { contagionInfectable } : {}),
-    },
-  }
+  const resolvedRigidBody = useMemo<GeneratedRigidBodySettings | null>(() => {
+    const mergedType = coerceRigidBodyType(physics ?? rigidBodyOne?.type)
+    if (!mergedType) return null
 
-  const getRigidBodyProps = (slot: RigidBodySlot): GeneratedRigidBodySettings => {
-    const body = rigidBodies[slot]
     return {
-      type: body.type,
-      ...(body.mass !== undefined ? { mass: body.mass } : {}),
-      ...(body.friction !== undefined ? { friction: body.friction } : {}),
-      ...(body.lockRotations ? { lockRotations: true } : {}),
-      ...(body.sensor ? { sensor: true } : {}),
-      contagionCarrier: body.contagionCarrier === true,
-      contagionInfectable: body.contagionInfectable !== false,
+      type: mergedType,
+      ...((mass ?? rigidBodyOne?.mass) !== undefined ? { mass: mass ?? rigidBodyOne?.mass } : {}),
+      ...((friction ?? rigidBodyOne?.friction) !== undefined ? { friction: friction ?? rigidBodyOne?.friction } : {}),
+      ...((restitution ?? rigidBodyOne?.restitution) !== undefined ? { restitution: restitution ?? rigidBodyOne?.restitution } : {}),
+      ...((lockRotations ?? rigidBodyOne?.lockRotations) === true ? { lockRotations: true } : {}),
+      ...(rigidBodyOne?.sensor === true ? { sensor: true } : {}),
+      contagionCarrier: contagionCarrier === true,
+      contagionInfectable: contagionInfectable !== false,
     }
-  }
+  }, [physics, rigidBodyOne?.type, rigidBodyOne?.mass, rigidBodyOne?.friction, rigidBodyOne?.restitution, rigidBodyOne?.lockRotations, rigidBodyOne?.sensor, mass, friction, restitution, lockRotations, contagionCarrier, contagionInfectable])
+
   const resolvedContagionColor = contagionColor ?? materialColors.materialColor0
+  const colliderRestitutionProps = Number.isFinite(resolvedRigidBody?.restitution) ? { restitution: resolvedRigidBody?.restitution } : {}
+
+  const mesh = (
+    <C4DMesh name={nodes.bridge_color1_dynamic_collider.name} geometry={nodes.bridge_color1_dynamic_collider.geometry} castShadow receiveShadow visible={!materialHiddens.materialHidden0}>
+      <C4DMaterial color={materialColors.materialColor0} singleTone={singleTone} />
+    </C4DMesh>
+  )
+
+  if (!resolvedRigidBody) {
+    return (
+      <group {...props} dispose={null}>
+        <group name="">
+          {mesh}
+        </group>
+      </group>
+    )
+  }
 
   return (
     <group {...props} dispose={null}>
-      <group name={""}>
-        <GameRigidBody {...getRigidBodyProps('rigidBodyOne')} colliders={false}
+      <group name="">
+        <GameRigidBody
+          type={resolvedRigidBody.type}
+          {...(resolvedRigidBody.mass !== undefined ? { mass: resolvedRigidBody.mass } : {})}
+          {...(resolvedRigidBody.friction !== undefined ? { friction: resolvedRigidBody.friction } : {})}
+          {...(resolvedRigidBody.lockRotations ? { lockRotations: true } : {})}
+          {...(resolvedRigidBody.sensor ? { sensor: true } : {})}
+          {...(linearVelocity !== undefined ? { linearVelocity } : {})}
+          {...(angularVelocity !== undefined ? { angularVelocity } : {})}
+          {...(linearDamping !== undefined ? { linearDamping } : {})}
+          {...(angularDamping !== undefined ? { angularDamping } : {})}
+          colliders={false}
           contagion={{
             entityId,
-            carrier: getRigidBodyProps('rigidBodyOne').contagionCarrier,
-            infectable: getRigidBodyProps('rigidBodyOne').contagionInfectable,
+            carrier: resolvedRigidBody.contagionCarrier === true,
+            infectable: resolvedRigidBody.contagionInfectable !== false,
             colorIndex: resolvedContagionColor,
           }}
         >
-          <ConvexHullCollider args={[nodes['bridge_color1_dynamic_collider'].geometry.attributes.position.array]} />
-          <C4DMesh name={nodes['bridge_color1_dynamic_collider'].name} geometry={nodes['bridge_color1_dynamic_collider'].geometry} castShadow receiveShadow visible={!materialHiddens.materialHidden0}>
-            <C4DMaterial color={materialColors.materialColor0} />
-          </C4DMesh>
+          <ConvexHullCollider args={[nodes.bridge_color1_dynamic_collider.geometry.attributes.position.array]} {...colliderRestitutionProps} />
+          {mesh}
         </GameRigidBody>
       </group>
     </group>
