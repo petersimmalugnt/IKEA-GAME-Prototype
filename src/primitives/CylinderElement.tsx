@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
-import { ConvexHullCollider, type RigidBodyProps } from '@react-three/rapier'
+import { CylinderCollider, type RigidBodyProps } from '@react-three/rapier'
 import { C4DMaterial } from '@/render/Materials'
 import type { MaterialColorIndex, Vec3 } from '@/settings/GameSettings'
 import type { PositionTargetHandle } from '@/scene/PositionTargetHandle'
@@ -15,6 +15,7 @@ export type CylinderElementProps = Simplify<ElementTransformProps & ElementRende
   radius?: number
   height?: number
   segments?: number
+  // Legacy prop kept for API compatibility; runtime now uses native CylinderCollider.
   colliderSegments?: number
   color?: MaterialColorIndex
   singleTone?: boolean
@@ -26,7 +27,6 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   radius = 0.5,
   height = 1,
   segments = 32,
-  colliderSegments = 8,
   color = 0,
   singleTone = true,
   hidden = false,
@@ -61,20 +61,6 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
   )
   const contagionColorOverride = useContagionColorOverride(entityId)
   const resolvedColor = contagionColorOverride ?? color
-
-  // Generera cylinderformad konvex hull: topp- och bottenring med N sidor
-  const hullVertices = useMemo(() => {
-    const verts: number[] = []
-    const halfH = height / 2
-    for (let i = 0; i < colliderSegments; i++) {
-      const angle = (i / colliderSegments) * Math.PI * 2
-      const x = Math.cos(angle) * radius
-      const z = Math.sin(angle) * radius
-      verts.push(x, halfH, z)
-      verts.push(x, -halfH, z)
-    }
-    return new Float32Array(verts)
-  }, [radius, height, colliderSegments])
 
   useImperativeHandle(ref, () => ({
     getPosition: () => {
@@ -130,7 +116,7 @@ export const CylinderElement = forwardRef<PositionTargetHandle, CylinderElementP
         colorIndex: contagionColor ?? resolvedColor,
       }}
     >
-      <ConvexHullCollider args={[hullVertices]} position={anchorOffset} {...colliderRestitutionProps} />
+      <CylinderCollider args={[height / 2, radius]} position={anchorOffset} {...colliderRestitutionProps} />
       {mesh}
     </GameRigidBody>
   )
