@@ -11,6 +11,7 @@ import { DomeBlockElement } from '@/primitives/DomeBlockElement'
 import { ConeBlockElement } from '@/primitives/ConeBlockElement'
 import { StepsBlockElement } from '@/primitives/StepsBlockElement'
 import { BridgeBlockElement } from '@/primitives/BridgeBlockElement'
+import { HalfCylinderBlockElement } from '@/primitives/HalfCylinderBlockElement'
 import {
   Fracture,
   GridCloner,
@@ -68,6 +69,7 @@ const COMPONENT_REGISTRY: Record<string, ComponentRegistryEntry> = {
   ConeBlockElement: { component: ConeBlockElement, needsRotationConversion: false },
   StepsBlockElement: { component: StepsBlockElement, needsRotationConversion: false },
   BridgeBlockElement: { component: BridgeBlockElement, needsRotationConversion: false },
+  HalfCylinderBlockElement: { component: HalfCylinderBlockElement, needsRotationConversion: false },
   SplineElement: { component: SplineElement, needsRotationConversion: false },
 }
 
@@ -91,6 +93,7 @@ const CONTAGION_CAPABLE_OBJECT_TYPES = new Set([
   'ConeBlockElement',
   'StepsBlockElement',
   'BridgeBlockElement',
+  'HalfCylinderBlockElement',
 ])
 
 function isNodeHiddenInBuilder(node: LevelNode): boolean {

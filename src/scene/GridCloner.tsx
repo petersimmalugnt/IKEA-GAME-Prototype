@@ -16,6 +16,12 @@ import { DomeBlockElement, DOME_BLOCK_RADII_M, type DomeBlockSizePreset } from '
 import { ConeBlockElement, resolveConeBlockSize, type ConeBlockSizePreset, type ConeBlockHeightPreset } from '@/primitives/ConeBlockElement'
 import { StepsBlockElement, resolveStepsBlockSize, type StepsBlockSizePreset, type StepsBlockHeightPreset } from '@/primitives/StepsBlockElement'
 import { BridgeBlockElement, resolveBridgeBlockSize, type BridgeBlockPlane } from '@/primitives/BridgeBlockElement'
+import {
+  HalfCylinderBlockElement,
+  resolveHalfCylinderBlockSize,
+  type HalfCylinderBlockPlane,
+  type HalfCylinderBlockSizePreset,
+} from '@/primitives/HalfCylinderBlockElement'
 import { WedgeElement } from '@/primitives/WedgeElement'
 import { DomeElement } from '@/primitives/DomeElement'
 import { ConeElement } from '@/primitives/ConeElement'
@@ -612,6 +618,10 @@ function isBlockPlane(value: unknown): value is BlockPlane {
   return value === 'x' || value === 'y' || value === 'z'
 }
 
+function isHalfCylinderBlockSizePreset(value: unknown): value is HalfCylinderBlockSizePreset {
+  return value === 'md' || value === 'lg'
+}
+
 function isPrimitiveType(type: unknown): boolean {
   return type === CubeElement
     || type === SphereElement
@@ -628,6 +638,7 @@ function isPrimitiveType(type: unknown): boolean {
     || type === StepsBlockElement
     || type === StepsElement
     || type === BridgeBlockElement
+    || type === HalfCylinderBlockElement
 }
 
 function resolveChildBaseColorIndex(
@@ -837,6 +848,18 @@ function resolveAutoColliderFromChild(
   if (templateChild.type === BridgeBlockElement) {
     const plane = (props.plane as BridgeBlockPlane) ?? 'x'
     const size = resolveBridgeBlockSize(plane)
+    const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
+    const alignOffset = getAlignOffset(size, align)
+    return {
+      collider: { shape: 'cuboid', halfExtents: [size[0] / 2, size[1] / 2, size[2] / 2] },
+      colliderOffset: includeChildPosition ? addVec3(childLocalPosition, alignOffset) : alignOffset,
+    }
+  }
+
+  if (templateChild.type === HalfCylinderBlockElement) {
+    const sizePreset = isHalfCylinderBlockSizePreset(props.sizePreset) ? props.sizePreset : 'md'
+    const plane = isBlockPlane(props.plane) ? props.plane : 'y'
+    const size = resolveHalfCylinderBlockSize(sizePreset, plane as HalfCylinderBlockPlane)
     const align = isAlign3(props.align) ? ({ y: 0, ...props.align }) : ({ y: 0 } as Align3)
     const alignOffset = getAlignOffset(size, align)
     return {
