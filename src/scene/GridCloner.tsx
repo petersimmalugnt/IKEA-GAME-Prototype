@@ -568,6 +568,45 @@ function randomSigned(seed: number, a: number, b = 0, c = 0): number {
   return (random01(seed, a, b, c) * 2) - 1
 }
 
+function createRandomSeed(): number {
+  const seed = Math.floor(Math.random() * 0x7fffffff)
+  return seed === 0 ? 1 : seed
+}
+
+function resolveExplicitSeed(seed: number | undefined): number | null {
+  if (typeof seed !== 'number' || !Number.isFinite(seed)) return null
+  return Math.trunc(seed)
+}
+
+function hashSeed(value: number): number {
+  let h = value | 0
+  h = Math.imul(h ^ (h >>> 13), 1274126177)
+  h ^= h >>> 16
+  const normalized = h & 0x7fffffff
+  return normalized === 0 ? 1 : normalized
+}
+
+function deriveEffectorSeedFromMount(
+  mountSeed: number,
+  effectorType: 'random' | 'noise',
+  effectorIndex: number,
+): number {
+  const typeSalt = effectorType === 'random' ? 0x51f2ac13 : 0x6d2b79f5
+  const indexSalt = Math.imul(effectorIndex + 1, 374761393)
+  return hashSeed(mountSeed ^ typeSalt ^ indexSalt)
+}
+
+function resolveEffectorSeedForMount(
+  seed: number | undefined,
+  mountSeed: number,
+  effectorType: 'random' | 'noise',
+  effectorIndex: number,
+): number {
+  const explicit = resolveExplicitSeed(seed)
+  if (explicit !== null) return explicit
+  return deriveEffectorSeedFromMount(mountSeed, effectorType, effectorIndex)
+}
+
 function resolveDistributedChildIndex(
   distribution: ChildDistribution,
   randomSeed: number,
@@ -1055,6 +1094,7 @@ export function GridCloner({
   spawnChunkSize,
 }: GridClonerProps) {
   const autoEntityPrefixRef = useRef<string>(createAutoGridClonerEntityPrefix())
+  const mountSeedRef = useRef<number>(createRandomSeed())
   const resolvedEntityPrefix = entityPrefix ?? autoEntityPrefixRef.current
   const unitMultiplier = useMemo(
     () => resolveGridUnitMultiplier(gridUnit),
@@ -1172,6 +1212,18 @@ export function GridCloner({
     }),
     [scaledEffectors],
   )
+  const resolvedEffectorSeeds = useMemo(
+    () => normalizedEffectors.map((effector, effectorIndex) => {
+      if (effector.type !== 'random' && effector.type !== 'noise') return null
+      return resolveEffectorSeedForMount(
+        effector.seed,
+        mountSeedRef.current,
+        effector.type,
+        effectorIndex,
+      )
+    }),
+    [normalizedEffectors],
+  )
   const hasTimeEffector = useMemo(
     () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
     [normalizedEffectors],
@@ -1199,11 +1251,12 @@ export function GridCloner({
     setFrameTime(clock.getElapsedTime())
   })
   const noiseGenerators = useMemo(
-    () => normalizedEffectors.map((effector) => {
+    () => normalizedEffectors.map((effector, effectorIndex) => {
       if (effector.type !== 'noise') return null
-      return new SeededImprovedNoise(effector.seed ?? 1337)
+      const seed = resolvedEffectorSeeds[effectorIndex]
+      return new SeededImprovedNoise(seed ?? 1)
     }),
-    [normalizedEffectors],
+    [normalizedEffectors, resolvedEffectorSeeds],
   )
 
   const debugBounds = useMemo<Vec3>(() => {
@@ -1363,7 +1416,7 @@ export function GridCloner({
             }
 
             if (effector.type === 'random') {
-              const seed = effector.seed ?? 1337
+              const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
               const strength = clamp01(effector.strength ?? 1)
               if (strength <= 0) return
 
@@ -1460,7 +1513,8 @@ export function GridCloner({
             const strength = clamp01(effector.strength ?? 1)
             if (strength <= 0) return
 
-            const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(effector.seed ?? 1337)
+            const resolvedNoiseSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
+            const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedNoiseSeed)
             const freq = normalizeFrequency(effector.frequency)
             const staticOffset = effector.offset ?? IDENTITY_POSITION
             const noisePosition = resolveNoiseMotion(effector.noisePosition)
@@ -1549,6 +1603,7 @@ export function GridCloner({
     baseRotation,
     scale,
     normalizedEffectors,
+    resolvedEffectorSeeds,
     noiseGenerators,
     frameTime,
     collisionActivatedPhysics,
@@ -1815,6 +1870,7 @@ export function Fracture({
   gridUnit,
   showDebugEffectors,
 }: FractureProps) {
+  const mountSeedRef = useRef<number>(createRandomSeed())
   const unitMultiplier = useMemo(
     () => resolveGridUnitMultiplier(gridUnit),
     [gridUnit],
@@ -1922,6 +1978,18 @@ export function Fracture({
     }),
     [scaledEffectors],
   )
+  const resolvedEffectorSeeds = useMemo(
+    () => normalizedEffectors.map((effector, effectorIndex) => {
+      if (effector.type !== 'random' && effector.type !== 'noise') return null
+      return resolveEffectorSeedForMount(
+        effector.seed,
+        mountSeedRef.current,
+        effector.type,
+        effectorIndex,
+      )
+    }),
+    [normalizedEffectors],
+  )
   const hasTimeEffector = useMemo(
     () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
     [normalizedEffectors],
@@ -1940,11 +2008,12 @@ export function Fracture({
     setFrameTime(clock.getElapsedTime())
   })
   const noiseGenerators = useMemo(
-    () => normalizedEffectors.map((effector) => {
+    () => normalizedEffectors.map((effector, effectorIndex) => {
       if (effector.type !== 'noise') return null
-      return new SeededImprovedNoise(effector.seed ?? 1337)
+      const seed = resolvedEffectorSeeds[effectorIndex]
+      return new SeededImprovedNoise(seed ?? 1)
     }),
-    [normalizedEffectors],
+    [normalizedEffectors, resolvedEffectorSeeds],
   )
 
   const shouldShowDebugEffectors = showDebugEffectors ?? SETTINGS.debug.enabled
@@ -2048,7 +2117,7 @@ export function Fracture({
         }
 
         if (effector.type === 'random') {
-          const seed = effector.seed ?? 1337
+          const seed = resolvedEffectorSeeds[effectorIndex] ?? 1
           const strength = clamp01(effector.strength ?? 1)
           if (strength <= 0) return
 
@@ -2145,7 +2214,8 @@ export function Fracture({
         const strength = clamp01(effector.strength ?? 1)
         if (strength <= 0) return
 
-        const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(effector.seed ?? 1337)
+        const resolvedNoiseSeed = resolvedEffectorSeeds[effectorIndex] ?? 1
+        const noiseGenerator = noiseGenerators[effectorIndex] ?? new SeededImprovedNoise(resolvedNoiseSeed)
         const freq = normalizeFrequency(effector.frequency)
         const staticOffset = effector.offset ?? IDENTITY_POSITION
         const noisePosition = resolveNoiseMotion(effector.noisePosition)
@@ -2219,6 +2289,7 @@ export function Fracture({
     frameTime,
     noiseGenerators,
     normalizedEffectors,
+    resolvedEffectorSeeds,
     templateChildren,
   ])
 

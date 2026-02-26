@@ -1,7 +1,7 @@
 export class SeededImprovedNoise {
   private readonly perm: number[]
 
-  constructor(seed = 1337) {
+  constructor(seed: number) {
     const source = Array.from({ length: 256 }, (_, index) => index)
     let state = ((Math.floor(seed) | 0) ^ 0x6D2B79F5) | 0
 

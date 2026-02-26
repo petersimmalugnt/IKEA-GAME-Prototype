@@ -88,7 +88,7 @@ export function Scene() {
                   size={[5, 0.025, 0.025]}
                   hidden
                 />
-                <BlockElement ref={playerRef} />
+                <BlockElement ref={playerRef} hidden />
               </TransformMotion>
 
               {/* ENDLESS TILED LEVELS */}
