@@ -256,6 +256,16 @@ export type Settings = {
     /** Units past the cull line before the item is actually removed */
     cullOffset: number
   }
+  motionAcceleration: {
+    cameraTracker: {
+      timeScaleAcceleration: number
+      timeScaleAccelerationCurve: AccelerationCurveName
+    }
+    balloons: {
+      timeScaleAcceleration: number
+      timeScaleAccelerationCurve: AccelerationCurveName
+    }
+  }
   cursor: {
     /** Minimum cursor speed in px/s required to pop a balloon on hover */
     minPopVelocity: number

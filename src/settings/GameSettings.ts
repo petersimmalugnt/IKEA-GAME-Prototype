@@ -247,7 +247,7 @@ export const SETTINGS: Settings = {
   gameplay: {
     contagion: {
       enabled: true,
-      scorePerInfection: 10,
+      scorePerInfection: 200,
     },
     score: {
       lockOnGameOver: true,
@@ -302,6 +302,18 @@ export const SETTINGS: Settings = {
     cullOffset: 6,
   },
 
+  // --- MOTION ACCELERATION ---
+  motionAcceleration: {
+    cameraTracker: {
+      timeScaleAcceleration: 0.005,
+      timeScaleAccelerationCurve: 'exponential',
+    },
+    balloons: {
+      timeScaleAcceleration: 0.005,
+      timeScaleAccelerationCurve: 'exponential',
+    },
+  },
+
   // --- CURSOR ---
   cursor: {
     minPopVelocity: 300,
@@ -354,7 +366,7 @@ export const SETTINGS: Settings = {
       files: [
         "/sounds/bee/bee1.wav",
       ],
-      volume: 1,
+      volume: 1.2,
     },
     swoosh: {
       files: [

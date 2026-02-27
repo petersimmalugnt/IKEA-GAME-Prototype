@@ -22,9 +22,9 @@
       ],
       "props": {
         "count": [
-          12,
+          11,
           1,
-          15
+          12
         ],
         "spacing": [
           6,
@@ -99,7 +99,7 @@
             "signedRotation": false,
             "signedScale": false,
             "exclude": true,
-            "excludeProbability": 1.5
+            "excludeProbability": 2
           }
         },
         {
@@ -165,9 +165,9 @@
             "contourSteps": 5,
             "contourMultiplier": 1,
             "position": [
-              4,
+              6,
               0,
-              4
+              9
             ],
             "rotation": [
               0,

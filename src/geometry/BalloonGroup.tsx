@@ -141,8 +141,9 @@ const BALLOON_GROUP_SETTINGS = {
     } as ResolvedBalloonPopReleaseTuning,
   },
   popHit: {
-    localCenter: [0, 0.15, 0] as Vec3,
-    radius: 0.15,
+    localCenter: [0, 0.130, 0] as Vec3,
+    radiusX: 0.1,
+    radiusY: 0.13,
   },
   payload: {
     block: {
@@ -256,7 +257,16 @@ const BALL_WRAP_POINTS = createCrossedCircleWrapPoints(
   BALLOON_GROUP_SETTINGS.wrap.ball.segments,
 );
 const POP_HIT_LOCAL_CENTER = BALLOON_GROUP_SETTINGS.popHit.localCenter;
-const POP_HIT_RADIUS = BALLOON_GROUP_SETTINGS.popHit.radius;
+const POP_HIT_RADIUS_X = BALLOON_GROUP_SETTINGS.popHit.radiusX;
+const POP_HIT_RADIUS_Y = BALLOON_GROUP_SETTINGS.popHit.radiusY;
+const POP_HIT_DEBUG_GEOMETRY = new THREE.SphereGeometry(1, 12, 8);
+const POP_HIT_DEBUG_MATERIAL = new THREE.MeshBasicMaterial({
+  color: "#facc15",
+  wireframe: true,
+  transparent: true,
+  opacity: 0.9,
+  depthWrite: false,
+});
 
 type PopRelease = {
   linearVelocity: Vec3;
@@ -487,6 +497,7 @@ export function BalloonGroup({
     [popReleaseTuning],
   );
   const motionPaused = paused || popped || gameOver;
+  const showPopHitDebug = SETTINGS.debug.enabled;
   if (randomize && randomColorRef.current === null) {
     randomColorRef.current = pickRandomBalloonColorIndex(color);
   }
@@ -529,7 +540,8 @@ export function BalloonGroup({
     [],
   );
 
-  const getWorldPopRadius = useCallback(() => POP_HIT_RADIUS, []);
+  const getWorldPopRadiusX = useCallback(() => POP_HIT_RADIUS_X, []);
+  const getWorldPopRadiusY = useCallback(() => POP_HIT_RADIUS_Y, []);
 
   const isPopped = useCallback(() => poppedRef.current, []);
 
@@ -604,7 +616,8 @@ export function BalloonGroup({
     return lifecycleRegistry.register({
       getWorldXZ,
       getWorldPopCenter,
-      getWorldPopRadius,
+      getWorldPopRadiusX,
+      getWorldPopRadiusY,
       requestPop: triggerPop,
       isPopped,
       onMissed: handleMissed,
@@ -613,7 +626,8 @@ export function BalloonGroup({
     lifecycleRegistry,
     getWorldXZ,
     getWorldPopCenter,
-    getWorldPopRadius,
+    getWorldPopRadiusX,
+    getWorldPopRadiusY,
     triggerPop,
     isPopped,
     handleMissed,
@@ -670,11 +684,20 @@ export function BalloonGroup({
           : undefined
       }
       timeScale={1.5}
-      timeScaleAcceleration={0.005}
-      timeScaleAccelerationCurve="exponential"
+      timeScaleAcceleration={SETTINGS.motionAcceleration.balloons.timeScaleAcceleration}
+      timeScaleAccelerationCurve={SETTINGS.motionAcceleration.balloons.timeScaleAccelerationCurve}
       {...props}
     >
       <group ref={probeRef}>
+        {showPopHitDebug && !popped ? (
+          <mesh
+            position={POP_HIT_LOCAL_CENTER}
+            geometry={POP_HIT_DEBUG_GEOMETRY}
+            material={POP_HIT_DEBUG_MATERIAL}
+            scale={[POP_HIT_RADIUS_X, POP_HIT_RADIUS_Y, POP_HIT_RADIUS_X]}
+            renderOrder={999}
+          />
+        ) : null}
         {!popped ? (
           <>
             <BalloonComponent materialColor0={resolvedColor} />

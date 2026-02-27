@@ -23,7 +23,7 @@ export function ScoreHud() {
     fontFamily: '"Instrument Sans", sans-serif',
     fontSize: '1.5rem',
     lineHeight: 1,
-    letterSpacing: '0.03em',
+    letterSpacing: '0em',
     textTransform: 'uppercase',
   }
 
@@ -48,16 +48,17 @@ export function ScoreHud() {
       <div
         style={{
           position: 'absolute',
-          top: '1.5rem',
-          left: '400px',
+          top: '3.25rem',
+          left: '1.5rem',
           zIndex: 30,
           pointerEvents: 'none',
           ...hudTextStyle,
+          fontSize: '.75rem',
           display: 'flex',
           gap: '.5em',
         }}
       >
-        <span style={{ color: secondaryColor }}>Last Run</span>
+        <span style={{ color: uiWhite }}>Last Run</span>
         <span style={{ color: uiWhite }}>{formatScore(lastRunScore)}</span>
       </div>
 

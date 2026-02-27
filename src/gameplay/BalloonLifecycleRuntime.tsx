@@ -1,5 +1,12 @@
 import * as THREE from 'three'
-import { createContext, useContext, useMemo, useRef, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 import {
@@ -27,7 +34,8 @@ export type BalloonLifecyclePopMeta = {
 export type BalloonLifecycleTarget = {
   getWorldXZ: () => BalloonWorldXZ | undefined
   getWorldPopCenter: (out: THREE.Vector3) => boolean
-  getWorldPopRadius: () => number
+  getWorldPopRadiusX: () => number
+  getWorldPopRadiusY: () => number
   requestPop: (meta: BalloonLifecyclePopMeta) => void
   isPopped: () => boolean
   onMissed: () => void
@@ -40,6 +48,13 @@ type BalloonLifecycleEntry = {
 
 type BalloonLifecycleRegistry = {
   register: (target: BalloonLifecycleTarget) => () => void
+}
+
+type CanvasRect = {
+  left: number
+  top: number
+  width: number
+  height: number
 }
 
 const DEFAULT_LIFE_MARGIN = 0
@@ -77,25 +92,33 @@ function pointSegmentDistanceSq(
   return qx * qx + qy * qy
 }
 
-function segmentIntersectsCircle(
+function segmentIntersectsEllipse(
   x0: number,
   y0: number,
   x1: number,
   y1: number,
   cx: number,
   cy: number,
-  radiusSq: number,
-  radiusAabb: number,
+  radiusX: number,
+  radiusY: number,
 ): boolean {
+  if (!(radiusX > 0) || !(radiusY > 0)) return false
   const minX = x0 < x1 ? x0 : x1
   const maxX = x0 > x1 ? x0 : x1
   const minY = y0 < y1 ? y0 : y1
   const maxY = y0 > y1 ? y0 : y1
 
-  if (cx < minX - radiusAabb || cx > maxX + radiusAabb) return false
-  if (cy < minY - radiusAabb || cy > maxY + radiusAabb) return false
+  if (cx < minX - radiusX || cx > maxX + radiusX) return false
+  if (cy < minY - radiusY || cy > maxY + radiusY) return false
 
-  return pointSegmentDistanceSq(cx, cy, x0, y0, x1, y1) <= radiusSq
+  const invRadiusX = 1 / radiusX
+  const invRadiusY = 1 / radiusY
+  const x0Norm = (x0 - cx) * invRadiusX
+  const y0Norm = (y0 - cy) * invRadiusY
+  const x1Norm = (x1 - cx) * invRadiusX
+  const y1Norm = (y1 - cy) * invRadiusY
+
+  return pointSegmentDistanceSq(0, 0, x0Norm, y0Norm, x1Norm, y1Norm) <= 1
 }
 
 export function useBalloonLifecycleRegistry(): BalloonLifecycleRegistry | null {
@@ -122,10 +145,13 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
   })
   const popMetaRef = useRef<BalloonLifecyclePopMeta>({ xVelocityPx: 0 })
   const popCenterWorldRef = useRef(new THREE.Vector3())
-  const popOffsetWorldRef = useRef(new THREE.Vector3())
   const popCenterNdcRef = useRef(new THREE.Vector3())
-  const popOffsetNdcRef = useRef(new THREE.Vector3())
-  const cameraRightRef = useRef(new THREE.Vector3())
+  const canvasRectRef = useRef<CanvasRect>({
+    left: 0,
+    top: 0,
+    width: 0,
+    height: 0,
+  })
 
   const registry = useMemo<BalloonLifecycleRegistry>(() => ({
     register(target) {
@@ -134,6 +160,36 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
       return () => { entriesRef.current.delete(entry) }
     },
   }), [])
+
+  useEffect(() => {
+    const domElement = gl.domElement
+    const cachedRect = canvasRectRef.current
+
+    const updateCanvasRect = () => {
+      const rect = domElement.getBoundingClientRect()
+      cachedRect.left = rect.left
+      cachedRect.top = rect.top
+      cachedRect.width = rect.width
+      cachedRect.height = rect.height
+    }
+
+    updateCanvasRect()
+
+    let resizeObserver: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateCanvasRect)
+      resizeObserver.observe(domElement)
+    }
+
+    window.addEventListener('resize', updateCanvasRect, { passive: true })
+    window.addEventListener('scroll', updateCanvasRect, { passive: true })
+
+    return () => {
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', updateCanvasRect)
+      window.removeEventListener('scroll', updateCanvasRect)
+    }
+  }, [gl])
 
   useFrame(() => {
     if (gameOver) return
@@ -171,104 +227,99 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
 
     const latestSweepSeq = getLatestCursorSweepSeq()
     if (latestSweepSeq > lastSweepSeqRef.current) {
-      const canvasRect = gl.domElement.getBoundingClientRect()
+      const canvasRect = canvasRectRef.current
       const canvasWidth = canvasRect.width
       const canvasHeight = canvasRect.height
 
       if (canvasWidth > 0 && canvasHeight > 0) {
+        const orthographicCamera = camera as THREE.OrthographicCamera
+        const visibleWorldHeight = (orthographicCamera.top - orthographicCamera.bottom) / orthographicCamera.zoom
+
+        if (!(visibleWorldHeight > SEGMENT_EPSILON) || !Number.isFinite(visibleWorldHeight)) {
+          lastSweepSeqRef.current = latestSweepSeq
+          missQueue.forEach((callback) => callback())
+          return
+        }
+
+        const pixelsPerWorld = canvasHeight / visibleWorldHeight
         const popQueue = popQueueRef.current
         const popCenterWorld = popCenterWorldRef.current
-        const popOffsetWorld = popOffsetWorldRef.current
         const popCenterNdc = popCenterNdcRef.current
-        const popOffsetNdc = popOffsetNdcRef.current
-        const cameraRight = cameraRightRef.current
         const sweepSegment = sweepSegmentRef.current
 
-        camera.updateMatrixWorld()
-        cameraRight.setFromMatrixColumn(camera.matrixWorld, 0)
-        const cameraRightLengthSq = cameraRight.lengthSq()
+        for (
+          let sweepSeq = lastSweepSeqRef.current + 1;
+          sweepSeq <= latestSweepSeq;
+          sweepSeq += 1
+        ) {
+          if (!readCursorSweepSegment(sweepSeq, sweepSegment)) continue
+          if (sweepSegment.velocityPx < SETTINGS.cursor.minPopVelocity) continue
 
-        if (cameraRightLengthSq > SEGMENT_EPSILON) {
-          cameraRight.multiplyScalar(1 / Math.sqrt(cameraRightLengthSq))
+          const x0Local = sweepSegment.x0 - canvasRect.left
+          const y0Local = sweepSegment.y0 - canvasRect.top
+          const x1Local = sweepSegment.x1 - canvasRect.left
+          const y1Local = sweepSegment.y1 - canvasRect.top
 
-          for (
-            let sweepSeq = lastSweepSeqRef.current + 1;
-            sweepSeq <= latestSweepSeq;
-            sweepSeq += 1
+          const segmentMinX = x0Local < x1Local ? x0Local : x1Local
+          const segmentMaxX = x0Local > x1Local ? x0Local : x1Local
+          const segmentMinY = y0Local < y1Local ? y0Local : y1Local
+          const segmentMaxY = y0Local > y1Local ? y0Local : y1Local
+          if (
+            segmentMaxX < 0
+            || segmentMinX > canvasWidth
+            || segmentMaxY < 0
+            || segmentMinY > canvasHeight
           ) {
-            if (!readCursorSweepSegment(sweepSeq, sweepSegment)) continue
-            if (sweepSegment.velocityPx < SETTINGS.cursor.minPopVelocity) continue
+            continue
+          }
 
-            const x0Local = sweepSegment.x0 - canvasRect.left
-            const y0Local = sweepSegment.y0 - canvasRect.top
-            const x1Local = sweepSegment.x1 - canvasRect.left
-            const y1Local = sweepSegment.y1 - canvasRect.top
+          popQueue.length = 0
+          entries.forEach((entry) => {
+            if (entry.target.isPopped()) return
+            if (!entry.target.getWorldPopCenter(popCenterWorld)) return
 
-            const segmentMinX = x0Local < x1Local ? x0Local : x1Local
-            const segmentMaxX = x0Local > x1Local ? x0Local : x1Local
-            const segmentMinY = y0Local < y1Local ? y0Local : y1Local
-            const segmentMaxY = y0Local > y1Local ? y0Local : y1Local
+            const radiusWorldX = entry.target.getWorldPopRadiusX()
+            const radiusWorldY = entry.target.getWorldPopRadiusY()
+            if (!(radiusWorldX > 0) || !Number.isFinite(radiusWorldX)) return
+            if (!(radiusWorldY > 0) || !Number.isFinite(radiusWorldY)) return
+
+            popCenterNdc.copy(popCenterWorld).project(camera)
             if (
-              segmentMaxX < 0
-              || segmentMinX > canvasWidth
-              || segmentMaxY < 0
-              || segmentMinY > canvasHeight
+              !Number.isFinite(popCenterNdc.x)
+              || !Number.isFinite(popCenterNdc.y)
+              || !Number.isFinite(popCenterNdc.z)
             ) {
-              continue
+              return
             }
 
-            popQueue.length = 0
-            entries.forEach((entry) => {
-              if (entry.missApplied) return
-              if (entry.target.isPopped()) return
-              if (!entry.target.getWorldPopCenter(popCenterWorld)) return
+            const centerX = ((popCenterNdc.x + 1) * 0.5) * canvasWidth
+            const centerY = ((1 - popCenterNdc.y) * 0.5) * canvasHeight
+            const radiusPxX = radiusWorldX * pixelsPerWorld
+            const radiusPxY = radiusWorldY * pixelsPerWorld
+            if (!(radiusPxX > 0) || !Number.isFinite(radiusPxX)) return
+            if (!(radiusPxY > 0) || !Number.isFinite(radiusPxY)) return
 
-              const radiusWorld = entry.target.getWorldPopRadius()
-              if (!(radiusWorld > 0) || !Number.isFinite(radiusWorld)) return
+            if (
+              segmentIntersectsEllipse(
+                x0Local,
+                y0Local,
+                x1Local,
+                y1Local,
+                centerX,
+                centerY,
+                radiusPxX * 1.01,
+                radiusPxY * 1.01,
+              )
+            ) {
+              popQueue.push(entry.target)
+            }
+          })
 
-              popCenterNdc.copy(popCenterWorld).project(camera)
-              if (
-                !Number.isFinite(popCenterNdc.x)
-                || !Number.isFinite(popCenterNdc.y)
-                || !Number.isFinite(popCenterNdc.z)
-              ) {
-                return
-              }
-              if (popCenterNdc.z < -1 || popCenterNdc.z > 1) return
-
-              const centerX = ((popCenterNdc.x + 1) * 0.5) * canvasWidth
-              const centerY = ((1 - popCenterNdc.y) * 0.5) * canvasHeight
-
-              popOffsetWorld.copy(popCenterWorld).addScaledVector(cameraRight, radiusWorld)
-              popOffsetNdc.copy(popOffsetWorld).project(camera)
-              const radiusPxX = ((popOffsetNdc.x - popCenterNdc.x) * 0.5) * canvasWidth
-              const radiusPxY = ((popOffsetNdc.y - popCenterNdc.y) * 0.5) * canvasHeight
-              const radiusPxSq = radiusPxX * radiusPxX + radiusPxY * radiusPxY
-              if (!(radiusPxSq > 0) || !Number.isFinite(radiusPxSq)) return
-
-              const radiusAabb = Math.abs(radiusPxX) + Math.abs(radiusPxY)
-              if (
-                segmentIntersectsCircle(
-                  x0Local,
-                  y0Local,
-                  x1Local,
-                  y1Local,
-                  centerX,
-                  centerY,
-                  radiusPxSq,
-                  radiusAabb,
-                )
-              ) {
-                popQueue.push(entry.target)
-              }
-            })
-
-            if (popQueue.length > 0) {
-              const popMeta = popMetaRef.current
-              popMeta.xVelocityPx = sweepSegment.velocityXPx
-              for (let i = 0; i < popQueue.length; i += 1) {
-                popQueue[i]?.requestPop(popMeta)
-              }
+          if (popQueue.length > 0) {
+            const popMeta = popMetaRef.current
+            popMeta.xVelocityPx = sweepSegment.velocityXPx
+            for (let i = 0; i < popQueue.length; i += 1) {
+              popQueue[i]?.requestPop(popMeta)
             }
           }
         }
