@@ -22,14 +22,14 @@
       ],
       "props": {
         "count": [
-          10,
+          12,
           1,
-          12
+          14
         ],
         "spacing": [
-          10,
+          8,
           1,
-          10
+          8
         ],
         "offset": [
           0,
@@ -46,21 +46,23 @@
           1,
           1
         ],
-        "anchor": {
-          "x": "center",
-          "y": "center",
-          "z": "center"
-        },
         "transformMode": "cloner",
         "childDistribution": "random",
         "gridUnit": "md",
         "enabled": true,
         "contagionCarrier": false,
-        "contagionInfectable": true
+        "contagionInfectable": true,
+        "anchor": {
+          "x": "center",
+          "y": "center",
+          "z": "center"
+        },
+        "physics": "dynamic"
       },
       "children": [
         {
           "id": "e0f32e95-060f-425a-ac3d-0d6235825c8a",
+          "name": "EXCLUDE Random Effector",
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -95,11 +97,11 @@
             "signedScale": false,
             "exclude": true,
             "excludeProbability": 2
-          },
-          "name": "EXCLUDE Random Effector"
+          }
         },
         {
           "id": "51e79c4f-805a-4d6e-b244-6c4290a3ec03",
+          "name": "ROTATION Random Effector",
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -134,11 +136,11 @@
             "signedScale": false,
             "exclude": false,
             "excludeProbability": 0
-          },
-          "name": "ROTATION Random Effector"
+          }
         },
         {
           "id": "479eebb7-9d66-4369-9c59-b53e3afef1fe",
+          "name": "POSITION Random Effector",
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -154,9 +156,9 @@
             "contourSteps": 5,
             "contourMultiplier": 1,
             "position": [
-              3,
+              10,
               0,
-              3
+              10
             ],
             "rotation": [
               0,
@@ -173,8 +175,7 @@
             "signedScale": false,
             "exclude": false,
             "excludeProbability": 0
-          },
-          "name": "POSITION Random Effector"
+          }
         },
         {
           "id": "7a235b9e-7cdc-4ef4-8f4f-0f617bcd6119",
@@ -220,7 +221,7 @@
                 "sizePreset": "lg",
                 "heightPreset": "md",
                 "plane": "y",
-                "color": 2,
+                "color": 1,
                 "singleTone": false,
                 "hidden": false,
                 "contagionCarrier": false,
@@ -278,7 +279,7 @@
               ],
               "props": {
                 "plane": "x",
-                "color": 2,
+                "color": 1,
                 "singleTone": true,
                 "hidden": false,
                 "contagionCarrier": false,
@@ -1286,6 +1287,18 @@
               }
             }
           ]
+        },
+        {
+          "id": "dabe6ec4-a8f4-4da8-8459-ad96b4252f2b",
+          "nodeType": "effector",
+          "type": "PushApartEffector",
+          "props": {
+            "enabled": true,
+            "radiusOffset": 3
+          },
+          "builder": {
+            "hiddenInBuilder": false
+          }
         }
       ]
     }
