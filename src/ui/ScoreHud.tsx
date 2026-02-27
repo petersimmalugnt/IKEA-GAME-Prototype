@@ -12,6 +12,7 @@ function formatScore(value: number): string {
 export function ScoreHud() {
   const uiWhite = '#fff'
   const score = useGameplayStore((state) => state.score)
+  const lastRunScore = useGameplayStore((state) => state.lastRunScore)
   const lives = useGameplayStore((state) => state.lives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const maxLives = SETTINGS.gameplay.lives.initial
@@ -42,6 +43,22 @@ export function ScoreHud() {
       >
         <span style={{ color: secondaryColor }}>Score</span>
         <span style={{ color: uiWhite }}>{formatScore(score)}</span>
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: '1.5rem',
+          left: '400px',
+          zIndex: 30,
+          pointerEvents: 'none',
+          ...hudTextStyle,
+          display: 'flex',
+          gap: '.5em',
+        }}
+      >
+        <span style={{ color: secondaryColor }}>Last Run</span>
+        <span style={{ color: uiWhite }}>{formatScore(lastRunScore)}</span>
       </div>
 
       <div

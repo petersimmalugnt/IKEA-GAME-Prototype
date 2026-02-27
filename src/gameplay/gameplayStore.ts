@@ -37,6 +37,7 @@ type PendingPair = {
 
 type GameplayState = {
   score: number
+  lastRunScore: number
   lives: number
   gameOver: boolean
   runEndSequence: number
@@ -118,6 +119,7 @@ let maps = createContagionMaps()
 
 export const useGameplayStore = create<GameplayState>((set, get) => ({
   score: 0,
+  lastRunScore: 0,
   lives: getInitialLives(),
   gameOver: false,
   runEndSequence: 0,
@@ -129,6 +131,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     maps = createContagionMaps()
     set({
       score: 0,
+      lastRunScore: 0,
       lives: getInitialLives(),
       gameOver: false,
       runEndSequence: 0,
@@ -164,11 +167,13 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       const shouldResetOnRunEnd = didRunEnd && SETTINGS.gameplay.score.resetOnRunEnd === true
       const shouldResetOnGameOver = didEnterGameOver && SETTINGS.gameplay.score.resetOnGameOver === true
       const nextScore = (shouldResetOnRunEnd || shouldResetOnGameOver) ? 0 : state.score
+      const nextLastRunScore = didRunEnd ? state.score : state.lastRunScore
 
       if (didRunEnd && autoResetLives) {
         return {
           ...state,
           score: nextScore,
+          lastRunScore: nextLastRunScore,
           lives: getInitialLives(),
           runEndSequence: state.runEndSequence + 1,
         }
@@ -177,6 +182,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       return {
         ...state,
         score: nextScore,
+        lastRunScore: nextLastRunScore,
         lives: nextLives,
         gameOver: nextGameOver,
         runEndSequence: didRunEnd ? state.runEndSequence + 1 : state.runEndSequence,
@@ -192,6 +198,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       return {
         ...state,
         score: shouldResetScore ? 0 : state.score,
+        lastRunScore: nextValue ? state.score : state.lastRunScore,
         gameOver: nextValue,
       }
     })
