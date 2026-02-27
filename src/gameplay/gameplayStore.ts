@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { playSteel } from '@/audio/SoundManager'
+import { playBee, playError, playSteel } from '@/audio/SoundManager'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
 import { onEntityUnregister } from '@/entities/entityStore'
 import { emitScorePop } from '@/input/scorePopEmitter'
@@ -157,10 +157,14 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   loseLives: (delta) => {
     const normalizedDelta = normalizeNonNegativeInt(delta, 0)
     if (normalizedDelta === 0) return
+    let playLifeLostSound = false
+    let playRunEndSound = false
     set((state) => {
       if (state.gameOver) return state
       const nextLives = Math.max(0, state.lives - normalizedDelta)
       const didRunEnd = nextLives <= 0
+      playLifeLostSound = nextLives < state.lives
+      playRunEndSound = didRunEnd
       const autoResetLives = SETTINGS.gameplay.lives.autoReset === true
       const nextGameOver = didRunEnd && !autoResetLives
       const didEnterGameOver = nextGameOver && !state.gameOver
@@ -188,12 +192,16 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         runEndSequence: didRunEnd ? state.runEndSequence + 1 : state.runEndSequence,
       }
     })
+    if (playLifeLostSound) playError()
+    if (playRunEndSound) playBee()
   },
 
   setGameOver: (value) => {
     const nextValue = value === true
+    let playGameOverSound = false
     set((state) => {
       if (state.gameOver === nextValue) return state
+      playGameOverSound = nextValue
       const shouldResetScore = nextValue && SETTINGS.gameplay.score.resetOnGameOver === true
       return {
         ...state,
@@ -202,6 +210,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         gameOver: nextValue,
       }
     })
+    if (playGameOverSound) playBee()
   },
 
   removeEntities: (ids) => {

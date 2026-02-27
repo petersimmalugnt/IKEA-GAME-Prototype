@@ -55,6 +55,8 @@ export type SoundSettings = {
   pop: SoundCategorySettings
   felt: SoundCategorySettings
   steel: SoundCategorySettings
+  error: SoundCategorySettings
+  bee: SoundCategorySettings
   swoosh: SwooshSoundSettings
 }
 

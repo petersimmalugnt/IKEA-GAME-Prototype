@@ -341,6 +341,21 @@ export const SETTINGS: Settings = {
       ],
       volume: .5,
     },
+    error: {
+      files: [
+        "/sounds/error/error1.wav",
+        "/sounds/error/error2.wav",
+        "/sounds/error/error3.wav",
+        "/sounds/error/error4.wav",
+      ],
+      volume: 1,
+    },
+    bee: {
+      files: [
+        "/sounds/bee/bee1.wav",
+      ],
+      volume: 1,
+    },
     swoosh: {
       files: [
         "/sounds/swoosh/swoosh1.wav",

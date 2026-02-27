@@ -1,7 +1,7 @@
 import { SETTINGS } from "@/settings/GameSettings";
 import type { SoundCategorySettings } from "@/settings/GameSettings";
 
-type SoundCategory = "pop" | "felt" | "steel" | "swoosh";
+type SoundCategory = "pop" | "felt" | "steel" | "error" | "bee" | "swoosh";
 
 type CategoryState = {
   buffers: AudioBuffer[];
@@ -81,6 +81,8 @@ export async function preload(): Promise<void> {
     loadCategory(audioCtx, "pop", sounds.pop),
     loadCategory(audioCtx, "felt", sounds.felt),
     loadCategory(audioCtx, "steel", sounds.steel),
+    loadCategory(audioCtx, "error", sounds.error),
+    loadCategory(audioCtx, "bee", sounds.bee),
     loadCategory(audioCtx, "swoosh", sounds.swoosh),
   ]);
 }
@@ -116,6 +118,14 @@ export function playFelt(): void {
 
 export function playSteel(): void {
   playCategory("steel");
+}
+
+export function playError(): void {
+  playCategory("error");
+}
+
+export function playBee(): void {
+  playCategory("bee");
 }
 
 export function playSwoosh(volumeScale = 1): void {
