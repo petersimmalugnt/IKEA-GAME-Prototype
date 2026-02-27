@@ -837,36 +837,6 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
-            },
-            {
-              "id": "1b726bfb-967c-4ee0-a588-adf33206f995",
-              "nodeType": "object",
-              "type": "DomeBlockElement",
-              "position": [
-                0,
-                0.8,
-                0
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "scale": [
-                1,
-                1,
-                1
-              ],
-              "props": {
-                "sizePreset": "lg",
-                "plane": "y",
-                "color": 0,
-                "singleTone": true,
-                "hidden": false,
-                "physics": "dynamic",
-                "contagionCarrier": false,
-                "contagionInfectable": true
-              }
             }
           ]
         }
@@ -4343,36 +4313,6 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
-            },
-            {
-              "id": "85eab775-ee78-44ea-96ea-9e771765a145",
-              "nodeType": "object",
-              "type": "DomeBlockElement",
-              "position": [
-                0,
-                0.8,
-                0
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "scale": [
-                1,
-                1,
-                1
-              ],
-              "props": {
-                "sizePreset": "lg",
-                "plane": "y",
-                "color": 0,
-                "singleTone": true,
-                "hidden": false,
-                "physics": "dynamic",
-                "contagionCarrier": false,
-                "contagionInfectable": true
-              }
             }
           ]
         }
@@ -4663,36 +4603,6 @@
                 "plane": "y",
                 "color": 0,
                 "singleTone": false,
-                "hidden": false,
-                "physics": "dynamic",
-                "contagionCarrier": false,
-                "contagionInfectable": true
-              }
-            },
-            {
-              "id": "ea827c6d-159e-4eaf-9c62-ee9fe11b73de",
-              "nodeType": "object",
-              "type": "DomeBlockElement",
-              "position": [
-                0,
-                0.8,
-                0
-              ],
-              "rotation": [
-                0,
-                0,
-                0
-              ],
-              "scale": [
-                1,
-                1,
-                1
-              ],
-              "props": {
-                "sizePreset": "lg",
-                "plane": "y",
-                "color": 0,
-                "singleTone": true,
                 "hidden": false,
                 "physics": "dynamic",
                 "contagionCarrier": false,
