@@ -17,9 +17,18 @@ import { isPlaying } from '@/game/gamePhaseStore'
 
 export const TRANSFORM_MOTION_AXES = ['x', 'y', 'z'] as const
 export const TRANSFORM_MOTION_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
+export const TRANSFORM_MOTION_TIME_SCALE_ACCELERATION_CURVES = [
+  'linear',
+  'power_1_25',
+  'power_1_5',
+  'power_2',
+  'exponential',
+] as const
 
 export type AxisName = (typeof TRANSFORM_MOTION_AXES)[number]
 export type LoopMode = (typeof TRANSFORM_MOTION_LOOP_MODES)[number]
+export type TimeScaleAccelerationCurve =
+  (typeof TRANSFORM_MOTION_TIME_SCALE_ACCELERATION_CURVES)[number]
 type AxisRange = [number, number]
 type AxisValueMap = Partial<Record<AxisName, number>>
 type AxisRangeMap = Partial<Record<AxisName, AxisRange>>
@@ -37,6 +46,16 @@ export type TransformMotionProps = Omit<ThreeElements['group'], 'ref'> & {
   timeScale?: number
   /** Additive random amplitude for `timeScale` (sampled once at mount). Requires explicit `timeScale`. */
   randomTimeScale?: number
+  /** Global acceleration amount for timeScale over MotionSystem global clock. */
+  timeScaleAcceleration?: number
+  /** Curve used when resolving timeScaleAcceleration growth over global motion clock. */
+  timeScaleAccelerationCurve?: TimeScaleAccelerationCurve
+  /** Override acceleration for position channel (number = all axes, object = per-axis). */
+  timeScaleAccelerationPosition?: PerAxisOverride<number>
+  /** Override acceleration for rotation channel (number = all axes, object = per-axis). */
+  timeScaleAccelerationRotation?: PerAxisOverride<number>
+  /** Override acceleration for scale channel (number = all axes, object = per-axis). */
+  timeScaleAccelerationScale?: PerAxisOverride<number>
   positionVelocity?: Vec3Like
   /** Degrees per second */
   rotationVelocity?: Vec3Like
@@ -113,6 +132,10 @@ type MotionTrackConfig = {
   rotationVelocity: Vec3
   scaleVelocity: Vec3
   timeScale: number
+  timeScaleAccelerationCurve: TimeScaleAccelerationCurve
+  positionTimeScaleAcceleration: Vec3
+  rotationTimeScaleAcceleration: Vec3
+  scaleTimeScaleAcceleration: Vec3
   positionRange?: AxisRangeMap
   rotationRange?: AxisRangeMap
   scaleRange?: AxisRangeMap
@@ -125,6 +148,12 @@ type MotionTrackState = {
   positionProgress: Vec3
   rotationProgress: Vec3
   scaleProgress: Vec3
+  positionVelocityScratch: Vec3
+  rotationVelocityScratch: Vec3
+  scaleVelocityScratch: Vec3
+  positionAccelerationMultiplierScratch: Vec3
+  rotationAccelerationMultiplierScratch: Vec3
+  scaleAccelerationMultiplierScratch: Vec3
 }
 
 type MotionTrack = {
@@ -139,6 +168,7 @@ type MotionRegistry = {
 
 const ZERO_VEC3: Vec3 = [0, 0, 0]
 const DEG2RAD = Math.PI / 180
+const DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS = 0.5
 
 function normalizeVec3Like(input?: Vec3Like): Vec3 {
   if (!input) return [...ZERO_VEC3]
@@ -246,6 +276,66 @@ function resolveRandomAmplitude(value: number | undefined): number {
 function resolveTimeScale(value: number | undefined): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 1
   return Math.max(0, value)
+}
+
+function resolveTimeScaleAcceleration(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 0
+  return value
+}
+
+function resolvePerAxisAcceleration(
+  globalAcceleration: number,
+  override?: PerAxisOverride<number>,
+): Vec3 {
+  if (override === undefined) {
+    return [globalAcceleration, globalAcceleration, globalAcceleration]
+  }
+  if (typeof override === 'number') {
+    const value = resolveTimeScaleAcceleration(override)
+    return [value, value, value]
+  }
+  return TRANSFORM_MOTION_AXES.map((axis) => (
+    resolveTimeScaleAcceleration(override[axis] ?? globalAcceleration)
+  )) as Vec3
+}
+
+function resolveAccelerationMultiplier(
+  acceleration: number,
+  curve: TimeScaleAccelerationCurve,
+  clockSeconds: number,
+): number {
+  if (acceleration === 0 || clockSeconds <= 0) return 1
+
+  switch (curve) {
+    case 'power_1_25':
+      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 1.25))
+    case 'power_1_5':
+      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 1.5))
+    case 'power_2':
+      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 2))
+    case 'exponential':
+      return Math.exp(acceleration * clockSeconds)
+    case 'linear':
+    default:
+      return Math.max(0, 1 + acceleration * clockSeconds)
+  }
+}
+
+function resolveAccelerationMultipliers(
+  accelerationByAxis: Vec3,
+  curve: TimeScaleAccelerationCurve,
+  clockSeconds: number,
+  out: Vec3,
+): void {
+  out[0] = resolveAccelerationMultiplier(accelerationByAxis[0], curve, clockSeconds)
+  out[1] = resolveAccelerationMultiplier(accelerationByAxis[1], curve, clockSeconds)
+  out[2] = resolveAccelerationMultiplier(accelerationByAxis[2], curve, clockSeconds)
+}
+
+function applyAxisMultipliers(base: Vec3, multipliers: Vec3, out: Vec3): void {
+  out[0] = base[0] * multipliers[0]
+  out[1] = base[1] * multipliers[1]
+  out[2] = base[2] * multipliers[2]
 }
 
 function sampleSignedRandom(amplitude: number): number {
@@ -429,10 +519,84 @@ function toWorldVelocity(
   return [scratch.x, scratch.y, scratch.z]
 }
 
+type MotionSystemClockResetOptions = {
+  durationSeconds?: number
+}
+
+type MotionSystemClockController = {
+  rawClockSecondsRef: MutableRefObject<number>
+  effectiveClockSecondsRef: MutableRefObject<number>
+  pausedRef: MutableRefObject<boolean>
+  resetActiveRef: MutableRefObject<boolean>
+  resetFromSecondsRef: MutableRefObject<number>
+  resetElapsedSecondsRef: MutableRefObject<number>
+  resetDurationSecondsRef: MutableRefObject<number>
+}
+
+const motionSystemClockControllerRef: { current: MotionSystemClockController | null } = { current: null }
+
+function resolveResetDurationSeconds(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS
+  }
+  return Math.max(0, value)
+}
+
+function getMotionSystemClockController(): MotionSystemClockController | null {
+  return motionSystemClockControllerRef.current
+}
+
+export function resetMotionSystemClock(options?: MotionSystemClockResetOptions): void {
+  const controller = getMotionSystemClockController()
+  if (!controller) return
+  const durationSeconds = resolveResetDurationSeconds(options?.durationSeconds)
+  controller.resetActiveRef.current = durationSeconds > 0
+  controller.resetDurationSecondsRef.current = durationSeconds
+  controller.resetElapsedSecondsRef.current = 0
+  controller.resetFromSecondsRef.current = controller.effectiveClockSecondsRef.current
+  controller.rawClockSecondsRef.current = 0
+  if (durationSeconds <= 0) {
+    controller.effectiveClockSecondsRef.current = 0
+  }
+}
+
+export function pauseMotionSystemClock(): void {
+  const controller = getMotionSystemClockController()
+  if (!controller) return
+  controller.pausedRef.current = true
+}
+
+export function resumeMotionSystemClock(): void {
+  const controller = getMotionSystemClockController()
+  if (!controller) return
+  controller.pausedRef.current = false
+}
+
+export function setMotionSystemClockPaused(paused: boolean): void {
+  if (paused) {
+    pauseMotionSystemClock()
+    return
+  }
+  resumeMotionSystemClock()
+}
+
+export function getMotionSystemClockSeconds(): number {
+  const controller = getMotionSystemClockController()
+  if (!controller) return 0
+  return controller.effectiveClockSecondsRef.current
+}
+
 const MotionRegistryContext = createContext<MotionRegistry | null>(null)
 
 export function MotionSystemProvider({ children }: { children: ReactNode }) {
   const tracksRef = useRef<Set<MotionTrack>>(new Set())
+  const rawClockSecondsRef = useRef(0)
+  const effectiveClockSecondsRef = useRef(0)
+  const pausedRef = useRef(false)
+  const resetActiveRef = useRef(false)
+  const resetFromSecondsRef = useRef(0)
+  const resetElapsedSecondsRef = useRef(0)
+  const resetDurationSecondsRef = useRef(DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS)
 
   const registry = useMemo<MotionRegistry>(() => ({
     register(track) {
@@ -443,44 +607,123 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
     },
   }), [])
 
+  useEffect(() => {
+    const controller: MotionSystemClockController = {
+      rawClockSecondsRef,
+      effectiveClockSecondsRef,
+      pausedRef,
+      resetActiveRef,
+      resetFromSecondsRef,
+      resetElapsedSecondsRef,
+      resetDurationSecondsRef,
+    }
+    motionSystemClockControllerRef.current = controller
+    return () => {
+      if (motionSystemClockControllerRef.current === controller) {
+        motionSystemClockControllerRef.current = null
+      }
+    }
+  }, [])
+
   useFrame((_, delta) => {
     if (!isPlaying()) return
+    if (pausedRef.current) return
+    if (!(delta > 0)) return
+
+    if (resetActiveRef.current) {
+      resetElapsedSecondsRef.current += delta
+      const duration = Math.max(0, resetDurationSecondsRef.current)
+      if (duration <= 0) {
+        resetActiveRef.current = false
+        rawClockSecondsRef.current = 0
+        effectiveClockSecondsRef.current = 0
+      } else {
+        const t = Math.min(1, resetElapsedSecondsRef.current / duration)
+        const fromSeconds = resetFromSecondsRef.current
+        effectiveClockSecondsRef.current = fromSeconds * (1 - t)
+        if (t >= 1) {
+          resetActiveRef.current = false
+          rawClockSecondsRef.current = 0
+          effectiveClockSecondsRef.current = 0
+        }
+      }
+    } else {
+      rawClockSecondsRef.current += delta
+      effectiveClockSecondsRef.current = rawClockSecondsRef.current
+    }
+    const clockSeconds = effectiveClockSecondsRef.current
+
     tracksRef.current.forEach((track) => {
       const object = track.ref.current
       if (!object) return
 
       const config = track.configRef.current
-      const scaledDelta = delta * config.timeScale
-      if (scaledDelta === 0) return
+      const baseDelta = delta * config.timeScale
+      if (baseDelta === 0) return
+
+      resolveAccelerationMultipliers(
+        config.positionTimeScaleAcceleration,
+        config.timeScaleAccelerationCurve,
+        clockSeconds,
+        track.state.positionAccelerationMultiplierScratch,
+      )
+      resolveAccelerationMultipliers(
+        config.rotationTimeScaleAcceleration,
+        config.timeScaleAccelerationCurve,
+        clockSeconds,
+        track.state.rotationAccelerationMultiplierScratch,
+      )
+      resolveAccelerationMultipliers(
+        config.scaleTimeScaleAcceleration,
+        config.timeScaleAccelerationCurve,
+        clockSeconds,
+        track.state.scaleAccelerationMultiplierScratch,
+      )
+      applyAxisMultipliers(
+        config.positionVelocity,
+        track.state.positionAccelerationMultiplierScratch,
+        track.state.positionVelocityScratch,
+      )
+      applyAxisMultipliers(
+        config.rotationVelocity,
+        track.state.rotationAccelerationMultiplierScratch,
+        track.state.rotationVelocityScratch,
+      )
+      applyAxisMultipliers(
+        config.scaleVelocity,
+        track.state.scaleAccelerationMultiplierScratch,
+        track.state.scaleVelocityScratch,
+      )
+
       updateVector(
         object.position,
-        config.positionVelocity,
+        track.state.positionVelocityScratch,
         config.positionRange,
         track.state.positionDirection,
         config.positionLoopMode,
         config.positionEasing,
         track.state.positionProgress,
-        scaledDelta,
+        baseDelta,
       )
       updateVector(
         object.rotation,
-        config.rotationVelocity,
+        track.state.rotationVelocityScratch,
         config.rotationRange,
         track.state.rotationDirection,
         config.rotationLoopMode,
         config.rotationEasing,
         track.state.rotationProgress,
-        scaledDelta,
+        baseDelta,
       )
       updateVector(
         object.scale,
-        config.scaleVelocity,
+        track.state.scaleVelocityScratch,
         config.scaleRange,
         track.state.scaleDirection,
         config.scaleLoopMode,
         config.scaleEasing,
         track.state.scaleProgress,
-        scaledDelta,
+        baseDelta,
       )
     })
   })
@@ -497,6 +740,11 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
   loopMode,
   timeScale,
   randomTimeScale,
+  timeScaleAcceleration,
+  timeScaleAccelerationCurve,
+  timeScaleAccelerationPosition,
+  timeScaleAccelerationRotation,
+  timeScaleAccelerationScale,
   positionVelocity,
   rotationVelocity,
   scaleVelocity,
@@ -584,6 +832,20 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
   )
   const baseTimeScale = resolveTimeScale(timeScale ?? 1)
   const effectiveTimeScale = Math.max(0, baseTimeScale + randomProfile.timeScaleDelta)
+  const effectiveTimeScaleAccelerationCurve: TimeScaleAccelerationCurve = timeScaleAccelerationCurve ?? 'linear'
+  const globalTimeScaleAcceleration = resolveTimeScaleAcceleration(timeScaleAcceleration)
+  const resolvedPositionTimeScaleAcceleration = resolvePerAxisAcceleration(
+    globalTimeScaleAcceleration,
+    timeScaleAccelerationPosition,
+  )
+  const resolvedRotationTimeScaleAcceleration = resolvePerAxisAcceleration(
+    globalTimeScaleAcceleration,
+    timeScaleAccelerationRotation,
+  )
+  const resolvedScaleTimeScaleAcceleration = resolvePerAxisAcceleration(
+    globalTimeScaleAcceleration,
+    timeScaleAccelerationScale,
+  )
 
   const computedConfig = useMemo<MotionTrackConfig>(() => ({
     positionLoopMode: resolvePerAxisLoopMode(effectiveLoopMode, positionLoopMode),
@@ -596,6 +858,10 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
     rotationVelocity: randomizedRotationVelocityDeg.map(v => v * DEG2RAD) as Vec3,
     scaleVelocity: randomizedScaleVelocity,
     timeScale: effectiveTimeScale,
+    timeScaleAccelerationCurve: effectiveTimeScaleAccelerationCurve,
+    positionTimeScaleAcceleration: resolvedPositionTimeScaleAcceleration,
+    rotationTimeScaleAcceleration: resolvedRotationTimeScaleAcceleration,
+    scaleTimeScaleAcceleration: resolvedScaleTimeScaleAcceleration,
     positionRange,
     rotationRange: rangeMapToRadians(rotationRange),
     scaleRange,
@@ -606,6 +872,10 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
     randomizedRotationVelocityDeg,
     randomizedScaleVelocity,
     effectiveTimeScale,
+    effectiveTimeScaleAccelerationCurve,
+    resolvedPositionTimeScaleAcceleration,
+    resolvedRotationTimeScaleAcceleration,
+    resolvedScaleTimeScaleAcceleration,
     positionRange,
     rotationRange,
     scaleRange,
@@ -624,6 +894,12 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
     positionProgress: [0, 0, 0],
     rotationProgress: [0, 0, 0],
     scaleProgress: [0, 0, 0],
+    positionVelocityScratch: [0, 0, 0],
+    rotationVelocityScratch: [0, 0, 0],
+    scaleVelocityScratch: [0, 0, 0],
+    positionAccelerationMultiplierScratch: [1, 1, 1],
+    rotationAccelerationMultiplierScratch: [1, 1, 1],
+    scaleAccelerationMultiplierScratch: [1, 1, 1],
   })
   const parentWorldQuaternion = useMemo(() => new THREE.Quaternion(), [])
   const worldLinearVelocityScratch = useMemo(() => new THREE.Vector3(), [])
@@ -657,8 +933,31 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
         config.rotationEasing,
         state.rotationProgress,
       )
-      const scaledLinearVelocity = scaleVec3(localLinearVelocity, config.timeScale)
-      const scaledAngularVelocity = scaleVec3(localAngularVelocity, config.timeScale)
+      const clockSeconds = getMotionSystemClockSeconds()
+      resolveAccelerationMultipliers(
+        config.positionTimeScaleAcceleration,
+        config.timeScaleAccelerationCurve,
+        clockSeconds,
+        state.positionAccelerationMultiplierScratch,
+      )
+      resolveAccelerationMultipliers(
+        config.rotationTimeScaleAcceleration,
+        config.timeScaleAccelerationCurve,
+        clockSeconds,
+        state.rotationAccelerationMultiplierScratch,
+      )
+      applyAxisMultipliers(
+        localLinearVelocity,
+        state.positionAccelerationMultiplierScratch,
+        state.positionVelocityScratch,
+      )
+      applyAxisMultipliers(
+        localAngularVelocity,
+        state.rotationAccelerationMultiplierScratch,
+        state.rotationVelocityScratch,
+      )
+      const scaledLinearVelocity = scaleVec3(state.positionVelocityScratch, config.timeScale)
+      const scaledAngularVelocity = scaleVec3(state.rotationVelocityScratch, config.timeScale)
 
       return {
         linearVelocity: toWorldVelocity(scaledLinearVelocity, object, parentWorldQuaternion, worldLinearVelocityScratch),

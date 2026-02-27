@@ -39,6 +39,7 @@ type GameplayState = {
   score: number
   lives: number
   gameOver: boolean
+  runEndSequence: number
   sequence: number
   contagionEpoch: number
   contagionColorsByEntityId: Record<string, number>
@@ -119,6 +120,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   score: 0,
   lives: getInitialLives(),
   gameOver: false,
+  runEndSequence: 0,
   sequence: 0,
   contagionEpoch: 0,
   contagionColorsByEntityId: {},
@@ -129,6 +131,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       score: 0,
       lives: getInitialLives(),
       gameOver: false,
+      runEndSequence: 0,
       sequence: 0,
       contagionEpoch: 0,
       contagionColorsByEntityId: {},
@@ -155,12 +158,17 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       if (state.gameOver) return state
       const nextLives = Math.max(0, state.lives - normalizedDelta)
       if (nextLives <= 0 && SETTINGS.gameplay.lives.autoReset) {
-        return { ...state, lives: getInitialLives() }
+        return {
+          ...state,
+          lives: getInitialLives(),
+          runEndSequence: state.runEndSequence + 1,
+        }
       }
       return {
         ...state,
         lives: nextLives,
         gameOver: nextLives <= 0,
+        runEndSequence: nextLives <= 0 ? state.runEndSequence + 1 : state.runEndSequence,
       }
     })
   },

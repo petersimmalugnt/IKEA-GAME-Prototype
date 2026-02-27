@@ -15,7 +15,11 @@ import { GameEffects } from "@/render/Effects";
 import { GameLights } from "@/render/Lights";
 import { type PlayerHandle } from "@/scene/Player";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
-import { MotionSystemProvider, TransformMotion } from "@/scene/TransformMotion";
+import {
+  MotionSystemProvider,
+  TransformMotion,
+  resetMotionSystemClock,
+} from "@/scene/TransformMotion";
 import { SETTINGS } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
 import { BalloonGroup } from "@/geometry/BalloonGroup";
@@ -35,11 +39,17 @@ export function Scene() {
   const cullMarkerRef = useRef<PositionTargetHandle | null>(null);
   const isDebug = SETTINGS.debug.enabled;
   const gameOver = useGameplayStore((state) => state.gameOver);
+  const runEndSequence = useGameplayStore((state) => state.runEndSequence);
 
   useEffect(() => {
     if (!gameOver) return;
     useSpawnerStore.getState().clearAll();
   }, [gameOver]);
+
+  useEffect(() => {
+    if (runEndSequence <= 0) return;
+    resetMotionSystemClock();
+  }, [runEndSequence]);
 
   // Calculate the diagonal of the viewport to ensure the floor covers the entire screen
   const { viewport } = useThree();

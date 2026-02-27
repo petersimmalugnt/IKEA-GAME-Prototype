@@ -284,11 +284,11 @@ export const SETTINGS: Settings = {
   // --- ITEM SPAWNER (marker-based) ---
   spawner: {
     enabled: true,
-    spawnIntervalMs: 1500,
-    speed: 0.3,
-    speedVariance: 0.1,
+    spawnIntervalMs: 500,
+    speed: 0.5,
+    speedVariance: 0.2,
     radius: 0,
-    maxItems: 40,
+    maxItems: 60,
     spawnXRange: 2.5,
     cullOffset: 6,
   },

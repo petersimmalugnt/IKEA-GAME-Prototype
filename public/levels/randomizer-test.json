@@ -22,14 +22,14 @@
       ],
       "props": {
         "count": [
-          11,
+          12,
           1,
-          16
+          15
         ],
         "spacing": [
-          7,
+          6,
           1,
-          7
+          9
         ],
         "offset": [
           0,
@@ -99,7 +99,7 @@
             "signedRotation": false,
             "signedScale": false,
             "exclude": true,
-            "excludeProbability": 1
+            "excludeProbability": 1.5
           }
         },
         {
@@ -179,8 +179,8 @@
               0,
               0
             ],
-            "signedPosition": false,
-            "signedRotation": true,
+            "signedPosition": true,
+            "signedRotation": false,
             "signedScale": false,
             "exclude": false,
             "excludeProbability": 0
@@ -195,7 +195,7 @@
           "type": "PushApartEffector",
           "props": {
             "enabled": true,
-            "radiusOffset": 2
+            "radiusOffset": 3
           }
         },
         {
@@ -498,6 +498,9 @@
             },
             {
               "id": "0bba8ec5-cdad-4c94-b054-18a7d3f11f39",
+              "builder": {
+                "hiddenInBuilder": false
+              },
               "nodeType": "effector",
               "type": "RandomEffector",
               "props": {
@@ -536,9 +539,6 @@
                   1,
                   2
                 ]
-              },
-              "builder": {
-                "hiddenInBuilder": false
               }
             }
           ]
