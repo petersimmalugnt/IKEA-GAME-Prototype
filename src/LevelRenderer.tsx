@@ -17,6 +17,7 @@ import {
   GridCloner,
   LinearFieldEffector,
   SphericalFieldEffector,
+  PushApartEffector,
   RandomEffector,
   NoiseEffector,
   TimeEffector,
@@ -77,6 +78,7 @@ const COMPONENT_REGISTRY: Record<string, ComponentRegistryEntry> = {
 const EFFECTOR_COMPONENTS: Record<string, React.ComponentType<any>> = {
   LinearFieldEffector,
   SphericalFieldEffector,
+  PushApartEffector,
   RandomEffector,
   NoiseEffector,
   TimeEffector,

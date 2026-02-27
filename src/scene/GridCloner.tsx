@@ -149,6 +149,11 @@ export type SphericalFieldEffectorConfig = SharedEffectorBase & SharedRemapProps
   invert?: boolean
 }
 
+export type PushApartEffectorConfig = SharedEffectorBase & {
+  type: 'pushApart'
+  radiusOffset?: number
+}
+
 export type RandomEffectorConfig = SharedEffectorBase & SharedRemapProps & {
   type: 'random'
   seed?: number
@@ -191,17 +196,19 @@ export type StepEffectorConfig = SharedEffectorBase & SharedRemapProps & {
 export type GridEffector =
   | LinearFieldEffectorConfig
   | SphericalFieldEffectorConfig
+  | PushApartEffectorConfig
   | RandomEffectorConfig
   | NoiseEffectorConfig
   | TimeEffectorConfig
   | StepEffectorConfig
 export type LinearFieldEffectorProps = Omit<LinearFieldEffectorConfig, 'type'>
 export type SphericalFieldEffectorProps = Omit<SphericalFieldEffectorConfig, 'type'>
+export type PushApartEffectorProps = Omit<PushApartEffectorConfig, 'type'>
 export type RandomEffectorProps = Omit<RandomEffectorConfig, 'type'>
 export type NoiseEffectorProps = Omit<NoiseEffectorConfig, 'type'>
 export type TimeEffectorProps = Omit<TimeEffectorConfig, 'type'>
 export type StepEffectorProps = Omit<StepEffectorConfig, 'type'>
-type EffectorComponentType = 'linear' | 'spherical' | 'random' | 'noise' | 'time' | 'step'
+type EffectorComponentType = 'linear' | 'spherical' | 'pushApart' | 'random' | 'noise' | 'time' | 'step'
 
 type EffectorMarkerComponent = {
   __gridEffectorType?: EffectorComponentType
@@ -373,7 +380,15 @@ function resolveGridUnitMultiplier(gridUnit: GridUnit | undefined): number {
 
 function getEffectorComponentType(type: unknown): EffectorComponentType | null {
   const marker = (type as EffectorMarkerComponent | undefined)?.__gridEffectorType
-  if (marker === 'linear' || marker === 'spherical' || marker === 'random' || marker === 'noise' || marker === 'time' || marker === 'step') return marker
+  if (
+    marker === 'linear'
+    || marker === 'spherical'
+    || marker === 'pushApart'
+    || marker === 'random'
+    || marker === 'noise'
+    || marker === 'time'
+    || marker === 'step'
+  ) return marker
   return null
 }
 
@@ -383,6 +398,10 @@ function isLinearEffector(effector: GridEffector): effector is LinearFieldEffect
 
 function isSphericalEffector(effector: GridEffector): effector is SphericalFieldEffectorConfig {
   return effector.type === 'spherical'
+}
+
+function isPushApartEffector(effector: GridEffector): effector is PushApartEffectorConfig {
+  return effector.type === 'pushApart'
 }
 
 function isStepEffector(effector: GridEffector): effector is StepEffectorConfig {
@@ -727,6 +746,8 @@ function evaluateEffectorStack(options: EvaluateEffectorStackOptions): {
     } else if (effector.type === 'spherical') {
       amountForColor = evaluateSphericalFieldWeight(localPosition, effector)
       wCurrent = clamp01(amountForColor)
+    } else if (effector.type === 'pushApart') {
+      return
     } else if (effector.type === 'step') {
       const stepProgress = evaluateStepProgress(instanceIndex, instanceCount, effector)
       amountForColor = remapEffectorWeight(stepProgress, effector) * strength
@@ -1544,6 +1565,13 @@ function scaleEffectorByUnit(effector: GridEffector, unitMultiplier: number): Gr
     }
   }
 
+  if (effector.type === 'pushApart') {
+    return {
+      ...effector,
+      radiusOffset: effector.radiusOffset !== undefined ? effector.radiusOffset * unitMultiplier : undefined,
+    }
+  }
+
   if (effector.type === 'noise') {
     return {
       ...effector,
@@ -1571,6 +1599,672 @@ function cloneTransformState(transform: CloneTransform): CloneTransform {
   }
 }
 
+type NonPushGridEffector = Exclude<GridEffector, PushApartEffectorConfig>
+
+type PushApartStage = {
+  regularPrefixCount: number
+  radiusOffset: number
+}
+
+type BoundsXZ = {
+  minX: number
+  maxX: number
+  minZ: number
+  maxZ: number
+  hasValue: boolean
+}
+
+type FootprintContext = {
+  mountSeed: number
+  seedPathSalt: number
+  depth: number
+}
+
+const MAX_FOOTPRINT_DEPTH = 6
+const warnedUnknownFootprintTypes = new Set<string>()
+
+function createEmptyBoundsXZ(): BoundsXZ {
+  return {
+    minX: Number.POSITIVE_INFINITY,
+    maxX: Number.NEGATIVE_INFINITY,
+    minZ: Number.POSITIVE_INFINITY,
+    maxZ: Number.NEGATIVE_INFINITY,
+    hasValue: false,
+  }
+}
+
+function mergeBoundsXZ(target: BoundsXZ, source: BoundsXZ): BoundsXZ {
+  if (!source.hasValue) return target
+  if (!target.hasValue) {
+    target.minX = source.minX
+    target.maxX = source.maxX
+    target.minZ = source.minZ
+    target.maxZ = source.maxZ
+    target.hasValue = true
+    return target
+  }
+  target.minX = Math.min(target.minX, source.minX)
+  target.maxX = Math.max(target.maxX, source.maxX)
+  target.minZ = Math.min(target.minZ, source.minZ)
+  target.maxZ = Math.max(target.maxZ, source.maxZ)
+  return target
+}
+
+function translateBoundsXZ(bounds: BoundsXZ, position: Vec3): BoundsXZ {
+  if (!bounds.hasValue) return bounds
+  return {
+    minX: bounds.minX + position[0],
+    maxX: bounds.maxX + position[0],
+    minZ: bounds.minZ + position[2],
+    maxZ: bounds.maxZ + position[2],
+    hasValue: true,
+  }
+}
+
+function scaleBoundsXZ(bounds: BoundsXZ, scale: Vec3): BoundsXZ {
+  if (!bounds.hasValue) return bounds
+  const scaledMinX = Math.min(bounds.minX * scale[0], bounds.maxX * scale[0])
+  const scaledMaxX = Math.max(bounds.minX * scale[0], bounds.maxX * scale[0])
+  const scaledMinZ = Math.min(bounds.minZ * scale[2], bounds.maxZ * scale[2])
+  const scaledMaxZ = Math.max(bounds.minZ * scale[2], bounds.maxZ * scale[2])
+  return {
+    minX: scaledMinX,
+    maxX: scaledMaxX,
+    minZ: scaledMinZ,
+    maxZ: scaledMaxZ,
+    hasValue: true,
+  }
+}
+
+function transformBoundsXZ(bounds: BoundsXZ, position: Vec3, scale: Vec3): BoundsXZ {
+  if (!bounds.hasValue) return bounds
+  return translateBoundsXZ(scaleBoundsXZ(bounds, scale), position)
+}
+
+function radiusFromBoundsXZ(bounds: BoundsXZ): number {
+  if (!bounds.hasValue) return 0
+  return Math.max(0.0001, 0.5 * Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ))
+}
+
+function boundsFromColliderXZ(
+  collider: Exclude<GridCollider, { shape: 'auto' }>,
+  colliderOffset: Vec3,
+): BoundsXZ {
+  if (collider.shape === 'ball') {
+    const radius = Math.max(0.0001, collider.radius)
+    return {
+      minX: colliderOffset[0] - radius,
+      maxX: colliderOffset[0] + radius,
+      minZ: colliderOffset[2] - radius,
+      maxZ: colliderOffset[2] + radius,
+      hasValue: true,
+    }
+  }
+  if (collider.shape === 'cylinder') {
+    const radius = Math.max(0.0001, collider.radius)
+    return {
+      minX: colliderOffset[0] - radius,
+      maxX: colliderOffset[0] + radius,
+      minZ: colliderOffset[2] - radius,
+      maxZ: colliderOffset[2] + radius,
+      hasValue: true,
+    }
+  }
+  return {
+    minX: colliderOffset[0] - collider.halfExtents[0],
+    maxX: colliderOffset[0] + collider.halfExtents[0],
+    minZ: colliderOffset[2] - collider.halfExtents[2],
+    maxZ: colliderOffset[2] + collider.halfExtents[2],
+    hasValue: true,
+  }
+}
+
+function splitTemplateChildren(children: ReactNode): {
+  objectChildren: ReactElement<Record<string, unknown>>[]
+  effectors: GridEffector[]
+} {
+  const objectChildren: ReactElement<Record<string, unknown>>[] = []
+  const effectors: GridEffector[] = []
+  Children.toArray(children).forEach((child) => {
+    if (!isValidElement(child)) return
+    const effectorType = getEffectorComponentType(child.type)
+    if (!effectorType) {
+      objectChildren.push(child as ReactElement<Record<string, unknown>>)
+      return
+    }
+    const props = (child.props ?? {}) as Record<string, unknown>
+    if (effectorType === 'linear') {
+      effectors.push({ type: 'linear', ...(props as LinearFieldEffectorProps) })
+      return
+    }
+    if (effectorType === 'spherical') {
+      effectors.push({ type: 'spherical', ...(props as SphericalFieldEffectorProps) })
+      return
+    }
+    if (effectorType === 'pushApart') {
+      effectors.push({ type: 'pushApart', ...(props as PushApartEffectorProps) })
+      return
+    }
+    if (effectorType === 'random') {
+      effectors.push({ type: 'random', ...(props as RandomEffectorProps) })
+      return
+    }
+    if (effectorType === 'noise') {
+      effectors.push({ type: 'noise', ...(props as NoiseEffectorProps) })
+      return
+    }
+    if (effectorType === 'time') {
+      effectors.push({ type: 'time', ...(props as TimeEffectorProps) })
+      return
+    }
+    effectors.push({ type: 'step', ...(props as StepEffectorProps) })
+  })
+  return { objectChildren, effectors }
+}
+
+function splitPushApartStages(effectors: GridEffector[]): {
+  regularEffectors: NonPushGridEffector[]
+  pushStages: PushApartStage[]
+} {
+  const regularEffectors: NonPushGridEffector[] = []
+  const pushStages: PushApartStage[] = []
+  let regularCount = 0
+  effectors.forEach((effector) => {
+    if (isPushApartEffector(effector)) {
+      if (effector.enabled === false) return
+      pushStages.push({
+        regularPrefixCount: regularCount,
+        radiusOffset: effector.radiusOffset ?? 0,
+      })
+      return
+    }
+    regularEffectors.push(effector)
+    regularCount += 1
+  })
+  return { regularEffectors, pushStages }
+}
+
+function resolveElementFootprintBoundsXZ(
+  element: ReactElement<Record<string, unknown>>,
+  context: FootprintContext,
+  applyOwnTransform: boolean,
+): BoundsXZ {
+  if (context.depth > MAX_FOOTPRINT_DEPTH) {
+    return {
+      minX: -0.125,
+      maxX: 0.125,
+      minZ: -0.125,
+      maxZ: 0.125,
+      hasValue: true,
+    }
+  }
+
+  const props = (element.props ?? {}) as Record<string, unknown>
+
+  if (isPrimitiveType(element.type)) {
+    const inferred = resolveAutoColliderFromChild(element, 'cloner', IDENTITY_POSITION)
+    let bounds = boundsFromColliderXZ(inferred.collider, inferred.colliderOffset)
+    if (applyOwnTransform) {
+      const localScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+      const localPosition = isVec3(props.position) ? props.position : IDENTITY_POSITION
+      bounds = transformBoundsXZ(bounds, localPosition, localScale)
+    }
+    return bounds
+  }
+
+  if (element.type !== GridCloner && element.type !== Fracture && element.type !== TransformMotion && element.type !== 'group') {
+    const fallbackType = typeof element.type === 'string' ? element.type : ((element.type as { name?: string }).name ?? 'unknown')
+    if (import.meta.env.DEV && !warnedUnknownFootprintTypes.has(fallbackType)) {
+      warnedUnknownFootprintTypes.add(fallbackType)
+      console.warn(`[PushApartEffector] Falling back footprint radius for unsupported element type "${fallbackType}".`)
+    }
+    return {
+      minX: -0.125,
+      maxX: 0.125,
+      minZ: -0.125,
+      maxZ: 0.125,
+      hasValue: true,
+    }
+  }
+
+  if (element.type === TransformMotion || element.type === 'group') {
+    const nested = splitTemplateChildren(props.children as ReactNode).objectChildren
+    let merged = createEmptyBoundsXZ()
+    nested.forEach((child, childIndex) => {
+      const childBounds = resolveElementFootprintBoundsXZ(
+        child,
+        {
+          mountSeed: context.mountSeed,
+          seedPathSalt: deriveNestedSeedPathSalt(context.seedPathSalt, childIndex, 0),
+          depth: context.depth + 1,
+        },
+        true,
+      )
+      merged = mergeBoundsXZ(merged, childBounds)
+    })
+    if (applyOwnTransform) {
+      const localScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+      const localPosition = isVec3(props.position) ? props.position : IDENTITY_POSITION
+      merged = transformBoundsXZ(merged, localPosition, localScale)
+    }
+    return merged
+  }
+
+  if (element.type === Fracture) {
+    const { objectChildren, effectors } = splitTemplateChildren(props.children as ReactNode)
+    const unitMultiplier = resolveGridUnitMultiplier(props.gridUnit as GridUnit | undefined)
+    const scaled = effectors.map((effector) => scaleEffectorByUnit(effector, unitMultiplier))
+    const normalized = scaled.map((effector) => {
+      if (effector.type === 'linear' && effector.fieldRotation) {
+        return { ...effector, fieldRotation: toRadians(effector.fieldRotation) } as NonPushGridEffector
+      }
+      if ('rotation' in effector && effector.rotation) {
+        return { ...effector, rotation: toRadians(effector.rotation) } as NonPushGridEffector
+      }
+      return effector as NonPushGridEffector
+    })
+    const { regularEffectors } = splitPushApartStages(normalized)
+    const resolvedMountSeed = hashSeed(context.mountSeed ^ context.seedPathSalt ^ 0x3e2f7a1d)
+    const resolvedEffectorSeeds = regularEffectors.map((effector, effectorIndex) => {
+      if (effector.type !== 'random' && effector.type !== 'noise') return null
+      return resolveEffectorSeedForMount(
+        effector.seed,
+        resolvedMountSeed,
+        context.seedPathSalt,
+        effector.type,
+        effectorIndex,
+      )
+    })
+    const noiseGenerators = regularEffectors.map((effector, effectorIndex) => (
+      effector.type === 'noise'
+        ? new SeededImprovedNoise(resolvedEffectorSeeds[effectorIndex] ?? 1)
+        : null
+    ))
+
+    let merged = createEmptyBoundsXZ()
+    objectChildren.forEach((child, index) => {
+      const childProps = (child.props ?? {}) as Record<string, unknown>
+      const basePosition = isVec3(childProps.position) ? childProps.position : IDENTITY_POSITION
+      const baseRotation = resolveChildRotationRadians(child.type, childProps.rotation)
+      const baseScale = isVec3(childProps.scale) ? childProps.scale : IDENTITY_SCALE
+      const evaluated = evaluateEffectorStack({
+        localPosition: basePosition,
+        effectors: regularEffectors,
+        instanceIndex: index,
+        instanceCount: objectChildren.length,
+        timeSeconds: 0,
+        resolvedEffectorSeeds,
+        noiseGenerators,
+        basePosition,
+        baseRotation,
+        baseScale,
+      })
+      if (evaluated.excluded) return
+      const childBounds = resolveElementFootprintBoundsXZ(
+        child,
+        {
+          mountSeed: resolvedMountSeed,
+          seedPathSalt: deriveNestedSeedPathSalt(context.seedPathSalt, index, 0),
+          depth: context.depth + 1,
+        },
+        false,
+      )
+      merged = mergeBoundsXZ(merged, transformBoundsXZ(childBounds, evaluated.position, evaluated.scale))
+    })
+
+    if (applyOwnTransform) {
+      const localScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+      const localPosition = isVec3(props.position) ? props.position : IDENTITY_POSITION
+      merged = transformBoundsXZ(merged, localPosition, localScale)
+    }
+    return merged
+  }
+
+  const { objectChildren, effectors } = splitTemplateChildren(props.children as ReactNode)
+  const unitMultiplier = resolveGridUnitMultiplier(props.gridUnit as GridUnit | undefined)
+  const scaled = effectors.map((effector) => scaleEffectorByUnit(effector, unitMultiplier))
+  const normalized = scaled.map((effector) => {
+    if (effector.type === 'linear' && effector.fieldRotation) {
+      return { ...effector, fieldRotation: toRadians(effector.fieldRotation) } as NonPushGridEffector
+    }
+    if ('rotation' in effector && effector.rotation) {
+      return { ...effector, rotation: toRadians(effector.rotation) } as NonPushGridEffector
+    }
+    return effector as NonPushGridEffector
+  })
+  const { regularEffectors } = splitPushApartStages(normalized)
+
+  const count = isVec3(props.count) ? props.count : [1, 1, 1]
+  const normalizedCount: GridCount = [clampCount(count[0]), clampCount(count[1]), clampCount(count[2])]
+  const spacing = scaleVec3(isVec3(props.spacing) ? props.spacing : [1, 1, 1], unitMultiplier)
+  const offset = scaleVec3(isVec3(props.offset) ? props.offset : IDENTITY_POSITION, unitMultiplier)
+  const baseRotation = toRadians(isVec3(props.rotationOffset) ? props.rotationOffset : IDENTITY_ROTATION)
+  const baseScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+  const anchor = resolveGridAnchor(props.anchor as GridClonerProps['anchor'], typeof props.centered === 'boolean' ? props.centered : undefined)
+  const distribution: ChildDistribution = props.childDistribution === 'random' ? 'random' : 'iterate'
+  const transformMode: TransformMode = props.transformMode === 'child' ? 'child' : 'cloner'
+  const resolvedMountSeed = hashSeed(context.mountSeed ^ context.seedPathSalt ^ 0x1f123bb5)
+  const childRandomSeed = resolveChildDistributionSeedForMount(
+    typeof props.childRandomSeed === 'number' ? props.childRandomSeed : undefined,
+    resolvedMountSeed,
+    context.seedPathSalt,
+  )
+  const resolvedEffectorSeeds = regularEffectors.map((effector, effectorIndex) => {
+    if (effector.type !== 'random' && effector.type !== 'noise') return null
+    return resolveEffectorSeedForMount(
+      effector.seed,
+      resolvedMountSeed,
+      context.seedPathSalt,
+      effector.type,
+      effectorIndex,
+    )
+  })
+  const noiseGenerators = regularEffectors.map((effector, effectorIndex) => (
+    effector.type === 'noise'
+      ? new SeededImprovedNoise(resolvedEffectorSeeds[effectorIndex] ?? 1)
+      : null
+  ))
+
+  const [cx, cy, cz] = normalizedCount
+  const [sx, sy, sz] = spacing
+  const [ox, oy, oz] = offset
+  const totalClones = cx * cy * cz
+  const startX = resolveAxisStart(anchor.x, cx, sx)
+  const startY = resolveAxisStart(anchor.y, cy, sy)
+  const startZ = resolveAxisStart(anchor.z, cz, sz)
+
+  let merged = createEmptyBoundsXZ()
+  let flatIndex = 0
+  for (let y = 0; y < cy; y += 1) {
+    for (let z = 0; z < cz; z += 1) {
+      for (let x = 0; x < cx; x += 1) {
+        const localPosition: Vec3 = [
+          startX + (x * sx) + ox,
+          startY + (y * sy) + oy,
+          startZ + (z * sz) + oz,
+        ]
+        const evaluated = evaluateEffectorStack({
+          localPosition,
+          effectors: regularEffectors,
+          instanceIndex: flatIndex,
+          instanceCount: totalClones,
+          timeSeconds: 0,
+          resolvedEffectorSeeds,
+          noiseGenerators,
+          basePosition: localPosition,
+          baseRotation,
+          baseScale,
+        })
+        if (!evaluated.excluded && objectChildren.length > 0) {
+          const selectedChildIndex = resolveDistributedChildIndex(distribution, childRandomSeed, flatIndex, objectChildren.length)
+          const selectedChild = objectChildren[selectedChildIndex]
+          const childSeedPathSalt = deriveNestedSeedPathSalt(context.seedPathSalt, flatIndex, selectedChildIndex)
+          const childBounds = resolveElementFootprintBoundsXZ(
+            selectedChild,
+            {
+              mountSeed: resolvedMountSeed,
+              seedPathSalt: childSeedPathSalt,
+              depth: context.depth + 1,
+            },
+            transformMode !== 'cloner',
+          )
+          merged = mergeBoundsXZ(merged, transformBoundsXZ(childBounds, evaluated.position, evaluated.scale))
+        }
+        flatIndex += 1
+      }
+    }
+  }
+
+  if (applyOwnTransform) {
+    const ownScale = isVec3(props.scale) ? props.scale : IDENTITY_SCALE
+    const ownPosition = isVec3(props.position) ? props.position : IDENTITY_POSITION
+    merged = transformBoundsXZ(merged, ownPosition, ownScale)
+  }
+  return merged
+}
+
+function computeCloneFootprintRadiusXZ(
+  templateChild: TemplateCloneChild | undefined,
+  transformMode: TransformMode,
+  mountSeed: number,
+  seedPathSalt: number,
+): number {
+  if (!templateChild) return 0.25
+  const applyOwnTransform = transformMode !== 'cloner'
+  const bounds = resolveElementFootprintBoundsXZ(
+    templateChild.element,
+    {
+      mountSeed,
+      seedPathSalt,
+      depth: 0,
+    },
+    applyOwnTransform,
+  )
+  const radiusFromBounds = radiusFromBoundsXZ(bounds)
+  if (radiusFromBounds > 0) return radiusFromBounds
+  return radiusFromBoundsXZ(
+    boundsFromColliderXZ(
+      templateChild.inferredCollider.collider,
+      templateChild.inferredCollider.colliderOffset,
+    ),
+  )
+}
+
+function solvePushApartXZ(
+  positionsX: Float32Array,
+  positionsZ: Float32Array,
+  radii: Float32Array,
+  active: Uint8Array,
+  maxIterations = 8,
+) {
+  const count = positionsX.length
+  if (count === 0) return
+
+  let maxRadius = 0
+  for (let i = 0; i < count; i += 1) {
+    if (!active[i]) continue
+    if (radii[i] > maxRadius) maxRadius = radii[i]
+  }
+  if (maxRadius <= 0) return
+  const cellSize = Math.max(0.001, maxRadius * 2)
+
+  for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+    let movedAny = false
+    const buckets = new Map<string, number[]>()
+
+    for (let i = 0; i < count; i += 1) {
+      if (!active[i]) continue
+      const cx = Math.floor(positionsX[i] / cellSize)
+      const cz = Math.floor(positionsZ[i] / cellSize)
+      const key = `${cx},${cz}`
+      const bucket = buckets.get(key)
+      if (bucket) {
+        bucket.push(i)
+      } else {
+        buckets.set(key, [i])
+      }
+    }
+
+    for (let i = 0; i < count; i += 1) {
+      if (!active[i]) continue
+      const cx = Math.floor(positionsX[i] / cellSize)
+      const cz = Math.floor(positionsZ[i] / cellSize)
+      for (let dx = -1; dx <= 1; dx += 1) {
+        for (let dz = -1; dz <= 1; dz += 1) {
+          const bucket = buckets.get(`${cx + dx},${cz + dz}`)
+          if (!bucket) continue
+          for (let k = 0; k < bucket.length; k += 1) {
+            const j = bucket[k]
+            if (j <= i || !active[j]) continue
+            const mover = i > j ? i : j
+            const anchor = mover === i ? j : i
+            const diffX = positionsX[mover] - positionsX[anchor]
+            const diffZ = positionsZ[mover] - positionsZ[anchor]
+            const minDistance = radii[mover] + radii[anchor]
+            const distSq = (diffX * diffX) + (diffZ * diffZ)
+            if (distSq >= (minDistance * minDistance)) continue
+
+            let dirX = diffX
+            let dirZ = diffZ
+            let dist = Math.sqrt(distSq)
+            if (dist < 1e-6) {
+              const fallbackAngle = ((mover + 1) * 0.7548776662466927) % (Math.PI * 2)
+              dirX = Math.cos(fallbackAngle)
+              dirZ = Math.sin(fallbackAngle)
+              dist = 1
+            } else {
+              dirX /= dist
+              dirZ /= dist
+            }
+            const pushDistance = (minDistance - dist) + 1e-4
+            positionsX[mover] += dirX * pushDistance
+            positionsZ[mover] += dirZ * pushDistance
+            movedAny = true
+          }
+        }
+      }
+    }
+
+    if (!movedAny) break
+  }
+}
+
+function computePushApartOffsetsAtMount(options: {
+  count: GridCount
+  spacing: Vec3
+  offset: Vec3
+  anchor: GridAnchor3
+  baseRotation: Vec3
+  baseScale: Vec3
+  regularEffectors: NonPushGridEffector[]
+  pushStages: PushApartStage[]
+  resolvedEffectorSeeds: Array<number | null>
+  noiseGenerators: Array<SeededImprovedNoise | null>
+  childDistribution: ChildDistribution
+  childRandomSeed: number
+  templateChildren: TemplateCloneChild[]
+  transformMode: TransformMode
+  mountSeed: number
+  seedPathSalt: number
+}): Vec3[] {
+  const {
+    count,
+    spacing,
+    offset,
+    anchor,
+    baseRotation,
+    baseScale,
+    regularEffectors,
+    pushStages,
+    resolvedEffectorSeeds,
+    noiseGenerators,
+    childDistribution,
+    childRandomSeed,
+    templateChildren,
+    transformMode,
+    mountSeed,
+    seedPathSalt,
+  } = options
+
+  const totalClones = count[0] * count[1] * count[2]
+  if (totalClones <= 0 || pushStages.length === 0) return []
+
+  const localPositions: Vec3[] = new Array(totalClones)
+  const selectedChildIndices: number[] = new Array(totalClones)
+  const footprintRadii: number[] = new Array(totalClones)
+  const startX = resolveAxisStart(anchor.x, count[0], spacing[0])
+  const startY = resolveAxisStart(anchor.y, count[1], spacing[1])
+  const startZ = resolveAxisStart(anchor.z, count[2], spacing[2])
+  let flatIndex = 0
+  for (let y = 0; y < count[1]; y += 1) {
+    for (let z = 0; z < count[2]; z += 1) {
+      for (let x = 0; x < count[0]; x += 1) {
+        const localPosition: Vec3 = [
+          startX + (x * spacing[0]) + offset[0],
+          startY + (y * spacing[1]) + offset[1],
+          startZ + (z * spacing[2]) + offset[2],
+        ]
+        localPositions[flatIndex] = localPosition
+        if (templateChildren.length === 0) {
+          selectedChildIndices[flatIndex] = -1
+          footprintRadii[flatIndex] = 0.25
+        } else {
+          const selectedChildIndex = resolveDistributedChildIndex(childDistribution, childRandomSeed, flatIndex, templateChildren.length)
+          selectedChildIndices[flatIndex] = selectedChildIndex
+          const childSeedPathSalt = deriveNestedSeedPathSalt(seedPathSalt, flatIndex, selectedChildIndex)
+          footprintRadii[flatIndex] = computeCloneFootprintRadiusXZ(
+            templateChildren[selectedChildIndex],
+            transformMode,
+            mountSeed,
+            childSeedPathSalt,
+          )
+        }
+        flatIndex += 1
+      }
+    }
+  }
+
+  const offsetsX = new Float32Array(totalClones)
+  const offsetsZ = new Float32Array(totalClones)
+  const stageX = new Float32Array(totalClones)
+  const stageZ = new Float32Array(totalClones)
+  const stageRadius = new Float32Array(totalClones)
+  const active = new Uint8Array(totalClones)
+  const evaluatedBaseX = new Float32Array(totalClones)
+  const evaluatedBaseZ = new Float32Array(totalClones)
+
+  pushStages.forEach((stage) => {
+    const prefixEffectors = regularEffectors.slice(0, stage.regularPrefixCount)
+    const prefixSeeds = resolvedEffectorSeeds.slice(0, stage.regularPrefixCount)
+    const prefixNoise = noiseGenerators.slice(0, stage.regularPrefixCount)
+
+    for (let index = 0; index < totalClones; index += 1) {
+      const selectedChildIndex = selectedChildIndices[index]
+      if (selectedChildIndex < 0 || templateChildren.length === 0) {
+        active[index] = 0
+        continue
+      }
+      const evaluated = evaluateEffectorStack({
+        localPosition: localPositions[index],
+        effectors: prefixEffectors,
+        instanceIndex: index,
+        instanceCount: totalClones,
+        timeSeconds: 0,
+        resolvedEffectorSeeds: prefixSeeds,
+        noiseGenerators: prefixNoise,
+        basePosition: localPositions[index],
+        baseRotation,
+        baseScale,
+      })
+      if (evaluated.excluded) {
+        active[index] = 0
+        continue
+      }
+      evaluatedBaseX[index] = evaluated.position[0]
+      evaluatedBaseZ[index] = evaluated.position[2]
+      stageX[index] = evaluatedBaseX[index] + offsetsX[index]
+      stageZ[index] = evaluatedBaseZ[index] + offsetsZ[index]
+      const stageScale = Math.max(Math.abs(evaluated.scale[0]), Math.abs(evaluated.scale[2]))
+      stageRadius[index] = Math.max(0.0001, (footprintRadii[index] * stageScale) + stage.radiusOffset)
+      active[index] = 1
+    }
+
+    solvePushApartXZ(stageX, stageZ, stageRadius, active)
+
+    for (let index = 0; index < totalClones; index += 1) {
+      if (!active[index]) continue
+      offsetsX[index] = stageX[index] - evaluatedBaseX[index]
+      offsetsZ[index] = stageZ[index] - evaluatedBaseZ[index]
+    }
+  })
+
+  const result: Vec3[] = new Array(totalClones)
+  for (let index = 0; index < totalClones; index += 1) {
+    result[index] = [offsetsX[index], 0, offsetsZ[index]]
+  }
+  return result
+}
+
 /**
  * Linear field effector (C4D-like). Use with `GridCloner` as child.
  * Provides directional falloff with optional remap/contour shaping.
@@ -1587,6 +2281,13 @@ export function SphericalFieldEffector(_props: SphericalFieldEffectorProps) {
 }
 
 ; (SphericalFieldEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'spherical'
+
+/** Mount-only push-apart solver for initial clone overlap resolution. */
+export function PushApartEffector(_props: PushApartEffectorProps) {
+  return null
+}
+
+; (PushApartEffector as unknown as EffectorMarkerComponent).__gridEffectorType = 'pushApart'
 
 /** Deterministisk random-effector. */
 export function RandomEffector(_props: RandomEffectorProps) {
@@ -1670,74 +2371,13 @@ export function GridCloner({
     clampCount(count[2]),
   ], [count])
 
-  const allChildren = useMemo(() => Children.toArray(children), [children])
   const parsedChildren = useMemo(() => {
-    const cloneChildren: ReactElement<Record<string, unknown>>[] = []
-    const childEffectors: GridEffector[] = []
-
-    allChildren.forEach((child) => {
-      if (!isValidElement(child)) {
-        return
-      }
-
-      const effectorType = getEffectorComponentType(child.type)
-      if (!effectorType) {
-        cloneChildren.push(child as ReactElement<Record<string, unknown>>)
-        return
-      }
-
-      const props = (child.props ?? {}) as Record<string, unknown>
-      if (effectorType === 'linear') {
-        childEffectors.push({
-          type: 'linear',
-          ...(props as LinearFieldEffectorProps),
-        })
-        return
-      }
-
-      if (effectorType === 'spherical') {
-        childEffectors.push({
-          type: 'spherical',
-          ...(props as SphericalFieldEffectorProps),
-        })
-        return
-      }
-
-      if (effectorType === 'random') {
-        childEffectors.push({
-          type: 'random',
-          ...(props as RandomEffectorProps),
-        })
-        return
-      }
-
-      if (effectorType === 'noise') {
-        childEffectors.push({
-          type: 'noise',
-          ...(props as NoiseEffectorProps),
-        })
-        return
-      }
-
-      if (effectorType === 'time') {
-        childEffectors.push({
-          type: 'time',
-          ...(props as TimeEffectorProps),
-        })
-        return
-      }
-
-      childEffectors.push({
-        type: 'step',
-        ...(props as StepEffectorProps),
-      })
-    })
-
+    const { objectChildren, effectors } = splitTemplateChildren(children)
     return {
-      cloneChildren,
-      childEffectors,
+      cloneChildren: objectChildren,
+      childEffectors: effectors,
     }
-  }, [allChildren])
+  }, [children])
 
   const templateChildren = useMemo<TemplateCloneChild[]>(() => {
     return parsedChildren.cloneChildren.map((element) => {
@@ -1779,8 +2419,12 @@ export function GridCloner({
     }),
     [scaledEffectors],
   )
+  const { regularEffectors, pushStages } = useMemo(
+    () => splitPushApartStages(normalizedEffectors),
+    [normalizedEffectors],
+  )
   const resolvedEffectorSeeds = useMemo(
-    () => normalizedEffectors.map((effector, effectorIndex) => {
+    () => regularEffectors.map((effector, effectorIndex) => {
       if (effector.type !== 'random' && effector.type !== 'noise') return null
       return resolveEffectorSeedForMount(
         effector.seed,
@@ -1790,28 +2434,28 @@ export function GridCloner({
         effectorIndex,
       )
     }),
-    [normalizedEffectors, resolvedMountSeed, resolvedSeedPathSalt],
+    [regularEffectors, resolvedMountSeed, resolvedSeedPathSalt],
   )
   const hasTimeEffector = useMemo(
-    () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
-    [normalizedEffectors],
+    () => regularEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
+    [regularEffectors],
   )
   const hasAnimatedNoiseEffector = useMemo(
-    () => normalizedEffectors.some((effector) => (
+    () => regularEffectors.some((effector) => (
       effector.type === 'noise'
       && effector.enabled !== false
       && hasNonZeroVec3(resolveNoiseMotion(effector.noisePositionSpeed))
     )),
-    [normalizedEffectors],
+    [regularEffectors],
   )
   const hasTimeScaleEffector = useMemo(
-    () => normalizedEffectors.some((effector) => (
+    () => regularEffectors.some((effector) => (
       effector.type === 'time'
       && effector.enabled !== false
       && clamp01(effector.strength ?? 1) > 0
       && hasNonZeroVec3(effector.scale)
     )),
-    [normalizedEffectors],
+    [regularEffectors],
   )
   const [frameTime, setFrameTime] = useState(0)
   useFrame(({ clock }) => {
@@ -1819,12 +2463,12 @@ export function GridCloner({
     setFrameTime(clock.getElapsedTime())
   })
   const noiseGenerators = useMemo(
-    () => normalizedEffectors.map((effector, effectorIndex) => {
+    () => regularEffectors.map((effector, effectorIndex) => {
       if (effector.type !== 'noise') return null
       const seed = resolvedEffectorSeeds[effectorIndex]
       return new SeededImprovedNoise(seed ?? 1)
     }),
-    [normalizedEffectors, resolvedEffectorSeeds],
+    [regularEffectors, resolvedEffectorSeeds],
   )
 
   const debugBounds = useMemo<Vec3>(() => {
@@ -1846,6 +2490,44 @@ export function GridCloner({
   const resolvedChildRandomSeed = useMemo(
     () => resolveChildDistributionSeedForMount(childRandomSeed, resolvedMountSeed, resolvedSeedPathSalt),
     [childRandomSeed, resolvedMountSeed, resolvedSeedPathSalt],
+  )
+  const pushApartOffsets = useMemo<Vec3[]>(
+    () => computePushApartOffsetsAtMount({
+      count: normalizedCount,
+      spacing: scaledSpacing,
+      offset: scaledOffset,
+      anchor: resolvedAnchor,
+      baseRotation,
+      baseScale: scale,
+      regularEffectors,
+      pushStages,
+      resolvedEffectorSeeds,
+      noiseGenerators,
+      childDistribution: resolvedChildDistribution,
+      childRandomSeed: resolvedChildRandomSeed,
+      templateChildren,
+      transformMode,
+      mountSeed: resolvedMountSeed,
+      seedPathSalt: resolvedSeedPathSalt,
+    }),
+    [
+      normalizedCount,
+      scaledSpacing,
+      scaledOffset,
+      resolvedAnchor,
+      baseRotation,
+      scale,
+      regularEffectors,
+      pushStages,
+      resolvedEffectorSeeds,
+      noiseGenerators,
+      resolvedChildDistribution,
+      resolvedChildRandomSeed,
+      templateChildren,
+      transformMode,
+      resolvedMountSeed,
+      resolvedSeedPathSalt,
+    ],
   )
 
   const resolvedPhysics = useMemo<ResolvedGridPhysics | null>(() => {
@@ -1917,7 +2599,7 @@ export function GridCloner({
           ]
           const evaluated = evaluateEffectorStack({
             localPosition,
-            effectors: normalizedEffectors,
+            effectors: regularEffectors,
             instanceIndex: flatIndex,
             instanceCount: totalClones,
             timeSeconds: frameTime,
@@ -1927,12 +2609,13 @@ export function GridCloner({
             baseRotation,
             baseScale: scale,
           })
+          const pushOffset = pushApartOffsets[flatIndex] ?? IDENTITY_POSITION
 
           const computedClone: CloneTransform = {
             key: `${x}-${y}-${z}`,
             index: flatIndex,
             localPosition,
-            position: evaluated.position,
+            position: addVec3(evaluated.position, pushOffset),
             rotation: evaluated.rotation,
             scale: evaluated.scale,
             excluded: evaluated.excluded,
@@ -1961,7 +2644,8 @@ export function GridCloner({
     clonerRotation,
     baseRotation,
     scale,
-    normalizedEffectors,
+    regularEffectors,
+    pushApartOffsets,
     resolvedEffectorSeeds,
     noiseGenerators,
     frameTime,
@@ -2355,6 +3039,14 @@ export function Fracture({
         childEffectors.push({
           type: 'spherical',
           ...(props as SphericalFieldEffectorProps),
+        })
+        return
+      }
+
+      if (effectorType === 'pushApart') {
+        childEffectors.push({
+          type: 'pushApart',
+          ...(props as PushApartEffectorProps),
         })
         return
       }
