@@ -14,21 +14,19 @@ import { useFrame, type ThreeElements } from '@react-three/fiber'
 import type { Vec3 } from '@/settings/GameSettings'
 import { applyEasing, type EasingName } from '@/utils/easing'
 import { isPlaying } from '@/game/gamePhaseStore'
+import {
+  ACCELERATION_CURVE_NAMES,
+  type AccelerationCurveName,
+  resolveAccelerationMultiplier as resolveCurveAccelerationMultiplier,
+} from '@/utils/accelerationCurve'
 
 export const TRANSFORM_MOTION_AXES = ['x', 'y', 'z'] as const
 export const TRANSFORM_MOTION_LOOP_MODES = ['none', 'loop', 'pingpong'] as const
-export const TRANSFORM_MOTION_TIME_SCALE_ACCELERATION_CURVES = [
-  'linear',
-  'power_1_25',
-  'power_1_5',
-  'power_2',
-  'exponential',
-] as const
+export const TRANSFORM_MOTION_TIME_SCALE_ACCELERATION_CURVES = ACCELERATION_CURVE_NAMES
 
 export type AxisName = (typeof TRANSFORM_MOTION_AXES)[number]
 export type LoopMode = (typeof TRANSFORM_MOTION_LOOP_MODES)[number]
-export type TimeScaleAccelerationCurve =
-  (typeof TRANSFORM_MOTION_TIME_SCALE_ACCELERATION_CURVES)[number]
+export type TimeScaleAccelerationCurve = AccelerationCurveName
 type AxisRange = [number, number]
 type AxisValueMap = Partial<Record<AxisName, number>>
 type AxisRangeMap = Partial<Record<AxisName, AxisRange>>
@@ -299,37 +297,15 @@ function resolvePerAxisAcceleration(
   )) as Vec3
 }
 
-function resolveAccelerationMultiplier(
-  acceleration: number,
-  curve: TimeScaleAccelerationCurve,
-  clockSeconds: number,
-): number {
-  if (acceleration === 0 || clockSeconds <= 0) return 1
-
-  switch (curve) {
-    case 'power_1_25':
-      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 1.25))
-    case 'power_1_5':
-      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 1.5))
-    case 'power_2':
-      return Math.max(0, 1 + acceleration * Math.pow(clockSeconds, 2))
-    case 'exponential':
-      return Math.exp(acceleration * clockSeconds)
-    case 'linear':
-    default:
-      return Math.max(0, 1 + acceleration * clockSeconds)
-  }
-}
-
 function resolveAccelerationMultipliers(
   accelerationByAxis: Vec3,
   curve: TimeScaleAccelerationCurve,
   clockSeconds: number,
   out: Vec3,
 ): void {
-  out[0] = resolveAccelerationMultiplier(accelerationByAxis[0], curve, clockSeconds)
-  out[1] = resolveAccelerationMultiplier(accelerationByAxis[1], curve, clockSeconds)
-  out[2] = resolveAccelerationMultiplier(accelerationByAxis[2], curve, clockSeconds)
+  out[0] = resolveCurveAccelerationMultiplier(accelerationByAxis[0], curve, clockSeconds)
+  out[1] = resolveCurveAccelerationMultiplier(accelerationByAxis[1], curve, clockSeconds)
+  out[2] = resolveCurveAccelerationMultiplier(accelerationByAxis[2], curve, clockSeconds)
 }
 
 function applyAxisMultipliers(base: Vec3, multipliers: Vec3, out: Vec3): void {

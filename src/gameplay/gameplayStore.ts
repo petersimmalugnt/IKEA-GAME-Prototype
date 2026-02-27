@@ -62,7 +62,7 @@ function normalizeNonNegativeInt(value: number, fallback = 0): number {
 }
 
 function isScoreLockedOnGameOver(): boolean {
-  return SETTINGS.gameplay.lives.lockScoreOnGameOver === true
+  return SETTINGS.gameplay.score.lockOnGameOver === true
 }
 
 function getInitialLives(): number {
@@ -157,18 +157,29 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     set((state) => {
       if (state.gameOver) return state
       const nextLives = Math.max(0, state.lives - normalizedDelta)
-      if (nextLives <= 0 && SETTINGS.gameplay.lives.autoReset) {
+      const didRunEnd = nextLives <= 0
+      const autoResetLives = SETTINGS.gameplay.lives.autoReset === true
+      const nextGameOver = didRunEnd && !autoResetLives
+      const didEnterGameOver = nextGameOver && !state.gameOver
+      const shouldResetOnRunEnd = didRunEnd && SETTINGS.gameplay.score.resetOnRunEnd === true
+      const shouldResetOnGameOver = didEnterGameOver && SETTINGS.gameplay.score.resetOnGameOver === true
+      const nextScore = (shouldResetOnRunEnd || shouldResetOnGameOver) ? 0 : state.score
+
+      if (didRunEnd && autoResetLives) {
         return {
           ...state,
+          score: nextScore,
           lives: getInitialLives(),
           runEndSequence: state.runEndSequence + 1,
         }
       }
+
       return {
         ...state,
+        score: nextScore,
         lives: nextLives,
-        gameOver: nextLives <= 0,
-        runEndSequence: nextLives <= 0 ? state.runEndSequence + 1 : state.runEndSequence,
+        gameOver: nextGameOver,
+        runEndSequence: didRunEnd ? state.runEndSequence + 1 : state.runEndSequence,
       }
     })
   },
@@ -177,7 +188,12 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     const nextValue = value === true
     set((state) => {
       if (state.gameOver === nextValue) return state
-      return { ...state, gameOver: nextValue }
+      const shouldResetScore = nextValue && SETTINGS.gameplay.score.resetOnGameOver === true
+      return {
+        ...state,
+        score: shouldResetScore ? 0 : state.score,
+        gameOver: nextValue,
+      }
     })
   },
 

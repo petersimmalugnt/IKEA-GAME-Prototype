@@ -9,6 +9,7 @@ import {
   fetchPresetManifest,
 } from '@/settings/presets'
 import { useLevelStore } from '@/levelStore'
+import { ACCELERATION_CURVE_NAMES } from '@/utils/accelerationCurve'
 
 // Stores leva set-functions so we can update the panel after loading a preset
 type SetterMap = Record<string, (value: Record<string, unknown>) => void>
@@ -175,8 +176,10 @@ function syncLevaFromSettings() {
 
   setters['Gameplay']?.({
     'lives.initial': SETTINGS.gameplay.lives.initial,
-    'lives.lockScoreOnGameOver': SETTINGS.gameplay.lives.lockScoreOnGameOver,
     'lives.autoReset': SETTINGS.gameplay.lives.autoReset,
+    'score.lockOnGameOver': SETTINGS.gameplay.score.lockOnGameOver,
+    'score.resetOnRunEnd': SETTINGS.gameplay.score.resetOnRunEnd,
+    'score.resetOnGameOver': SETTINGS.gameplay.score.resetOnGameOver,
   })
 
   setters['Spawner']?.({
@@ -185,6 +188,11 @@ function syncLevaFromSettings() {
     speed: SETTINGS.spawner.speed,
     speedVariance: SETTINGS.spawner.speedVariance,
     maxItems: SETTINGS.spawner.maxItems,
+    spawnAcceleration: SETTINGS.spawner.spawnAcceleration,
+    spawnAccelerationCurve: SETTINGS.spawner.spawnAccelerationCurve,
+    maxItemsAcceleration: SETTINGS.spawner.maxItemsAcceleration,
+    maxItemsAccelerationCurve: SETTINGS.spawner.maxItemsAccelerationCurve,
+    maxItemsCap: SETTINGS.spawner.maxItemsCap,
     spawnXRange: SETTINGS.spawner.spawnXRange,
     cullOffset: SETTINGS.spawner.cullOffset,
   })
@@ -758,13 +766,23 @@ function useGameplayControls() {
         value: SETTINGS.gameplay.lives.initial, min: 1, max: 10, step: 1,
         onChange: (v: number) => { SETTINGS.gameplay.lives.initial = v; bump() },
       },
-      lockScoreOnGameOver: {
-        value: SETTINGS.gameplay.lives.lockScoreOnGameOver,
-        onChange: (v: boolean) => { SETTINGS.gameplay.lives.lockScoreOnGameOver = v; bump() },
-      },
       autoReset: {
         value: SETTINGS.gameplay.lives.autoReset,
         onChange: (v: boolean) => { SETTINGS.gameplay.lives.autoReset = v; bump() },
+      },
+    }),
+    score: folder({
+      lockOnGameOver: {
+        value: SETTINGS.gameplay.score.lockOnGameOver,
+        onChange: (v: boolean) => { SETTINGS.gameplay.score.lockOnGameOver = v; bump() },
+      },
+      resetOnRunEnd: {
+        value: SETTINGS.gameplay.score.resetOnRunEnd,
+        onChange: (v: boolean) => { SETTINGS.gameplay.score.resetOnRunEnd = v; bump() },
+      },
+      resetOnGameOver: {
+        value: SETTINGS.gameplay.score.resetOnGameOver,
+        onChange: (v: boolean) => { SETTINGS.gameplay.score.resetOnGameOver = v; bump() },
       },
     }),
   }), { collapsed: true })
@@ -792,6 +810,28 @@ function useSpawnerControls() {
     maxItems: {
       value: SETTINGS.spawner.maxItems, min: 1, max: 200, step: 1,
       onChange: (v: number) => { SETTINGS.spawner.maxItems = v; bump() },
+    },
+    spawnAcceleration: {
+      value: SETTINGS.spawner.spawnAcceleration, min: -0.05, max: 0.05, step: 0.0001,
+      onChange: (v: number) => { SETTINGS.spawner.spawnAcceleration = v; bump() },
+    },
+    spawnAccelerationCurve: {
+      value: SETTINGS.spawner.spawnAccelerationCurve,
+      options: ACCELERATION_CURVE_NAMES,
+      onChange: (v: string) => { SETTINGS.spawner.spawnAccelerationCurve = v as typeof SETTINGS.spawner.spawnAccelerationCurve; bump() },
+    },
+    maxItemsAcceleration: {
+      value: SETTINGS.spawner.maxItemsAcceleration, min: -0.05, max: 0.05, step: 0.0001,
+      onChange: (v: number) => { SETTINGS.spawner.maxItemsAcceleration = v; bump() },
+    },
+    maxItemsAccelerationCurve: {
+      value: SETTINGS.spawner.maxItemsAccelerationCurve,
+      options: ACCELERATION_CURVE_NAMES,
+      onChange: (v: string) => { SETTINGS.spawner.maxItemsAccelerationCurve = v as typeof SETTINGS.spawner.maxItemsAccelerationCurve; bump() },
+    },
+    maxItemsCap: {
+      value: SETTINGS.spawner.maxItemsCap, min: 1, max: 1000, step: 1,
+      onChange: (v: number) => { SETTINGS.spawner.maxItemsCap = v; bump() },
     },
     spawnXRange: {
       value: SETTINGS.spawner.spawnXRange, min: 0, max: 10, step: 0.1,

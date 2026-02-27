@@ -249,10 +249,14 @@ export const SETTINGS: Settings = {
       enabled: true,
       scorePerInfection: 10,
     },
+    score: {
+      lockOnGameOver: true,
+      resetOnRunEnd: true,
+      resetOnGameOver: true,
+    },
     lives: {
       initial: 5,
       lossPerMiss: 1,
-      lockScoreOnGameOver: true,
       autoReset: true,
     },
     balloons: {
@@ -284,11 +288,16 @@ export const SETTINGS: Settings = {
   // --- ITEM SPAWNER (marker-based) ---
   spawner: {
     enabled: true,
-    spawnIntervalMs: 500,
+    spawnIntervalMs: 800,
     speed: 0.5,
     speedVariance: 0.2,
     radius: 0,
     maxItems: 60,
+    spawnAcceleration: 0.005,
+    spawnAccelerationCurve: 'exponential',
+    maxItemsAcceleration: 0.005,
+    maxItemsAccelerationCurve: 'exponential',
+    maxItemsCap: 120,
     spawnXRange: 2.5,
     cullOffset: 6,
   },

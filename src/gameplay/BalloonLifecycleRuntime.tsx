@@ -103,7 +103,7 @@ export function useBalloonLifecycleRegistry(): BalloonLifecycleRegistry | null {
 }
 
 export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
-  const { camera } = useThree()
+  const { camera, gl } = useThree()
   const loseLives = useGameplayStore((state) => state.loseLives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const entriesRef = useRef<Set<BalloonLifecycleEntry>>(new Set())
@@ -171,10 +171,11 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
 
     const latestSweepSeq = getLatestCursorSweepSeq()
     if (latestSweepSeq > lastSweepSeqRef.current) {
-      const viewportWidth = window.innerWidth
-      const viewportHeight = window.innerHeight
+      const canvasRect = gl.domElement.getBoundingClientRect()
+      const canvasWidth = canvasRect.width
+      const canvasHeight = canvasRect.height
 
-      if (viewportWidth > 0 && viewportHeight > 0) {
+      if (canvasWidth > 0 && canvasHeight > 0) {
         const popQueue = popQueueRef.current
         const popCenterWorld = popCenterWorldRef.current
         const popOffsetWorld = popOffsetWorldRef.current
@@ -198,6 +199,24 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
             if (!readCursorSweepSegment(sweepSeq, sweepSegment)) continue
             if (sweepSegment.velocityPx < SETTINGS.cursor.minPopVelocity) continue
 
+            const x0Local = sweepSegment.x0 - canvasRect.left
+            const y0Local = sweepSegment.y0 - canvasRect.top
+            const x1Local = sweepSegment.x1 - canvasRect.left
+            const y1Local = sweepSegment.y1 - canvasRect.top
+
+            const segmentMinX = x0Local < x1Local ? x0Local : x1Local
+            const segmentMaxX = x0Local > x1Local ? x0Local : x1Local
+            const segmentMinY = y0Local < y1Local ? y0Local : y1Local
+            const segmentMaxY = y0Local > y1Local ? y0Local : y1Local
+            if (
+              segmentMaxX < 0
+              || segmentMinX > canvasWidth
+              || segmentMaxY < 0
+              || segmentMinY > canvasHeight
+            ) {
+              continue
+            }
+
             popQueue.length = 0
             entries.forEach((entry) => {
               if (entry.missApplied) return
@@ -217,23 +236,23 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
               }
               if (popCenterNdc.z < -1 || popCenterNdc.z > 1) return
 
-              const centerX = ((popCenterNdc.x + 1) * 0.5) * viewportWidth
-              const centerY = ((1 - popCenterNdc.y) * 0.5) * viewportHeight
+              const centerX = ((popCenterNdc.x + 1) * 0.5) * canvasWidth
+              const centerY = ((1 - popCenterNdc.y) * 0.5) * canvasHeight
 
               popOffsetWorld.copy(popCenterWorld).addScaledVector(cameraRight, radiusWorld)
               popOffsetNdc.copy(popOffsetWorld).project(camera)
-              const radiusPxX = ((popOffsetNdc.x - popCenterNdc.x) * 0.5) * viewportWidth
-              const radiusPxY = ((popOffsetNdc.y - popCenterNdc.y) * 0.5) * viewportHeight
+              const radiusPxX = ((popOffsetNdc.x - popCenterNdc.x) * 0.5) * canvasWidth
+              const radiusPxY = ((popOffsetNdc.y - popCenterNdc.y) * 0.5) * canvasHeight
               const radiusPxSq = radiusPxX * radiusPxX + radiusPxY * radiusPxY
               if (!(radiusPxSq > 0) || !Number.isFinite(radiusPxSq)) return
 
               const radiusAabb = Math.abs(radiusPxX) + Math.abs(radiusPxY)
               if (
                 segmentIntersectsCircle(
-                  sweepSegment.x0,
-                  sweepSegment.y0,
-                  sweepSegment.x1,
-                  sweepSegment.y1,
+                  x0Local,
+                  y0Local,
+                  x1Local,
+                  y1Local,
                   centerX,
                   centerY,
                   radiusPxSq,

@@ -1,3 +1,5 @@
+import type { AccelerationCurveName } from '@/utils/accelerationCurve'
+
 export type Vec3 = [number, number, number]
 
 export type MaterialColorIndex = number
@@ -202,10 +204,14 @@ export type Settings = {
       enabled: boolean
       scorePerInfection: number
     }
+    score: {
+      lockOnGameOver: boolean
+      resetOnRunEnd: boolean
+      resetOnGameOver: boolean
+    }
     lives: {
       initial: number
       lossPerMiss: number
-      lockScoreOnGameOver: boolean
       autoReset: boolean
     }
     balloons: {
@@ -238,6 +244,11 @@ export type Settings = {
     speedVariance: number
     radius: number
     maxItems: number
+    spawnAcceleration: number
+    spawnAccelerationCurve: AccelerationCurveName
+    maxItemsAcceleration: number
+    maxItemsAccelerationCurve: AccelerationCurveName
+    maxItemsCap: number
     /** Half-width for random x offset along the spawn marker line */
     spawnXRange: number
     /** Units past the cull line before the item is actually removed */

@@ -1,16 +1,19 @@
 import { useEntityStore } from "@/entities/entityStore";
 import { isPlaying } from "@/game/gamePhaseStore";
+import { useGameplayStore } from "@/gameplay/gameplayStore";
 import {
   useSpawnerStore,
   type SpawnedItemDescriptor,
 } from "@/gameplay/spawnerStore";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import { SETTINGS } from "@/settings/GameSettings";
+import { resolveAccelerationMultiplier } from "@/utils/accelerationCurve";
 import { useFrame } from "@react-three/fiber";
 import {
   Children,
   cloneElement,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   type ReactElement,
@@ -51,7 +54,10 @@ export function ItemSpawner({
   cullMarkerRef,
   children,
 }: ItemSpawnerProps) {
+  const runEndSequence = useGameplayStore((state) => state.runEndSequence);
+  const gameOver = useGameplayStore((state) => state.gameOver);
   const spawnTimerRef = useRef(0);
+  const runSecondsRef = useRef(0);
   const spawnIdRef = useRef(0);
   const cullGettersRef = useRef<Map<string, ZGetter>>(new Map());
 
@@ -66,20 +72,53 @@ export function ItemSpawner({
   const addItem = useSpawnerStore((state) => state.addItem);
   const registerEntity = useEntityStore((state) => state.register);
 
+  useEffect(() => {
+    runSecondsRef.current = 0;
+    spawnTimerRef.current = 0;
+  }, [runEndSequence]);
+
+  useEffect(() => {
+    if (!gameOver) return;
+    runSecondsRef.current = 0;
+    spawnTimerRef.current = 0;
+  }, [gameOver]);
+
   useFrame((_state, delta) => {
     // ── Spawn ─────────────────────────────────────────────────────────────
     if (isPlaying()) {
       const cfg = SETTINGS.spawner;
+      runSecondsRef.current += delta;
       if (cfg.enabled && templates.length > 0) {
         const spawnPos = spawnMarkerRef.current?.getPosition();
         if (spawnPos) {
+          const spawnRateMultiplier = resolveAccelerationMultiplier(
+            cfg.spawnAcceleration,
+            cfg.spawnAccelerationCurve,
+            runSecondsRef.current,
+          );
+          const maxItemsMultiplier = resolveAccelerationMultiplier(
+            cfg.maxItemsAcceleration,
+            cfg.maxItemsAccelerationCurve,
+            runSecondsRef.current,
+          );
+          const baseIntervalSec = Math.max(0.001, cfg.spawnIntervalMs / 1000);
+          const effectiveIntervalSec =
+            baseIntervalSec / Math.max(0.0001, spawnRateMultiplier);
+          const maxItemsCap = Math.max(1, Math.trunc(cfg.maxItemsCap));
+          const effectiveMaxItems = Math.max(
+            1,
+            Math.min(
+              maxItemsCap,
+              Math.round(cfg.maxItems * Math.max(0, maxItemsMultiplier)),
+            ),
+          );
+
           spawnTimerRef.current += delta;
-          const intervalSec = cfg.spawnIntervalMs / 1000;
           while (
-            spawnTimerRef.current >= intervalSec &&
-            useSpawnerStore.getState().activeCount < cfg.maxItems
+            spawnTimerRef.current >= effectiveIntervalSec &&
+            useSpawnerStore.getState().activeCount < effectiveMaxItems
           ) {
-            spawnTimerRef.current -= intervalSec;
+            spawnTimerRef.current -= effectiveIntervalSec;
             const xOffset = (Math.random() * 2 - 1) * cfg.spawnXRange;
             const itemId = `spawn-${++spawnIdRef.current}`;
             addItem({
@@ -87,7 +126,7 @@ export function ItemSpawner({
               radius: cfg.radius,
               templateIndex: Math.floor(Math.random() * templates.length),
               position: [spawnPos.x + xOffset, SPAWN_HEIGHT, spawnPos.z],
-            });
+            }, effectiveMaxItems);
             registerEntity(itemId, "spawned_item");
           }
         }
@@ -109,7 +148,6 @@ export function ItemSpawner({
       cullGettersRef.current.delete(id);
       useEntityStore.getState().unregister(id);
       useSpawnerStore.getState().removeItem(id);
-      console.log(`[cull] removed ${id} — active: ${useSpawnerStore.getState().activeCount}`);
     }
   });
 
