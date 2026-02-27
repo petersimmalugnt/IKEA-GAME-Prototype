@@ -2,6 +2,13 @@ import type { CSSProperties } from 'react'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 import { SETTINGS, getPaletteEntry } from '@/settings/GameSettings'
 
+function formatScore(value: number): string {
+  const truncated = Number.isFinite(value) ? Math.trunc(value) : 0
+  const sign = truncated < 0 ? '-' : ''
+  const digits = Math.abs(truncated).toString()
+  return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`
+}
+
 export function ScoreHud() {
   const uiWhite = '#fff'
   const score = useGameplayStore((state) => state.score)
@@ -34,7 +41,7 @@ export function ScoreHud() {
         }}
       >
         <span style={{ color: secondaryColor }}>Score</span>
-        <span style={{ color: uiWhite }}>{score}</span>
+        <span style={{ color: uiWhite }}>{formatScore(score)}</span>
       </div>
 
       <div
