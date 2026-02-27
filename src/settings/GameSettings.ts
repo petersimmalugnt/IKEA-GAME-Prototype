@@ -293,13 +293,13 @@ export const SETTINGS: Settings = {
     speedVariance: 0.2,
     radius: 0,
     maxItems: 60,
+    maxItemsCap: 120,
+    spawnXRange: 2.5,
+    cullOffset: 6,
     spawnAcceleration: 0.005,
     spawnAccelerationCurve: 'exponential',
     maxItemsAcceleration: 0.005,
     maxItemsAccelerationCurve: 'exponential',
-    maxItemsCap: 120,
-    spawnXRange: 2.5,
-    cullOffset: 6,
   },
 
   // --- MOTION ACCELERATION ---
