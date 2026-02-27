@@ -260,6 +260,7 @@ export type FractureProps = {
   enabled?: boolean
   gridUnit?: GridUnit
   showDebugEffectors?: boolean
+  entityPrefix?: string
 }
 
 type ResolvedGridPhysics = {
@@ -273,6 +274,12 @@ type ResolvedGridPhysics = {
 type GridRuntimeContextValue = {
   physicsOverride: ResolvedGridPhysics | null
   seedPathSalt: number
+  entityPrefix?: string
+  contagionOverride?: {
+    carrier: boolean
+    infectable: boolean
+    color: number
+  }
 }
 
 const GRID_RUNTIME_CONTEXT = createContext<GridRuntimeContextValue>({
@@ -1181,16 +1188,32 @@ function resolveChildBaseColorIndex(
   return 0
 }
 
-function resolveCloneEntityId(entityPrefix: string | undefined, cloneKey: string): string | undefined {
+function composeEntityPrefix(parentPrefix: string | undefined, ownSegment: string | undefined): string | undefined {
+  if (parentPrefix && ownSegment) return `${parentPrefix}::${ownSegment}`
+  return parentPrefix ?? ownSegment
+}
+
+function resolveCloneEntityPrefix(basePrefix: string | undefined, cloneKey: string): string | undefined {
+  if (!basePrefix) return undefined
+  return `${basePrefix}::clone:${cloneKey}`
+}
+
+function resolveLeafEntityId(entityPrefix: string | undefined, leafSegment: string): string | undefined {
   if (!entityPrefix) return undefined
-  return `${entityPrefix}::${cloneKey}`
+  return `${entityPrefix}::leaf:${leafSegment}`
 }
 
 let autoGridClonerEntityCounter = 0
+let autoFractureEntityCounter = 0
 
 function createAutoGridClonerEntityPrefix(): string {
   autoGridClonerEntityCounter += 1
   return `gridcloner-auto-${autoGridClonerEntityCounter}`
+}
+
+function createAutoFractureEntityPrefix(): string {
+  autoFractureEntityCounter += 1
+  return `fracture-auto-${autoFractureEntityCounter}`
 }
 
 function resolveAutoColliderFromChild(
@@ -1621,7 +1644,8 @@ export function GridCloner({
   const runtimeContext = useContext(GRID_RUNTIME_CONTEXT)
   const autoEntityPrefixRef = useRef<string>(createAutoGridClonerEntityPrefix())
   const mountSeedRef = useRef<number>(createRandomSeed())
-  const resolvedEntityPrefix = entityPrefix ?? autoEntityPrefixRef.current
+  const ownEntityPrefixSegment = entityPrefix ?? autoEntityPrefixRef.current
+  const resolvedEntityPrefix = composeEntityPrefix(runtimeContext.entityPrefix, ownEntityPrefixSegment)
   const resolvedSeedPathSalt = runtimeContext.seedPathSalt
   const resolvedMountSeed = useMemo(
     () => hashSeed(mountSeedRef.current ^ resolvedSeedPathSalt ^ 0x1f123bb5),
@@ -1973,6 +1997,8 @@ export function GridCloner({
     const passthroughContextValue: GridRuntimeContextValue = {
       physicsOverride: effectivePhysics,
       seedPathSalt: resolvedSeedPathSalt,
+      entityPrefix: resolvedEntityPrefix,
+      contagionOverride: runtimeContext.contagionOverride,
     }
     return (
       <group position={position} rotation={clonerRotation} scale={scale}>
@@ -1995,17 +2021,27 @@ export function GridCloner({
           templateChildren.length,
         )
         const selectedTemplateChild = templateChildren[selectedChildIndex]
-        const cloneEntityId = resolveCloneEntityId(resolvedEntityPrefix, clone.key)
+        const cloneEntityPrefix = resolveCloneEntityPrefix(resolvedEntityPrefix, clone.key)
         const cloneBaseColor = clone.color
           ?? (typeof clone.materialColors?.materialColor0 === 'number' ? clone.materialColors.materialColor0 : undefined)
           ?? selectedTemplateChild.baseColor
         const cloneVisualColor = clone.color
-        const resolvedCloneContagionColor = contagionColor ?? cloneBaseColor
-        const resolvedCloneContagionCarrier = contagionCarrier ?? selectedTemplateChild.contagionCarrier
-        const resolvedCloneContagionInfectable = contagionInfectable ?? selectedTemplateChild.contagionInfectable
+        const inheritedContagion = runtimeContext.physicsOverride ? runtimeContext.contagionOverride : undefined
+        const resolvedCloneContagionColor = inheritedContagion?.color ?? (contagionColor ?? cloneBaseColor)
+        const resolvedCloneContagionCarrier = inheritedContagion?.carrier ?? (contagionCarrier ?? selectedTemplateChild.contagionCarrier)
+        const resolvedCloneContagionInfectable = inheritedContagion?.infectable ?? (contagionInfectable ?? selectedTemplateChild.contagionInfectable)
+        const cloneContagionOverride = {
+          carrier: resolvedCloneContagionCarrier,
+          infectable: resolvedCloneContagionInfectable,
+          color: resolvedCloneContagionColor,
+        }
 
         const childElement = selectedTemplateChild.element
         const childProps = selectedTemplateChild.props
+        const isContainerChild = isContainerType(childElement.type)
+        const leafEntityId = isContainerChild
+          ? undefined
+          : resolveLeafEntityId(cloneEntityPrefix, `child:${selectedChildIndex}`)
         const nextProps: Record<string, unknown> = {
           key: `grid-${clone.index}-${selectedChildIndex}`,
         }
@@ -2039,8 +2075,8 @@ export function GridCloner({
           })
         }
 
-        if (cloneEntityId) {
-          nextProps.entityId = cloneEntityId
+        if (leafEntityId) {
+          nextProps.entityId = leafEntityId
           if (isPrimitiveType(childElement.type) && resolvedCloneContagionColor !== undefined) {
             nextProps.contagionColor = resolvedCloneContagionColor
           }
@@ -2051,8 +2087,9 @@ export function GridCloner({
         const childRuntimeContextValue: GridRuntimeContextValue = {
           physicsOverride: effectivePhysics,
           seedPathSalt: childSeedPathSalt,
+          entityPrefix: cloneEntityPrefix,
+          contagionOverride: cloneContagionOverride,
         }
-        const isContainerChild = isContainerType(childElement.type)
         const renderedWithContext = (
           <GRID_RUNTIME_CONTEXT.Provider value={childRuntimeContextValue}>
             {renderedChild}
@@ -2092,7 +2129,7 @@ export function GridCloner({
             friction={effectivePhysics.friction}
             restitution={effectivePhysics.restitution}
             lockRotations={effectivePhysics.lockRotations}
-            entityId={cloneEntityId}
+            entityId={leafEntityId}
             contagionCarrier={resolvedCloneContagionCarrier}
             contagionInfectable={resolvedCloneContagionInfectable}
             contagionColor={resolvedCloneContagionColor}
@@ -2251,9 +2288,13 @@ export function Fracture({
   enabled = true,
   gridUnit,
   showDebugEffectors,
+  entityPrefix,
 }: FractureProps) {
   const runtimeContext = useContext(GRID_RUNTIME_CONTEXT)
+  const autoEntityPrefixRef = useRef<string>(createAutoFractureEntityPrefix())
   const mountSeedRef = useRef<number>(createRandomSeed())
+  const ownEntityPrefixSegment = entityPrefix ?? autoEntityPrefixRef.current
+  const resolvedEntityPrefix = composeEntityPrefix(runtimeContext.entityPrefix, ownEntityPrefixSegment)
   const resolvedSeedPathSalt = runtimeContext.seedPathSalt
   const resolvedMountSeed = useMemo(
     () => hashSeed(mountSeedRef.current ^ resolvedSeedPathSalt ^ 0x3e2f7a1d),
@@ -2514,6 +2555,8 @@ export function Fracture({
     const passthroughContextValue: GridRuntimeContextValue = {
       physicsOverride: effectivePhysics,
       seedPathSalt: resolvedSeedPathSalt,
+      entityPrefix: resolvedEntityPrefix,
+      contagionOverride: runtimeContext.contagionOverride,
     }
     return (
       <group position={position} rotation={fractureRotation} scale={scale}>
@@ -2533,6 +2576,23 @@ export function Fracture({
 
         const childElement = templateChild.element
         const childProps = templateChild.props
+        const inheritedContagion = runtimeContext.physicsOverride ? runtimeContext.contagionOverride : undefined
+        const resolvedFractureContagionCarrier = inheritedContagion?.carrier ?? templateChild.contagionCarrier
+        const resolvedFractureContagionInfectable = inheritedContagion?.infectable ?? templateChild.contagionInfectable
+        const resolvedFractureColor = transform.color
+          ?? (typeof transform.materialColors?.materialColor0 === 'number' ? transform.materialColors.materialColor0 : undefined)
+          ?? templateChild.baseColor
+        const resolvedFractureContagionColor = inheritedContagion?.color ?? resolvedFractureColor
+        const resolvedFractureContagionOverride = {
+          carrier: resolvedFractureContagionCarrier,
+          infectable: resolvedFractureContagionInfectable,
+          color: resolvedFractureContagionColor,
+        }
+        const childEntityPrefix = resolveCloneEntityPrefix(resolvedEntityPrefix, `fracture:${transform.index}`)
+        const isContainerChild = isContainerType(childElement.type)
+        const leafEntityId = isContainerChild
+          ? undefined
+          : resolveLeafEntityId(childEntityPrefix, 'child:0')
         const nextProps: Record<string, unknown> = {
           key: `fracture-child-${transform.index}`,
           position: IDENTITY_POSITION,
@@ -2563,13 +2623,21 @@ export function Fracture({
           })
         }
 
+        if (leafEntityId) {
+          nextProps.entityId = leafEntityId
+          if (isPrimitiveType(childElement.type)) {
+            nextProps.contagionColor = resolvedFractureContagionColor
+          }
+        }
+
         const renderedChild = cloneElement(childElement, nextProps)
         const childSeedPathSalt = deriveNestedSeedPathSalt(resolvedSeedPathSalt, transform.index, 0)
         const childRuntimeContextValue: GridRuntimeContextValue = {
           physicsOverride: effectivePhysics,
           seedPathSalt: childSeedPathSalt,
+          entityPrefix: childEntityPrefix,
+          contagionOverride: resolvedFractureContagionOverride,
         }
-        const isContainerChild = isContainerType(childElement.type)
         const renderedWithContext = (
           <GRID_RUNTIME_CONTEXT.Provider value={childRuntimeContextValue}>
             {renderedChild}
@@ -2595,9 +2663,6 @@ export function Fracture({
           templateChild.inferredCollider.colliderOffset[1] * transform.scale[1],
           templateChild.inferredCollider.colliderOffset[2] * transform.scale[2],
         ]
-        const resolvedFractureColor = transform.color
-          ?? (typeof transform.materialColors?.materialColor0 === 'number' ? transform.materialColors.materialColor0 : undefined)
-          ?? templateChild.baseColor
 
         return (
           <PhysicsWrapper
@@ -2612,9 +2677,10 @@ export function Fracture({
             friction={effectivePhysics.friction}
             restitution={effectivePhysics.restitution}
             lockRotations={effectivePhysics.lockRotations}
-            contagionCarrier={templateChild.contagionCarrier}
-            contagionInfectable={templateChild.contagionInfectable}
-            contagionColor={resolvedFractureColor}
+            entityId={leafEntityId}
+            contagionCarrier={resolvedFractureContagionCarrier}
+            contagionInfectable={resolvedFractureContagionInfectable}
+            contagionColor={resolvedFractureContagionColor}
             onCollisionActivated={collisionActivatedPhysics ? () => freezeChildTransform(transform) : undefined}
           >
             <group scale={transform.scale}>

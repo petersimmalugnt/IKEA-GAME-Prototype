@@ -19,6 +19,7 @@ type EntityStoreState = {
 }
 
 let idCounter = 0
+const warnedDuplicateEntityIds = new Set<string>()
 
 export function generateEntityId(prefix: string): string {
   idCounter += 1
@@ -42,6 +43,10 @@ export const useEntityStore = create<EntityStoreState>((set, get) => ({
 
   register: (id, type, metadata) => {
     set((state) => {
+      if (import.meta.env.DEV && state.entities.has(id) && !warnedDuplicateEntityIds.has(id)) {
+        warnedDuplicateEntityIds.add(id)
+        console.warn(`[entityStore] Duplicate entity id registration detected: "${id}"`)
+      }
       const next = new Map(state.entities)
       next.set(id, { id, type, metadata })
       return { entities: next, epoch: state.epoch + 1 }
@@ -53,6 +58,7 @@ export const useEntityStore = create<EntityStoreState>((set, get) => ({
     if (!state.entities.has(id)) return
 
     unregisterListeners.forEach((listener) => listener(id))
+    warnedDuplicateEntityIds.delete(id)
 
     set((s) => {
       const next = new Map(s.entities)
@@ -72,6 +78,7 @@ export const useEntityStore = create<EntityStoreState>((set, get) => ({
 
   reset: () => {
     resetEntityIdCounter()
+    warnedDuplicateEntityIds.clear()
     set({ entities: new Map(), epoch: 0 })
   },
 }))

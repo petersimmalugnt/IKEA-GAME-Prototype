@@ -166,6 +166,7 @@ function renderNullNode(
         position={node.position}
         rotation={node.rotation}
         scale={resolveNodeScale(node)}
+        entityPrefix={node.id}
       >
         {children.map((child) => renderNode(child, true))}
       </Fracture>
@@ -235,6 +236,7 @@ function renderFractureNode(node: LevelNode) {
       position={node.position}
       rotation={node.rotation}
       scale={resolveNodeScale(node)}
+      entityPrefix={node.id}
     >
       {children.map((child) => renderNode(child, false))}
     </Fracture>
