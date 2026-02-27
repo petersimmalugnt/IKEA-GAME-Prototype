@@ -269,13 +269,13 @@ export const SETTINGS: Settings = {
     defaultFile: "default.json", // filename inside public/levels/
     gridClonerSpawnChunkSize: 32, // Physics bodies registered per frame (0 = all at once)
     tiling: {
-      enabled: false,
-      files: ["2.json"],
+      enabled: true,
+      files: ["default.json"],
       lookAheadDistance: 15,
       cullBehindDistance: 3,
     },
     liveSync: {
-      enabled: true,
+      enabled: false,
       url: "ws://localhost:5174/ws/level",
       reconnectMs: 1000,
     },
