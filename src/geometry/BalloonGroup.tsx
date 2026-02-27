@@ -670,6 +670,8 @@ export function BalloonGroup({
           : undefined
       }
       timeScale={1.5}
+      timeScaleAcceleration={0.005}
+      timeScaleAccelerationCurve="exponential"
       {...props}
     >
       <group ref={probeRef}>
