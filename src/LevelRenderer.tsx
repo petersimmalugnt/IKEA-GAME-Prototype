@@ -157,6 +157,21 @@ function renderNullNode(
   const children = (node.children ?? []).filter((child) => child.nodeType === 'object')
   const rotation: Vec3 = node.rotation ? toRadians(node.rotation) : [0, 0, 0]
 
+  if (asClonerTemplate) {
+    // In cloner templates we use Fracture as a transparent container so parent
+    // GridCloner physics override can propagate to leaf objects.
+    return (
+      <Fracture
+        key={node.id}
+        position={node.position}
+        rotation={node.rotation}
+        scale={resolveNodeScale(node)}
+      >
+        {children.map((child) => renderNode(child, true))}
+      </Fracture>
+    )
+  }
+
   return (
     <group
       key={node.id}

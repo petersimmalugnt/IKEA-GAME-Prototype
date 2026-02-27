@@ -1,4 +1,4 @@
-import { Children, cloneElement, isValidElement, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { SETTINGS, type MaterialColorIndex, type Vec3 } from '@/settings/GameSettings'
 import { applyEasing, clamp01, type EasingName } from '@/utils/easing'
@@ -270,6 +270,16 @@ type ResolvedGridPhysics = {
   lockRotations?: boolean
 }
 
+type GridRuntimeContextValue = {
+  physicsOverride: ResolvedGridPhysics | null
+  seedPathSalt: number
+}
+
+const GRID_RUNTIME_CONTEXT = createContext<GridRuntimeContextValue>({
+  physicsOverride: null,
+  seedPathSalt: 0,
+})
+
 type CloneTransform = {
   key: string
   index: number
@@ -300,6 +310,13 @@ type FractureTemplateChild = {
   basePosition: Vec3
   baseRotation: Vec3
   baseScale: Vec3
+  baseColor: number
+  contagionCarrier: boolean
+  contagionInfectable: boolean
+  inferredCollider: {
+    collider: Exclude<GridCollider, { shape: 'auto' }>
+    colliderOffset: Vec3
+  }
 }
 
 type FractureChildTransform = {
@@ -311,6 +328,16 @@ type FractureChildTransform = {
   excluded: boolean
   color?: number
   materialColors?: Record<string, number>
+}
+
+function cloneFractureTransformState(transform: FractureChildTransform): FractureChildTransform {
+  return {
+    ...transform,
+    position: [...transform.position] as Vec3,
+    rotation: [...transform.rotation] as Vec3,
+    scale: [...transform.scale] as Vec3,
+    materialColors: transform.materialColors ? { ...transform.materialColors } : undefined,
+  }
 }
 
 const IDENTITY_POSITION: Vec3 = [0, 0, 0]
@@ -1021,37 +1048,50 @@ function hashSeed(value: number): number {
 
 function deriveEffectorSeedFromMount(
   mountSeed: number,
+  seedPathSalt: number,
   effectorType: 'random' | 'noise',
   effectorIndex: number,
 ): number {
   const typeSalt = effectorType === 'random' ? 0x51f2ac13 : 0x6d2b79f5
   const indexSalt = Math.imul(effectorIndex + 1, 374761393)
-  return hashSeed(mountSeed ^ typeSalt ^ indexSalt)
+  return hashSeed(mountSeed ^ seedPathSalt ^ typeSalt ^ indexSalt)
 }
 
 function resolveEffectorSeedForMount(
   seed: number | undefined,
   mountSeed: number,
+  seedPathSalt: number,
   effectorType: 'random' | 'noise',
   effectorIndex: number,
 ): number {
   const explicit = resolveExplicitSeed(seed)
   if (explicit !== null) return explicit
-  return deriveEffectorSeedFromMount(mountSeed, effectorType, effectorIndex)
+  return deriveEffectorSeedFromMount(mountSeed, seedPathSalt, effectorType, effectorIndex)
 }
 
-function deriveChildDistributionSeedFromMount(mountSeed: number): number {
+function deriveChildDistributionSeedFromMount(mountSeed: number, seedPathSalt: number): number {
   const childDistributionSalt = 0x3f6d2b79
-  return hashSeed(mountSeed ^ childDistributionSalt)
+  return hashSeed(mountSeed ^ seedPathSalt ^ childDistributionSalt)
 }
 
 function resolveChildDistributionSeedForMount(
   seed: number | undefined,
   mountSeed: number,
+  seedPathSalt: number,
 ): number {
   const explicit = resolveExplicitSeed(seed)
   if (explicit !== null) return explicit
-  return deriveChildDistributionSeedFromMount(mountSeed)
+  return deriveChildDistributionSeedFromMount(mountSeed, seedPathSalt)
+}
+
+function deriveNestedSeedPathSalt(
+  parentSeedPathSalt: number,
+  cloneIndex: number,
+  childIndex: number,
+): number {
+  const cloneSalt = Math.imul(cloneIndex + 1, 92837111)
+  const childSalt = Math.imul(childIndex + 1, 689287499)
+  return hashSeed(parentSeedPathSalt ^ cloneSalt ^ childSalt)
 }
 
 function resolveDistributedChildIndex(
@@ -1125,6 +1165,10 @@ function isPrimitiveType(type: unknown): boolean {
     || type === StepsElement
     || type === BridgeBlockElement
     || type === HalfCylinderBlockElement
+}
+
+function isContainerType(type: unknown): boolean {
+  return type === GridCloner || type === Fracture || type === TransformMotion || type === 'group'
 }
 
 function resolveChildBaseColorIndex(
@@ -1574,9 +1618,15 @@ export function GridCloner({
   contagionColor,
   spawnChunkSize,
 }: GridClonerProps) {
+  const runtimeContext = useContext(GRID_RUNTIME_CONTEXT)
   const autoEntityPrefixRef = useRef<string>(createAutoGridClonerEntityPrefix())
   const mountSeedRef = useRef<number>(createRandomSeed())
   const resolvedEntityPrefix = entityPrefix ?? autoEntityPrefixRef.current
+  const resolvedSeedPathSalt = runtimeContext.seedPathSalt
+  const resolvedMountSeed = useMemo(
+    () => hashSeed(mountSeedRef.current ^ resolvedSeedPathSalt ^ 0x1f123bb5),
+    [resolvedSeedPathSalt],
+  )
   const unitMultiplier = useMemo(
     () => resolveGridUnitMultiplier(gridUnit),
     [gridUnit],
@@ -1710,12 +1760,13 @@ export function GridCloner({
       if (effector.type !== 'random' && effector.type !== 'noise') return null
       return resolveEffectorSeedForMount(
         effector.seed,
-        mountSeedRef.current,
+        resolvedMountSeed,
+        resolvedSeedPathSalt,
         effector.type,
         effectorIndex,
       )
     }),
-    [normalizedEffectors],
+    [normalizedEffectors, resolvedMountSeed, resolvedSeedPathSalt],
   )
   const hasTimeEffector = useMemo(
     () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
@@ -1769,8 +1820,8 @@ export function GridCloner({
     [childDistribution],
   )
   const resolvedChildRandomSeed = useMemo(
-    () => resolveChildDistributionSeedForMount(childRandomSeed, mountSeedRef.current),
-    [childRandomSeed],
+    () => resolveChildDistributionSeedForMount(childRandomSeed, resolvedMountSeed, resolvedSeedPathSalt),
+    [childRandomSeed, resolvedMountSeed, resolvedSeedPathSalt],
   )
 
   const resolvedPhysics = useMemo<ResolvedGridPhysics | null>(() => {
@@ -1796,10 +1847,11 @@ export function GridCloner({
   }, [
     physics,
   ])
-  const shouldStripChildPhysics = Boolean(resolvedPhysics)
+  const effectivePhysics = runtimeContext.physicsOverride ?? resolvedPhysics
+  const shouldStripChildPhysics = Boolean(effectivePhysics)
   const collisionActivatedPhysics = useMemo(
-    () => resolvedPhysics ? isCollisionActivatedPhysicsType(resolvedPhysics.type) : false,
-    [resolvedPhysics],
+    () => effectivePhysics ? isCollisionActivatedPhysicsType(effectivePhysics.type) : false,
+    [effectivePhysics],
   )
   const [collisionActivatedClones, setCollisionActivatedClones] = useState<Record<string, CloneTransform>>({})
 
@@ -1918,9 +1970,15 @@ export function GridCloner({
     : transforms.slice(0, visibleCount)
 
   if (!enabled) {
+    const passthroughContextValue: GridRuntimeContextValue = {
+      physicsOverride: effectivePhysics,
+      seedPathSalt: resolvedSeedPathSalt,
+    }
     return (
       <group position={position} rotation={clonerRotation} scale={scale}>
-        {children}
+        <GRID_RUNTIME_CONTEXT.Provider value={passthroughContextValue}>
+          {children}
+        </GRID_RUNTIME_CONTEXT.Provider>
       </group>
     )
   }
@@ -1989,8 +2047,19 @@ export function GridCloner({
         }
 
         const renderedChild = cloneElement(childElement, nextProps)
+        const childSeedPathSalt = deriveNestedSeedPathSalt(resolvedSeedPathSalt, clone.index, selectedChildIndex)
+        const childRuntimeContextValue: GridRuntimeContextValue = {
+          physicsOverride: effectivePhysics,
+          seedPathSalt: childSeedPathSalt,
+        }
+        const isContainerChild = isContainerType(childElement.type)
+        const renderedWithContext = (
+          <GRID_RUNTIME_CONTEXT.Provider value={childRuntimeContextValue}>
+            {renderedChild}
+          </GRID_RUNTIME_CONTEXT.Provider>
+        )
 
-        if (!resolvedPhysics) {
+        if (!effectivePhysics || isContainerChild) {
           return (
             <group
               key={clone.key}
@@ -1998,7 +2067,7 @@ export function GridCloner({
               rotation={clone.rotation}
               scale={clone.scale}
             >
-              {renderedChild}
+              {renderedWithContext}
             </group>
           )
         }
@@ -2013,16 +2082,16 @@ export function GridCloner({
         return (
           <PhysicsWrapper
             key={clone.key}
-            physics={resolvedPhysics.type}
+            physics={effectivePhysics.type}
             colliderType={toColliderType(selectedTemplateChild.inferredCollider.collider)}
             colliderArgs={colliderArgs}
             colliderPosition={scaledColliderPosition}
             position={clone.position}
             rotation={clone.rotation}
-            mass={resolvedPhysics.mass}
-            friction={resolvedPhysics.friction}
-            restitution={resolvedPhysics.restitution}
-            lockRotations={resolvedPhysics.lockRotations}
+            mass={effectivePhysics.mass}
+            friction={effectivePhysics.friction}
+            restitution={effectivePhysics.restitution}
+            lockRotations={effectivePhysics.lockRotations}
             entityId={cloneEntityId}
             contagionCarrier={resolvedCloneContagionCarrier}
             contagionInfectable={resolvedCloneContagionInfectable}
@@ -2031,7 +2100,7 @@ export function GridCloner({
             onCollisionActivated={collisionActivatedPhysics ? () => freezeCloneTransform(clone) : undefined}
           >
             <group scale={clone.scale}>
-              {renderedChild}
+              {renderedWithContext}
             </group>
           </PhysicsWrapper>
         )
@@ -2183,7 +2252,34 @@ export function Fracture({
   gridUnit,
   showDebugEffectors,
 }: FractureProps) {
+  const runtimeContext = useContext(GRID_RUNTIME_CONTEXT)
   const mountSeedRef = useRef<number>(createRandomSeed())
+  const resolvedSeedPathSalt = runtimeContext.seedPathSalt
+  const resolvedMountSeed = useMemo(
+    () => hashSeed(mountSeedRef.current ^ resolvedSeedPathSalt ^ 0x3e2f7a1d),
+    [resolvedSeedPathSalt],
+  )
+  const effectivePhysics = runtimeContext.physicsOverride
+  const shouldStripChildPhysics = Boolean(effectivePhysics)
+  const collisionActivatedPhysics = useMemo(
+    () => effectivePhysics ? isCollisionActivatedPhysicsType(effectivePhysics.type) : false,
+    [effectivePhysics],
+  )
+  const [collisionActivatedChildren, setCollisionActivatedChildren] = useState<Record<string, FractureChildTransform>>({})
+  useEffect(() => {
+    if (!collisionActivatedPhysics) {
+      setCollisionActivatedChildren({})
+    }
+  }, [collisionActivatedPhysics])
+  const freezeChildTransform = useCallback((transform: FractureChildTransform) => {
+    setCollisionActivatedChildren((prev) => {
+      if (prev[transform.key]) return prev
+      return {
+        ...prev,
+        [transform.key]: cloneFractureTransformState(transform),
+      }
+    })
+  }, [])
   const unitMultiplier = useMemo(
     () => resolveGridUnitMultiplier(gridUnit),
     [gridUnit],
@@ -2270,6 +2366,10 @@ export function Fracture({
         basePosition,
         baseRotation,
         baseScale,
+        inferredCollider: resolveAutoColliderFromChild(element, 'cloner', IDENTITY_POSITION),
+        baseColor: resolveChildBaseColorIndex(element),
+        contagionCarrier: props.contagionCarrier === true,
+        contagionInfectable: props.contagionInfectable !== false,
       }
     })
   }, [parsedChildren.objectChildren])
@@ -2304,12 +2404,13 @@ export function Fracture({
       if (effector.type !== 'random' && effector.type !== 'noise') return null
       return resolveEffectorSeedForMount(
         effector.seed,
-        mountSeedRef.current,
+        resolvedMountSeed,
+        resolvedSeedPathSalt,
         effector.type,
         effectorIndex,
       )
     }),
-    [normalizedEffectors],
+    [normalizedEffectors, resolvedMountSeed, resolvedSeedPathSalt],
   )
   const hasTimeEffector = useMemo(
     () => normalizedEffectors.some((effector) => effector.type === 'time' && effector.enabled !== false),
@@ -2382,7 +2483,7 @@ export function Fracture({
         baseScale: child.baseScale,
       })
 
-      return {
+      const computedTransform: FractureChildTransform = {
         key: `fracture-${index}`,
         index,
         position: evaluated.position,
@@ -2392,8 +2493,16 @@ export function Fracture({
         ...(evaluated.color !== undefined ? { color: evaluated.color } : {}),
         ...(evaluated.materialColors ? { materialColors: evaluated.materialColors } : {}),
       }
+
+      if (computedTransform.excluded) return computedTransform
+      if (collisionActivatedPhysics && collisionActivatedChildren[computedTransform.key]) {
+        return collisionActivatedChildren[computedTransform.key]
+      }
+      return computedTransform
     })
   }, [
+    collisionActivatedChildren,
+    collisionActivatedPhysics,
     frameTime,
     noiseGenerators,
     normalizedEffectors,
@@ -2402,9 +2511,15 @@ export function Fracture({
   ])
 
   if (!enabled) {
+    const passthroughContextValue: GridRuntimeContextValue = {
+      physicsOverride: effectivePhysics,
+      seedPathSalt: resolvedSeedPathSalt,
+    }
     return (
       <group position={position} rotation={fractureRotation} scale={scale}>
-        {children}
+        <GRID_RUNTIME_CONTEXT.Provider value={passthroughContextValue}>
+          {children}
+        </GRID_RUNTIME_CONTEXT.Provider>
       </group>
     )
   }
@@ -2425,6 +2540,14 @@ export function Fracture({
           scale: IDENTITY_SCALE,
         }
 
+        if (shouldStripChildPhysics) {
+          Object.keys(childProps).forEach((key) => {
+            if (key === 'physics' || key.startsWith('rigidBody')) {
+              nextProps[key] = undefined
+            }
+          })
+        }
+
         if (transform.color !== undefined) {
           if (isPrimitiveType(childElement.type) || Object.prototype.hasOwnProperty.call(childProps, 'color')) {
             nextProps.color = transform.color
@@ -2441,16 +2564,63 @@ export function Fracture({
         }
 
         const renderedChild = cloneElement(childElement, nextProps)
+        const childSeedPathSalt = deriveNestedSeedPathSalt(resolvedSeedPathSalt, transform.index, 0)
+        const childRuntimeContextValue: GridRuntimeContextValue = {
+          physicsOverride: effectivePhysics,
+          seedPathSalt: childSeedPathSalt,
+        }
+        const isContainerChild = isContainerType(childElement.type)
+        const renderedWithContext = (
+          <GRID_RUNTIME_CONTEXT.Provider value={childRuntimeContextValue}>
+            {renderedChild}
+          </GRID_RUNTIME_CONTEXT.Provider>
+        )
+
+        if (!effectivePhysics || isContainerChild) {
+          return (
+            <group
+              key={transform.key}
+              position={transform.position}
+              rotation={transform.rotation}
+              scale={transform.scale}
+            >
+              {renderedWithContext}
+            </group>
+          )
+        }
+
+        const colliderArgs = scaleColliderArgs(templateChild.inferredCollider.collider, transform.scale)
+        const scaledColliderPosition: Vec3 = [
+          templateChild.inferredCollider.colliderOffset[0] * transform.scale[0],
+          templateChild.inferredCollider.colliderOffset[1] * transform.scale[1],
+          templateChild.inferredCollider.colliderOffset[2] * transform.scale[2],
+        ]
+        const resolvedFractureColor = transform.color
+          ?? (typeof transform.materialColors?.materialColor0 === 'number' ? transform.materialColors.materialColor0 : undefined)
+          ?? templateChild.baseColor
 
         return (
-          <group
+          <PhysicsWrapper
             key={transform.key}
+            physics={effectivePhysics.type}
+            colliderType={toColliderType(templateChild.inferredCollider.collider)}
+            colliderArgs={colliderArgs}
+            colliderPosition={scaledColliderPosition}
             position={transform.position}
             rotation={transform.rotation}
-            scale={transform.scale}
+            mass={effectivePhysics.mass}
+            friction={effectivePhysics.friction}
+            restitution={effectivePhysics.restitution}
+            lockRotations={effectivePhysics.lockRotations}
+            contagionCarrier={templateChild.contagionCarrier}
+            contagionInfectable={templateChild.contagionInfectable}
+            contagionColor={resolvedFractureColor}
+            onCollisionActivated={collisionActivatedPhysics ? () => freezeChildTransform(transform) : undefined}
           >
-            {renderedChild}
-          </group>
+            <group scale={transform.scale}>
+              {renderedWithContext}
+            </group>
+          </PhysicsWrapper>
         )
       })}
 
