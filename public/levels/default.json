@@ -22,14 +22,14 @@
       ],
       "props": {
         "count": [
-          12,
+          11,
           1,
-          14
+          16
         ],
         "spacing": [
-          8,
+          7,
           1,
-          8
+          7
         ],
         "offset": [
           0,
@@ -52,17 +52,20 @@
         "enabled": true,
         "contagionCarrier": false,
         "contagionInfectable": true,
+        "physics": "dynamic",
         "anchor": {
           "x": "center",
           "y": "center",
           "z": "center"
-        },
-        "physics": "dynamic"
+        }
       },
       "children": [
         {
           "id": "e0f32e95-060f-425a-ac3d-0d6235825c8a",
           "name": "EXCLUDE Random Effector",
+          "builder": {
+            "hiddenInBuilder": false
+          },
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -96,12 +99,15 @@
             "signedRotation": false,
             "signedScale": false,
             "exclude": true,
-            "excludeProbability": 2
+            "excludeProbability": 1
           }
         },
         {
           "id": "51e79c4f-805a-4d6e-b244-6c4290a3ec03",
           "name": "ROTATION Random Effector",
+          "builder": {
+            "hiddenInBuilder": false
+          },
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -141,6 +147,9 @@
         {
           "id": "479eebb7-9d66-4369-9c59-b53e3afef1fe",
           "name": "POSITION Random Effector",
+          "builder": {
+            "hiddenInBuilder": false
+          },
           "nodeType": "effector",
           "type": "RandomEffector",
           "props": {
@@ -156,9 +165,9 @@
             "contourSteps": 5,
             "contourMultiplier": 1,
             "position": [
-              10,
+              4,
               0,
-              10
+              4
             ],
             "rotation": [
               0,
@@ -170,17 +179,29 @@
               0,
               0
             ],
-            "signedPosition": true,
-            "signedRotation": false,
+            "signedPosition": false,
+            "signedRotation": true,
             "signedScale": false,
             "exclude": false,
             "excludeProbability": 0
           }
         },
         {
-          "id": "7a235b9e-7cdc-4ef4-8f4f-0f617bcd6119",
+          "id": "dabe6ec4-a8f4-4da8-8459-ad96b4252f2b",
+          "builder": {
+            "hiddenInBuilder": false
+          },
+          "nodeType": "effector",
+          "type": "PushApartEffector",
+          "props": {
+            "enabled": true,
+            "radiusOffset": 2
+          }
+        },
+        {
+          "id": "bc4b3574-7b48-4723-9b1d-1774bf497730",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -196,7 +217,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "34eab34f-7b98-4860-8415-6c0aa5454ea6",
@@ -285,13 +309,55 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "0dd19a0f-cd9b-4202-bbdb-b515df86d9a5",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
         },
         {
-          "id": "d8cce049-0a87-4b29-aa05-bc117d1ca532",
+          "id": "2d6ae762-a8b0-4012-bc14-a3f998453aa4",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -307,7 +373,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "f511467c-2bd3-4baa-b573-611bc41d0b5d",
@@ -426,13 +495,58 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "0bba8ec5-cdad-4c94-b054-18a7d3f11f39",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              },
+              "builder": {
+                "hiddenInBuilder": false
+              }
             }
           ]
         },
         {
-          "id": "cac384d3-334a-4c26-90f6-6e09895781a5",
+          "id": "5683ab79-7f9e-4727-8b14-b89cada72a37",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -448,7 +562,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "47800f98-002a-4bf1-9980-6c126cd19d94",
@@ -539,13 +656,55 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "3b2cb31a-551b-45d5-a2d2-9fe5b0173bf4",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
         },
         {
-          "id": "47a7d283-bad2-41b1-9946-bf2b457be24d",
+          "id": "ccfea84b-620d-44e4-a68c-baa5b3780bdc",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -561,7 +720,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "a0df4b3f-de6a-4983-ba4a-6dd035d6f6fa",
@@ -621,13 +783,55 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "a972ca33-37f0-4251-8b2e-3cd622632b9d",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
         },
         {
-          "id": "9b6b0e2f-3d99-4289-90ca-0496bea05f72",
+          "id": "277f4bb8-c6f2-400e-be27-2471b6cf1f59",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -643,7 +847,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "e456d1fd-bd04-4aa0-bd8f-3fd898e0c761",
@@ -914,13 +1121,55 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "e98dba5a-2eb5-4e37-aff3-e0036a933c9b",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
         },
         {
-          "id": "10431f5d-63b0-4164-b750-71b7fadfd426",
+          "id": "37bfdd3e-e1d6-4d14-8e98-6a67695d0ab4",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -936,7 +1185,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "1e28f34d-45f9-40b2-a26c-cd036c3bf1e7",
@@ -1025,13 +1277,55 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "bd7ba5ea-69d3-4b4b-a5b8-7988bdab0073",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
         },
         {
-          "id": "7d9b3ece-6902-43ef-96f0-129fe7d4f39d",
+          "id": "304f0ab1-2a33-42ee-9020-7726d422c0c3",
           "nodeType": "object",
-          "type": "Null",
+          "type": "Fracture",
           "position": [
             0,
             0,
@@ -1047,7 +1341,10 @@
             1,
             1
           ],
-          "props": {},
+          "props": {
+            "enabled": true,
+            "gridUnit": "md"
+          },
           "children": [
             {
               "id": "3b9c28ad-9a0b-44fd-bc65-9f2774f5c3ba",
@@ -1285,20 +1582,50 @@
                 "contagionCarrier": false,
                 "contagionInfectable": true
               }
+            },
+            {
+              "id": "1f3d8de2-a071-4d30-aaae-c0ecf52dc17d",
+              "nodeType": "effector",
+              "type": "RandomEffector",
+              "props": {
+                "enabled": true,
+                "strength": 1,
+                "enableRemap": true,
+                "innerOffset": 0,
+                "remapMin": 0,
+                "remapMax": 1,
+                "clampMin": true,
+                "clampMax": true,
+                "contourMode": "none",
+                "contourSteps": 6,
+                "contourMultiplier": 1,
+                "position": [
+                  0,
+                  0,
+                  0
+                ],
+                "rotation": [
+                  0,
+                  0,
+                  0
+                ],
+                "scale": [
+                  0,
+                  0,
+                  0
+                ],
+                "signedPosition": false,
+                "signedRotation": false,
+                "signedScale": false,
+                "exclude": false,
+                "excludeProbability": 0,
+                "color": [
+                  1,
+                  2
+                ]
+              }
             }
           ]
-        },
-        {
-          "id": "dabe6ec4-a8f4-4da8-8459-ad96b4252f2b",
-          "nodeType": "effector",
-          "type": "PushApartEffector",
-          "props": {
-            "enabled": true,
-            "radiusOffset": 3
-          },
-          "builder": {
-            "hiddenInBuilder": false
-          }
         }
       ]
     }
