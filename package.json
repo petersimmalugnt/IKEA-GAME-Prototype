@@ -18,7 +18,6 @@
     "@react-three/rapier": "^2.2.0",
     "@types/three": "^0.182.0",
     "culori": "^4.0.2",
-    "leva": "^0.10.1",
     "marked": "^17.0.2",
     "mermaid": "^11.12.2",
     "postprocessing": "^6.38.2",

@@ -1,17 +1,15 @@
 import { OrthographicCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { Leva } from "leva";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-// import { GameEffects } from '@/render/Effects' <--- BORTTAGEN HÄRIFRÅN
 import { preload as preloadSounds } from "@/audio/SoundManager";
 import { CursorTrailCanvas } from "@/input/CursorTrailCanvas";
 import { Scene } from "@/scene/Scene";
 import { SETTINGS, getActiveBackground } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
 import { GltfConverter } from "@/tools/GltfConverter";
-import { ControlCenter } from "@/ui/ControlCenter";
 import { DocsPage } from "@/ui/docs/DocsPage";
+import { GameSettingsPanel } from "@/ui/settings/GameSettingsPanel";
 import { ScoreHud } from "@/ui/ScoreHud";
 import { ScorePopCanvas } from "@/ui/ScorePopCanvas";
 
@@ -32,7 +30,7 @@ export default function App() {
 
 function GameApp() {
   useSettingsVersion();
-  const [levaHidden, setLevaHidden] = useState(true);
+  const [isSettingsPanelVisible, setIsSettingsPanelVisible] = useState(false);
 
   useEffect(() => {
     preloadSounds();
@@ -40,9 +38,10 @@ function GameApp() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.repeat) return;
       if (e.metaKey && (e.key === "." || e.code === "Period")) {
         e.preventDefault();
-        setLevaHidden((h) => !h);
+        setIsSettingsPanelVisible((v) => !v);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -65,8 +64,6 @@ function GameApp() {
         cursor: "none",
       }}
     >
-      <Leva collapsed hidden={levaHidden} />
-      <ControlCenter />
       <ScoreHud />
       <Canvas
         shadows={{ type: THREE.BasicShadowMap }}
@@ -91,6 +88,9 @@ function GameApp() {
       </Canvas>
       <CursorTrailCanvas />
       <ScorePopCanvas />
+      {isSettingsPanelVisible && (
+        <GameSettingsPanel onClose={() => setIsSettingsPanelVisible(false)} />
+      )}
     </div>
   );
 }

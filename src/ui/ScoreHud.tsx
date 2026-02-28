@@ -47,23 +47,47 @@ export function ScoreHud() {
           gap: '2ch',
           maxWidth: 'min(70vw, 52ch)',
           flexWrap: 'wrap',
+          color: uiWhite,
         }}
       >
         <div style={{ display: 'flex', gap: '1em', minWidth: 'max(15ch, calc(100vw / 4))' }}>
-          <span style={{ color: uiWhite }}>Score</span>
-          <span style={{ color: uiWhite }}>{formatScore(score)}</span>
+          <span>Score</span>
+          <span>{formatScore(score)}</span>
         </div>
-        <div style={{ display: 'flex', gap: '1em', fontSize: '0.4em', color: uiWhite, fontWeight: '500', paddingTop: '0.25em', letterSpacing: '0.025em' }}>
+        <div style={{ display: 'flex', gap: '1em', fontSize: '0.4em', fontWeight: '500', paddingTop: '0.25em', letterSpacing: '0.025em' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em', minWidth: 'max(15ch, calc(100vw / 12))' }}>
-            <span style={{ color: uiWhite, minWidth: '4ch' }}>Prev.</span>
+            <span>Prev.</span>
             <span>{formatScore(lastRunScore)}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em', minWidth: 'max(15ch, calc(100vw / 12))' }}>
-            <span style={{ color: uiWhite, minWidth: '4ch' }}>Best</span>
+            <span>Best</span>
             <span>{formatScore(sessionHighScore)}</span>
           </div>
         </div>
       </div >
+
+      <div
+        style={{
+          position: 'absolute',
+          bottom: margin,
+          right: margin,
+          zIndex: 30,
+          pointerEvents: 'none',
+          ...hudTextStyle,
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'flex-end',
+          gap: '2ch',
+          maxWidth: 'min(70vw, 52ch)',
+          flexWrap: 'wrap',
+          color: uiWhite,
+          textAlign: 'right',
+          textWrap: 'balance',
+          width: '10ch',
+        }}
+      >
+        <span style={{ fontSize: '0.25em', fontWeight: '600', letterSpacing: '0.025em' }}>CMD + . (Punctuation mark) to open game settings.</span>
+      </div>
 
       <div
         style={{
