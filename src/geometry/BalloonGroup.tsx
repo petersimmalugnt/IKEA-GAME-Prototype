@@ -96,7 +96,7 @@ const BALLOONS = {
 // Centrala BalloonGroup-inställningar: håll all gameplay-tuning här.
 const BALLOON_GROUP_SETTINGS = {
   randomize: {
-    excludedColorIndices: [0, 1, 2, 9] as number[],
+    excludedColorIndices: [0, 1, 2, 3] as number[],
     positionVelocityZBase: 0.5,
     positionVelocityZAmplitude: 0.2,
     rotationOffsetBase: 0,

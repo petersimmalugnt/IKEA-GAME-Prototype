@@ -11,19 +11,24 @@ function formatScore(value: number): string {
 
 export function ScoreHud() {
   const uiWhite = '#fff'
+  const uiWhiteAlpha = 'rgba(255, 255, 255, 0.333)'
   const score = useGameplayStore((state) => state.score)
   const lastRunScore = useGameplayStore((state) => state.lastRunScore)
+  const sessionHighScore = useGameplayStore((state) => state.sessionHighScore)
   const lives = useGameplayStore((state) => state.lives)
   const gameOver = useGameplayStore((state) => state.gameOver)
   const maxLives = SETTINGS.gameplay.lives.initial
-  const secondaryColor = 'rgba(255, 255, 255, 0.2)'
+  const secondaryColor = SETTINGS.colors.outline
   const consumedLives = Math.max(0, maxLives - lives)
+  const fontSize = '2rem'
+  const margin = '1.5rem'
 
   const hudTextStyle: CSSProperties = {
     fontFamily: '"Instrument Sans", sans-serif',
-    fontSize: '1.5rem',
+    fontSize,
     lineHeight: 1,
-    letterSpacing: '0em',
+    fontWeight: '400',
+    letterSpacing: '0.01em',
     textTransform: 'uppercase',
   }
 
@@ -32,41 +37,39 @@ export function ScoreHud() {
       <div
         style={{
           position: 'absolute',
-          top: '1.5rem',
-          left: '1.5rem',
+          top: margin,
+          left: margin,
           zIndex: 30,
           pointerEvents: 'none',
           ...hudTextStyle,
           display: 'flex',
-          gap: '.5em',
+          alignItems: 'start',
+          gap: '2ch',
+          maxWidth: 'min(70vw, 52ch)',
+          flexWrap: 'wrap',
         }}
       >
-        <span style={{ color: secondaryColor }}>Score</span>
-        <span style={{ color: uiWhite }}>{formatScore(score)}</span>
-      </div>
+        <div style={{ display: 'flex', gap: '1em', minWidth: 'max(15ch, calc(100vw / 4))' }}>
+          <span style={{ color: uiWhite }}>Score</span>
+          <span style={{ color: uiWhite }}>{formatScore(score)}</span>
+        </div>
+        <div style={{ display: 'flex', gap: '1em', fontSize: '0.4em', color: uiWhite, fontWeight: '500', paddingTop: '0.25em', letterSpacing: '0.025em' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em', minWidth: 'max(15ch, calc(100vw / 12))' }}>
+            <span style={{ color: uiWhite, minWidth: '4ch' }}>Prev.</span>
+            <span>{formatScore(lastRunScore)}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1em', minWidth: 'max(15ch, calc(100vw / 12))' }}>
+            <span style={{ color: uiWhite, minWidth: '4ch' }}>Best</span>
+            <span>{formatScore(sessionHighScore)}</span>
+          </div>
+        </div>
+      </div >
 
       <div
         style={{
           position: 'absolute',
-          top: '3.25rem',
-          left: '1.5rem',
-          zIndex: 30,
-          pointerEvents: 'none',
-          ...hudTextStyle,
-          fontSize: '.75rem',
-          display: 'flex',
-          gap: '.5em',
-        }}
-      >
-        <span style={{ color: uiWhite }}>Last Run</span>
-        <span style={{ color: uiWhite }}>{formatScore(lastRunScore)}</span>
-      </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          top: '1.5rem',
-          right: '1.5rem',
+          top: margin,
+          right: margin,
           zIndex: 30,
           pointerEvents: 'none',
           display: 'flex',
@@ -81,7 +84,7 @@ export function ScoreHud() {
             className="material-icons"
             style={{
               color: uiWhite,
-              fontSize: '1.5rem',
+              fontSize: fontSize,
               lineHeight: '1em',
             }}
           >
@@ -94,7 +97,7 @@ export function ScoreHud() {
             className="material-icons"
             style={{
               color: secondaryColor,
-              fontSize: '1.5rem',
+              fontSize: fontSize,
               lineHeight: '1em',
             }}
           >
@@ -103,21 +106,23 @@ export function ScoreHud() {
         ))}
       </div>
 
-      {gameOver ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: '3.3rem',
-            left: '1.5rem',
-            zIndex: 30,
-            pointerEvents: 'none',
-            color: secondaryColor,
-            ...hudTextStyle,
-          }}
-        >
-          Game Over
-        </div>
-      ) : null}
+      {
+        gameOver ? (
+          <div
+            style={{
+              position: 'absolute',
+              top: `calc(${margin} * 1.25 + ${fontSize})`,
+              left: margin,
+              zIndex: 30,
+              pointerEvents: 'none',
+              color: secondaryColor,
+              ...hudTextStyle,
+            }}
+          >
+            Game Over
+          </div>
+        ) : null
+      }
     </>
   )
 }
