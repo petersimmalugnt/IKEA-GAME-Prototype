@@ -86,7 +86,7 @@ export function ScoreHud() {
           width: '10ch',
         }}
       >
-        <span style={{ fontSize: '0.25em', fontWeight: '600', letterSpacing: '0.025em' }}>CMD + . (Punctuation mark) to open game settings.</span>
+        <span style={{ fontSize: '0.25em', fontWeight: '600', letterSpacing: '0.025em' }}>CMD + . (Punctuation mark) to toggle the property panel for game settings.</span>
       </div>
 
       <div
