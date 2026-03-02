@@ -193,7 +193,7 @@ export const SETTINGS: Settings = {
   camera: {
     mode: "follow", // 'follow' eller 'static'
     base: {
-      zoom: 200,
+      zoom: 300,
       near: 0.1,
       far: 2000,
     },
@@ -217,7 +217,7 @@ export const SETTINGS: Settings = {
 
   // --- LJUS (Påverkar skuggor & material) ---
   light: {
-    position: [0, 4, 10],
+    position: [0, 10, 5],
     intensity: 1,
     shadowMapSize: 4096, // 4096 = Skarpast skuggor
     shadowBias: 0, // Mycket liten bias (så skuggan sitter fast i objektet)
