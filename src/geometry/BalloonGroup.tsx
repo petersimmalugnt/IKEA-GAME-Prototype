@@ -595,7 +595,7 @@ export function BalloonGroup({
 
       useGameplayStore
         .getState()
-        .addScore(SETTINGS.gameplay.balloons.scorePerPop);
+        .addScore(SETTINGS.gameplay.balloons.scorePerPop, 'balloon_pop');
       if (getWorldPopCenter(popCenterWorld)) {
         popCenterNdc.copy(popCenterWorld).project(camera);
         emitScorePop({

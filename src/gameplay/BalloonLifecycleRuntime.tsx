@@ -220,7 +220,7 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
 
       if (pastLife) {
         entry.missApplied = true
-        if (lifeLoss > 0) loseLives(lifeLoss)
+        if (lifeLoss > 0) loseLives(lifeLoss, 'balloon_missed')
         missQueue.push(entry.target.onMissed)
       }
     })
