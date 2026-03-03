@@ -1,5 +1,6 @@
 import { BalloonLifecycleRuntime } from "@/gameplay/BalloonLifecycleRuntime";
 import { CameraSystemProvider } from "@/camera/CameraSystem";
+import { GameMusicDirector } from "@/audio/GameMusicDirector";
 import { ContagionRuntime } from "@/gameplay/ContagionRuntime";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { ItemSpawner } from "@/gameplay/ItemSpawner";
@@ -19,8 +20,8 @@ import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import {
   MotionSystemProvider,
   TransformMotion,
-  resetMotionSystemClock,
 } from "@/scene/TransformMotion";
+import { GameRunClockRuntime } from "@/game/GameRunClock";
 import { SETTINGS } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
 import { BalloonGroup } from "@/geometry/BalloonGroup";
@@ -40,17 +41,11 @@ export function Scene() {
   const cullMarkerRef = useRef<PositionTargetHandle | null>(null);
   const isDebug = SETTINGS.debug.enabled;
   const gameOver = useGameplayStore((state) => state.gameOver);
-  const runEndSequence = useGameplayStore((state) => state.runEndSequence);
 
   useEffect(() => {
     if (!gameOver) return;
     useSpawnerStore.getState().clearAll();
   }, [gameOver]);
-
-  useEffect(() => {
-    if (runEndSequence <= 0) return;
-    resetMotionSystemClock();
-  }, [runEndSequence]);
 
   // Calculate the diagonal of the viewport to ensure the floor covers the entire screen
   const { viewport } = useThree();
@@ -60,6 +55,7 @@ export function Scene() {
 
   return (
     <GameKeyboardControls>
+      <GameMusicDirector />
       <ExternalControlBridge />
       <LiveLevelSync />
       <ScoreboardBridge />
@@ -67,6 +63,7 @@ export function Scene() {
         gravity={[0, -9.81, 0]}
         debug={isDebug && SETTINGS.debug.showColliders}
       >
+        <GameRunClockRuntime />
         <ContagionRuntime />
         <GameEffects />
         <GameLights lightRef={directionalLightRef} />

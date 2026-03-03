@@ -14,6 +14,7 @@ import { useFrame, type ThreeElements } from '@react-three/fiber'
 import type { Vec3 } from '@/settings/GameSettings'
 import { applyEasing, type EasingName } from '@/utils/easing'
 import { isPlaying } from '@/game/gamePhaseStore'
+import { getGameRunClockSeconds } from '@/game/GameRunClock'
 import {
   ACCELERATION_CURVE_NAMES,
   type AccelerationCurveName,
@@ -166,7 +167,6 @@ type MotionRegistry = {
 
 const ZERO_VEC3: Vec3 = [0, 0, 0]
 const DEG2RAD = Math.PI / 180
-const DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS = 0.5
 
 function normalizeVec3Like(input?: Vec3Like): Vec3 {
   if (!input) return [...ZERO_VEC3]
@@ -495,84 +495,10 @@ function toWorldVelocity(
   return [scratch.x, scratch.y, scratch.z]
 }
 
-type MotionSystemClockResetOptions = {
-  durationSeconds?: number
-}
-
-type MotionSystemClockController = {
-  rawClockSecondsRef: MutableRefObject<number>
-  effectiveClockSecondsRef: MutableRefObject<number>
-  pausedRef: MutableRefObject<boolean>
-  resetActiveRef: MutableRefObject<boolean>
-  resetFromSecondsRef: MutableRefObject<number>
-  resetElapsedSecondsRef: MutableRefObject<number>
-  resetDurationSecondsRef: MutableRefObject<number>
-}
-
-const motionSystemClockControllerRef: { current: MotionSystemClockController | null } = { current: null }
-
-function resolveResetDurationSeconds(value: number | undefined): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS
-  }
-  return Math.max(0, value)
-}
-
-function getMotionSystemClockController(): MotionSystemClockController | null {
-  return motionSystemClockControllerRef.current
-}
-
-export function resetMotionSystemClock(options?: MotionSystemClockResetOptions): void {
-  const controller = getMotionSystemClockController()
-  if (!controller) return
-  const durationSeconds = resolveResetDurationSeconds(options?.durationSeconds)
-  controller.resetActiveRef.current = durationSeconds > 0
-  controller.resetDurationSecondsRef.current = durationSeconds
-  controller.resetElapsedSecondsRef.current = 0
-  controller.resetFromSecondsRef.current = controller.effectiveClockSecondsRef.current
-  controller.rawClockSecondsRef.current = 0
-  if (durationSeconds <= 0) {
-    controller.effectiveClockSecondsRef.current = 0
-  }
-}
-
-export function pauseMotionSystemClock(): void {
-  const controller = getMotionSystemClockController()
-  if (!controller) return
-  controller.pausedRef.current = true
-}
-
-export function resumeMotionSystemClock(): void {
-  const controller = getMotionSystemClockController()
-  if (!controller) return
-  controller.pausedRef.current = false
-}
-
-export function setMotionSystemClockPaused(paused: boolean): void {
-  if (paused) {
-    pauseMotionSystemClock()
-    return
-  }
-  resumeMotionSystemClock()
-}
-
-export function getMotionSystemClockSeconds(): number {
-  const controller = getMotionSystemClockController()
-  if (!controller) return 0
-  return controller.effectiveClockSecondsRef.current
-}
-
 const MotionRegistryContext = createContext<MotionRegistry | null>(null)
 
 export function MotionSystemProvider({ children }: { children: ReactNode }) {
   const tracksRef = useRef<Set<MotionTrack>>(new Set())
-  const rawClockSecondsRef = useRef(0)
-  const effectiveClockSecondsRef = useRef(0)
-  const pausedRef = useRef(false)
-  const resetActiveRef = useRef(false)
-  const resetFromSecondsRef = useRef(0)
-  const resetElapsedSecondsRef = useRef(0)
-  const resetDurationSecondsRef = useRef(DEFAULT_MOTION_CLOCK_RESET_DURATION_SECONDS)
 
   const registry = useMemo<MotionRegistry>(() => ({
     register(track) {
@@ -583,51 +509,10 @@ export function MotionSystemProvider({ children }: { children: ReactNode }) {
     },
   }), [])
 
-  useEffect(() => {
-    const controller: MotionSystemClockController = {
-      rawClockSecondsRef,
-      effectiveClockSecondsRef,
-      pausedRef,
-      resetActiveRef,
-      resetFromSecondsRef,
-      resetElapsedSecondsRef,
-      resetDurationSecondsRef,
-    }
-    motionSystemClockControllerRef.current = controller
-    return () => {
-      if (motionSystemClockControllerRef.current === controller) {
-        motionSystemClockControllerRef.current = null
-      }
-    }
-  }, [])
-
   useFrame((_, delta) => {
     if (!isPlaying()) return
-    if (pausedRef.current) return
     if (!(delta > 0)) return
-
-    if (resetActiveRef.current) {
-      resetElapsedSecondsRef.current += delta
-      const duration = Math.max(0, resetDurationSecondsRef.current)
-      if (duration <= 0) {
-        resetActiveRef.current = false
-        rawClockSecondsRef.current = 0
-        effectiveClockSecondsRef.current = 0
-      } else {
-        const t = Math.min(1, resetElapsedSecondsRef.current / duration)
-        const fromSeconds = resetFromSecondsRef.current
-        effectiveClockSecondsRef.current = fromSeconds * (1 - t)
-        if (t >= 1) {
-          resetActiveRef.current = false
-          rawClockSecondsRef.current = 0
-          effectiveClockSecondsRef.current = 0
-        }
-      }
-    } else {
-      rawClockSecondsRef.current += delta
-      effectiveClockSecondsRef.current = rawClockSecondsRef.current
-    }
-    const clockSeconds = effectiveClockSecondsRef.current
+    const clockSeconds = getGameRunClockSeconds()
 
     tracksRef.current.forEach((track) => {
       const object = track.ref.current
@@ -909,7 +794,7 @@ export const TransformMotion = forwardRef<TransformMotionHandle, TransformMotion
         config.rotationEasing,
         state.rotationProgress,
       )
-      const clockSeconds = getMotionSystemClockSeconds()
+      const clockSeconds = getGameRunClockSeconds()
       resolveAccelerationMultipliers(
         config.positionTimeScaleAcceleration,
         config.timeScaleAccelerationCurve,

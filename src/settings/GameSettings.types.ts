@@ -39,34 +39,6 @@ export type RenderStyle = (typeof RENDER_STYLES)[number]
 export type ControlInputSource = (typeof CONTROL_INPUT_SOURCES)[number]
 export type ExternalControlMode = (typeof EXTERNAL_CONTROL_MODES)[number]
 
-export type SoundCategorySettings = {
-  files: string[]
-  volume: number
-}
-
-export type SwooshSoundSettings = SoundCategorySettings & {
-  minVelocity: number
-  maxVelocity: number
-  cooldownMs: number
-}
-
-export type ComboSoundSettings = {
-  tier2: SoundCategorySettings
-  tier3: SoundCategorySettings
-  tier4Plus: SoundCategorySettings
-}
-
-export type SoundSettings = {
-  enabled: boolean
-  pop: SoundCategorySettings
-  felt: SoundCategorySettings
-  steel: SoundCategorySettings
-  error: SoundCategorySettings
-  bee: SoundCategorySettings
-  swoosh: SwooshSoundSettings
-  combo: ComboSoundSettings
-}
-
 export type AxisMask = {
   x: boolean
   y: boolean
@@ -309,5 +281,4 @@ export type Settings = {
       smoothing: number
     }
   }
-  sounds: SoundSettings
 }

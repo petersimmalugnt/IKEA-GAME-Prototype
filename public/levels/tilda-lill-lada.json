@@ -1,0 +1,213 @@
+{
+  "version": 6,
+  "nodes": [
+    {
+      "id": "44517584-54fb-46ee-80f9-e7845fdf44a0",
+      "nodeType": "object",
+      "type": "GridCloner",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "props": {
+        "count": [
+          17,
+          1,
+          14
+        ],
+        "spacing": [
+          1.5,
+          1,
+          2.8
+        ],
+        "offset": [
+          0,
+          0,
+          0
+        ],
+        "rotationOffset": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ],
+        "anchor": {
+          "x": "center",
+          "y": "center",
+          "z": "center"
+        },
+        "transformMode": "cloner",
+        "childDistribution": "iterate",
+        "gridUnit": "md",
+        "enabled": true,
+        "contagionCarrier": false,
+        "contagionInfectable": true
+      },
+      "children": [
+        {
+          "id": "826b24f8-df53-4ab0-a6ff-f2b0e5e35674",
+          "nodeType": "object",
+          "type": "BlockElement",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "props": {
+            "sizePreset": "md",
+            "heightPreset": "sm",
+            "plane": "y",
+            "color": 1,
+            "singleTone": false,
+            "hidden": false,
+            "contagionCarrier": false,
+            "contagionInfectable": true
+          }
+        },
+        {
+          "id": "d69a4086-75a0-499f-aca1-38213c9d2cb5",
+          "nodeType": "effector",
+          "type": "NoiseEffector",
+          "props": {
+            "enabled": true,
+            "strength": 1,
+            "enableRemap": true,
+            "innerOffset": 0,
+            "remapMin": 0,
+            "remapMax": 1,
+            "clampMin": true,
+            "clampMax": true,
+            "contourMode": "easeInOutCubic",
+            "contourSteps": 6,
+            "contourMultiplier": 1,
+            "frequency": 1,
+            "offset": [
+              0,
+              0,
+              0
+            ],
+            "noisePosition": [
+              0,
+              0,
+              0
+            ],
+            "noisePositionSpeed": [
+              1,
+              0,
+              0
+            ],
+            "position": [
+              0,
+              5,
+              0
+            ],
+            "rotation": [
+              0,
+              90,
+              0
+            ],
+            "scale": [
+              0,
+              0,
+              0
+            ],
+            "signedPosition": false,
+            "signedRotation": false,
+            "signedScale": false,
+            "exclude": false,
+            "excludeThreshold": 0.65,
+            "color": [
+              1,
+              2
+            ]
+          }
+        },
+        {
+          "id": "84afeb00-8421-4a3b-954d-4c9c05ed9106",
+          "nodeType": "effector",
+          "type": "SphericalFieldEffector",
+          "props": {
+            "enabled": true,
+            "strength": 1,
+            "fieldPosition": [
+              0.3,
+              0.2,
+              0.7
+            ],
+            "radius": 10,
+            "invert": false,
+            "enableRemap": true,
+            "innerOffset": 0,
+            "remapMin": 0,
+            "remapMax": 1,
+            "clampMin": true,
+            "clampMax": true,
+            "contourMode": "none",
+            "contourSteps": 6,
+            "contourMultiplier": 1,
+            "position": [
+              0,
+              15,
+              0
+            ],
+            "rotation": [
+              0,
+              0,
+              0
+            ],
+            "scale": [
+              0,
+              0,
+              0
+            ],
+            "exclude": false,
+            "excludeThreshold": 0.5,
+            "blendMode": "add"
+          },
+          "builder": {
+            "hiddenInBuilder": false
+          }
+        }
+      ]
+    }
+  ],
+  "unitSize": 0.1,
+  "gridSize": [
+    128,
+    128
+  ],
+  "builderSettings": {
+    "palette": {
+      "source": "override",
+      "override": "green"
+    }
+  },
+  "sceneMetrics": {
+    "highestVertexY": null
+  }
+}

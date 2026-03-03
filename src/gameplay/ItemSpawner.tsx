@@ -1,5 +1,5 @@
 import { useEntityStore } from "@/entities/entityStore";
-import { isPlaying } from "@/game/gamePhaseStore";
+import { getGameRunClockSeconds, isGameRunClockRunning } from "@/game/GameRunClock";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
 import {
   useSpawnerStore,
@@ -57,7 +57,6 @@ export function ItemSpawner({
   const runEndSequence = useGameplayStore((state) => state.runEndSequence);
   const gameOver = useGameplayStore((state) => state.gameOver);
   const spawnTimerRef = useRef(0);
-  const runSecondsRef = useRef(0);
   const spawnIdRef = useRef(0);
   const cullGettersRef = useRef<Map<string, ZGetter>>(new Map());
 
@@ -73,33 +72,31 @@ export function ItemSpawner({
   const registerEntity = useEntityStore((state) => state.register);
 
   useEffect(() => {
-    runSecondsRef.current = 0;
     spawnTimerRef.current = 0;
   }, [runEndSequence]);
 
   useEffect(() => {
     if (!gameOver) return;
-    runSecondsRef.current = 0;
     spawnTimerRef.current = 0;
   }, [gameOver]);
 
   useFrame((_state, delta) => {
     // ── Spawn ─────────────────────────────────────────────────────────────
-    if (isPlaying()) {
+    if (isGameRunClockRunning()) {
       const cfg = SETTINGS.spawner;
-      runSecondsRef.current += delta;
+      const runSeconds = getGameRunClockSeconds();
       if (cfg.enabled && templates.length > 0) {
         const spawnPos = spawnMarkerRef.current?.getPosition();
         if (spawnPos) {
           const spawnRateMultiplier = resolveAccelerationMultiplier(
             cfg.spawnAcceleration,
             cfg.spawnAccelerationCurve,
-            runSecondsRef.current,
+            runSeconds,
           );
           const maxItemsMultiplier = resolveAccelerationMultiplier(
             cfg.maxItemsAcceleration,
             cfg.maxItemsAccelerationCurve,
-            runSecondsRef.current,
+            runSeconds,
           );
           const baseIntervalSec = Math.max(0.001, cfg.spawnIntervalMs / 1000);
           const effectiveIntervalSec =

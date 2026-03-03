@@ -1,5 +1,7 @@
 import { create } from 'zustand'
-import { playBee, playComboMultiplier, playError, playSteel } from '@/audio/SoundManager'
+import { triggerEventSequence } from '@/audio/BackgroundMusicManager'
+import { playGameSound } from '@/audio/GameAudioRouter'
+import { resetGameRunClock, setGameRunClockRunning } from '@/game/GameRunClock'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
 import { onEntityUnregister } from '@/entities/entityStore'
 import { emitScorePop } from '@/input/scorePopEmitter'
@@ -257,7 +259,7 @@ function flushPendingComboStrike(): void {
       y: sumY * invCount,
       burst: false,
     })
-    playComboMultiplier(finalMultiplier)
+    playGameSound({ type: 'combo_triggered', multiplier: finalMultiplier })
     sendScoreboardEvent({
       type: 'combo_triggered',
       timestamp: Date.now(),
@@ -318,6 +320,8 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       score: 0,
       lives: initialLives,
     })
+    resetGameRunClock()
+    setGameRunClockRunning(true)
   },
 
   addScore: (delta, source = 'unknown') => {
@@ -354,17 +358,20 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     let shouldResetCombo = false
     let livesLostActual = 0
     let livesRemaining = 0
+    let didRunEnd = false
+    let didAutoResetRun = false
     let didEnterGameOver = false
     let finalScore = 0
     set((state) => {
       if (state.gameOver) return state
       const nextLives = Math.max(0, state.lives - normalizedDelta)
-      const didRunEnd = nextLives <= 0
+      didRunEnd = nextLives <= 0
       shouldResetCombo = didRunEnd
       playLifeLostSound = nextLives < state.lives
       playRunEndSound = didRunEnd
       livesLostActual = state.lives - nextLives
       const autoResetLives = SETTINGS.gameplay.lives.autoReset === true
+      didAutoResetRun = didRunEnd && autoResetLives
       const nextGameOver = didRunEnd && !autoResetLives
       didEnterGameOver = nextGameOver && !state.gameOver
       const shouldResetOnRunEnd = didRunEnd && SETTINGS.gameplay.score.resetOnRunEnd === true
@@ -400,7 +407,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       }
     })
     if (playLifeLostSound) {
-      playError()
+      playGameSound({ type: 'life_lost' })
       if (livesLostActual > 0) {
         sendScoreboardEvent({
           type: 'lives_lost',
@@ -413,8 +420,15 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       }
     }
     if (shouldResetCombo) resetComboRuntimeState()
+    if (didAutoResetRun) {
+      resetGameRunClock()
+      setGameRunClockRunning(true)
+    } else if (didEnterGameOver) {
+      setGameRunClockRunning(false)
+      triggerEventSequence('game_over')
+    }
     if (playRunEndSound) {
-      playBee()
+      playGameSound({ type: 'run_end' })
       if (didEnterGameOver) {
         sendScoreboardEvent({
           type: 'game_over',
@@ -448,7 +462,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       }
     })
     if (playGameOverSound) {
-      playBee()
+      setGameRunClockRunning(false)
+      triggerEventSequence('game_over')
+      playGameSound({ type: 'game_over' })
       sendScoreboardEvent({
         type: 'game_over',
         timestamp: Date.now(),
@@ -662,7 +678,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         return state
       }
 
-      playSteel()
+      playGameSound({ type: 'contagion_infection' })
 
       contagionScoreDelta = nextScore - state.score
 

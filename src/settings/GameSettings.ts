@@ -19,7 +19,6 @@ export {
 export type {
   AxisMask,
   CameraMode,
-  ComboSoundSettings,
   ControlInputSource,
   ExternalControlMode,
   MaterialColorIndex,
@@ -30,10 +29,7 @@ export type {
   RenderStyle,
   Settings,
   SMAAPresetName,
-  SoundCategorySettings,
-  SoundSettings,
   StreamingCenterSource,
-  SwooshSoundSettings,
   Vec3,
   WebSocketChannelSettings,
 } from "@/settings/GameSettings.types";
@@ -394,87 +390,6 @@ export const SETTINGS: Settings = {
     },
   },
 
-  // --- LJUD ---
-  sounds: {
-    enabled: true,
-    pop: {
-      files: [
-        "/sounds/pop/pop1.wav",
-        "/sounds/pop/pop2.wav",
-        "/sounds/pop/pop3.wav",
-        "/sounds/pop/pop4.wav",
-      ],
-      volume: 1,
-    },
-    felt: {
-      files: [
-        "/sounds/felt/felt1.wav",
-        "/sounds/felt/felt2.wav",
-        "/sounds/felt/felt3.wav",
-      ],
-      volume: 1,
-    },
-    steel: {
-      files: [
-        "/sounds/steel/steel1.wav",
-        "/sounds/steel/steel2.wav",
-        "/sounds/steel/steel3.wav",
-      ],
-      volume: 0.5,
-    },
-    error: {
-      files: [
-        "/sounds/error/error1.wav",
-        "/sounds/error/error2.wav",
-        "/sounds/error/error3.wav",
-        "/sounds/error/error4.wav",
-      ],
-      volume: 1,
-    },
-    bee: {
-      files: ["/sounds/bee/bee1.wav"],
-      volume: 1.2,
-    },
-    swoosh: {
-      files: [
-        "/sounds/swoosh/swoosh1.wav",
-        "/sounds/swoosh/swoosh2.wav",
-        "/sounds/swoosh/swoosh3.wav",
-        "/sounds/swoosh/swoosh4.wav",
-        "/sounds/swoosh/swoosh65.wav",
-      ],
-      volume: 0,
-      minVelocity: 300,
-      maxVelocity: 2000,
-      cooldownMs: 300,
-    },
-    combo: {
-      tier2: {
-        files: [
-          "/sounds/yes/yes1.wav",
-          "/sounds/yes/yes2.wav",
-          "/sounds/yes/yes3.wav",
-        ],
-        volume: 0.5,
-      },
-      tier3: {
-        files: [
-          "/sounds/yes/yes1.wav",
-          "/sounds/yes/yes2.wav",
-          "/sounds/yes/yes3.wav",
-        ],
-        volume: 0.7,
-      },
-      tier4Plus: {
-        files: [
-          "/sounds/yes/yes1.wav",
-          "/sounds/yes/yes2.wav",
-          "/sounds/yes/yes3.wav",
-        ],
-        volume: 1.0,
-      },
-    },
-  },
 };
 
 // Pre-computed shading direction — reuses a single Vector3, zero allocation

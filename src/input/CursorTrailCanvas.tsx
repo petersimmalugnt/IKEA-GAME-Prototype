@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { playSwoosh } from '@/audio/SoundManager'
+import { tryPlaySwooshFromVelocity } from '@/audio/GameAudioRouter'
 import { SETTINGS } from '@/settings/GameSettings'
 import { updateCursorFromMouseEvent, decayCursorVelocity, getCursorVelocityPx } from '@/input/cursorVelocity'
 
@@ -20,7 +20,6 @@ export function CursorTrailCanvas() {
     const history: ScreenPoint[] = []
     let rafId = 0
     let lastFrameTime = performance.now()
-    let lastSwooshTime = 0
 
     const syncSize = () => {
       const dpr = window.devicePixelRatio ?? 1
@@ -77,19 +76,8 @@ export function CursorTrailCanvas() {
 
       decayCursorVelocity(delta)
 
-      const { swoosh } = SETTINGS.sounds
       const velocity = getCursorVelocityPx()
-      if (
-        velocity >= swoosh.minVelocity &&
-        now - lastSwooshTime >= swoosh.cooldownMs
-      ) {
-        lastSwooshTime = now
-        const range = swoosh.maxVelocity - swoosh.minVelocity
-        const scale = range > 0
-          ? Math.min(1, (velocity - swoosh.minVelocity) / range)
-          : 1
-        playSwoosh(scale)
-      }
+      tryPlaySwooshFromVelocity(velocity, now)
 
       // Evict old points
       const maxAgeMs = SETTINGS.cursor.trail.maxAge * 1000

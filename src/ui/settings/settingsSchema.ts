@@ -1,4 +1,7 @@
 import { SETTINGS, markShadingDirDirty, markShadowLightDirDirty } from '@/settings/GameSettings'
+import { AUDIO_SETTINGS } from '@/audio/AudioSettings'
+import type { AudioBankId } from '@/audio/AudioSettings.types'
+import { reloadAudioBank, syncAudioMixerGainsFromSettings } from '@/audio/SoundManager'
 import {
     RENDER_STYLES,
     CONTROL_INPUT_SOURCES,
@@ -130,6 +133,23 @@ export type SectionDescriptor = {
 // helper: mutate + bump
 function nb(fn: () => void) {
     return (v: number) => { fn(); bump() }
+}
+
+function setAudioBankFiles(bankId: AudioBankId, files: string[]) {
+    AUDIO_SETTINGS.banks[bankId].files = files
+    void reloadAudioBank(bankId)
+    bump()
+}
+
+function setAudioBankVolume(bankId: AudioBankId, volume: number) {
+    AUDIO_SETTINGS.banks[bankId].volume = volume
+    bump()
+}
+
+function setAudioMixVolume(field: 'masterVolume' | 'sfxMasterVolume' | 'musicMasterVolume', value: number) {
+    AUDIO_SETTINGS.mix[field] = value
+    syncAudioMixerGainsFromSettings()
+    bump()
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -715,73 +735,83 @@ export const settingsSections: SectionDescriptor[] = [
         key: 'sounds',
         label: 'Sounds',
         fields: [
-            { type: 'boolean', label: 'enabled', get: () => SETTINGS.sounds.enabled, set: (v) => { SETTINGS.sounds.enabled = v; bump() } },
+            {
+                type: 'boolean',
+                label: 'enabled',
+                get: () => AUDIO_SETTINGS.enabled,
+                set: (v) => { AUDIO_SETTINGS.enabled = v; syncAudioMixerGainsFromSettings(); bump() },
+            },
+            { type: 'number', label: 'mix.masterVolume', get: () => AUDIO_SETTINGS.mix.masterVolume, set: (v) => { setAudioMixVolume('masterVolume', v) }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'mix.sfxMasterVolume', get: () => AUDIO_SETTINGS.mix.sfxMasterVolume, set: (v) => { setAudioMixVolume('sfxMasterVolume', v) }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'mix.musicMasterVolume', get: () => AUDIO_SETTINGS.mix.musicMasterVolume, set: (v) => { setAudioMixVolume('musicMasterVolume', v) }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'music.runSequence.volume', get: () => AUDIO_SETTINGS.music.runSequence.volume, set: (v) => { AUDIO_SETTINGS.music.runSequence.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'music.eventSequences.game_over.volume', get: () => AUDIO_SETTINGS.music.eventSequences.game_over?.volume ?? 1, set: (v) => { if (AUDIO_SETTINGS.music.eventSequences.game_over) { AUDIO_SETTINGS.music.eventSequences.game_over.volume = v; bump() } }, min: 0, max: 2, step: 0.05 },
             // pop
             {
                 type: 'stringArray', label: 'pop.files',
-                get: () => SETTINGS.sounds.pop.files,
-                set: (v) => { SETTINGS.sounds.pop.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.pop.files,
+                set: (v) => { setAudioBankFiles('pop', v) },
             },
-            { type: 'number', label: 'pop.volume', get: () => SETTINGS.sounds.pop.volume, set: (v) => { SETTINGS.sounds.pop.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'pop.volume', get: () => AUDIO_SETTINGS.banks.pop.volume, set: (v) => { setAudioBankVolume('pop', v) }, min: 0, max: 2, step: 0.05 },
             // felt
             {
                 type: 'stringArray', label: 'felt.files',
-                get: () => SETTINGS.sounds.felt.files,
-                set: (v) => { SETTINGS.sounds.felt.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.felt.files,
+                set: (v) => { setAudioBankFiles('felt', v) },
             },
-            { type: 'number', label: 'felt.volume', get: () => SETTINGS.sounds.felt.volume, set: (v) => { SETTINGS.sounds.felt.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'felt.volume', get: () => AUDIO_SETTINGS.banks.felt.volume, set: (v) => { setAudioBankVolume('felt', v) }, min: 0, max: 2, step: 0.05 },
             // steel
             {
                 type: 'stringArray', label: 'steel.files',
-                get: () => SETTINGS.sounds.steel.files,
-                set: (v) => { SETTINGS.sounds.steel.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.steel.files,
+                set: (v) => { setAudioBankFiles('steel', v) },
             },
-            { type: 'number', label: 'steel.volume', get: () => SETTINGS.sounds.steel.volume, set: (v) => { SETTINGS.sounds.steel.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'steel.volume', get: () => AUDIO_SETTINGS.banks.steel.volume, set: (v) => { setAudioBankVolume('steel', v) }, min: 0, max: 2, step: 0.05 },
             // error
             {
                 type: 'stringArray', label: 'error.files',
-                get: () => SETTINGS.sounds.error.files,
-                set: (v) => { SETTINGS.sounds.error.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.error.files,
+                set: (v) => { setAudioBankFiles('error', v) },
             },
-            { type: 'number', label: 'error.volume', get: () => SETTINGS.sounds.error.volume, set: (v) => { SETTINGS.sounds.error.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'error.volume', get: () => AUDIO_SETTINGS.banks.error.volume, set: (v) => { setAudioBankVolume('error', v) }, min: 0, max: 2, step: 0.05 },
             // bee
             {
                 type: 'stringArray', label: 'bee.files',
-                get: () => SETTINGS.sounds.bee.files,
-                set: (v) => { SETTINGS.sounds.bee.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.bee.files,
+                set: (v) => { setAudioBankFiles('bee', v) },
             },
-            { type: 'number', label: 'bee.volume', get: () => SETTINGS.sounds.bee.volume, set: (v) => { SETTINGS.sounds.bee.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'bee.volume', get: () => AUDIO_SETTINGS.banks.bee.volume, set: (v) => { setAudioBankVolume('bee', v) }, min: 0, max: 2, step: 0.05 },
             // combo tier2
             {
                 type: 'stringArray', label: 'combo.tier2.files',
-                get: () => SETTINGS.sounds.combo.tier2.files,
-                set: (v) => { SETTINGS.sounds.combo.tier2.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.comboTier2.files,
+                set: (v) => { setAudioBankFiles('comboTier2', v) },
             },
-            { type: 'number', label: 'combo.tier2.volume', get: () => SETTINGS.sounds.combo.tier2.volume, set: (v) => { SETTINGS.sounds.combo.tier2.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'combo.tier2.volume', get: () => AUDIO_SETTINGS.banks.comboTier2.volume, set: (v) => { setAudioBankVolume('comboTier2', v) }, min: 0, max: 2, step: 0.05 },
             // combo tier3
             {
                 type: 'stringArray', label: 'combo.tier3.files',
-                get: () => SETTINGS.sounds.combo.tier3.files,
-                set: (v) => { SETTINGS.sounds.combo.tier3.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.comboTier3.files,
+                set: (v) => { setAudioBankFiles('comboTier3', v) },
             },
-            { type: 'number', label: 'combo.tier3.volume', get: () => SETTINGS.sounds.combo.tier3.volume, set: (v) => { SETTINGS.sounds.combo.tier3.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'combo.tier3.volume', get: () => AUDIO_SETTINGS.banks.comboTier3.volume, set: (v) => { setAudioBankVolume('comboTier3', v) }, min: 0, max: 2, step: 0.05 },
             // combo tier4+
             {
                 type: 'stringArray', label: 'combo.tier4Plus.files',
-                get: () => SETTINGS.sounds.combo.tier4Plus.files,
-                set: (v) => { SETTINGS.sounds.combo.tier4Plus.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.comboTier4Plus.files,
+                set: (v) => { setAudioBankFiles('comboTier4Plus', v) },
             },
-            { type: 'number', label: 'combo.tier4Plus.volume', get: () => SETTINGS.sounds.combo.tier4Plus.volume, set: (v) => { SETTINGS.sounds.combo.tier4Plus.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'combo.tier4Plus.volume', get: () => AUDIO_SETTINGS.banks.comboTier4Plus.volume, set: (v) => { setAudioBankVolume('comboTier4Plus', v) }, min: 0, max: 2, step: 0.05 },
             // swoosh
             {
                 type: 'stringArray', label: 'swoosh.files',
-                get: () => SETTINGS.sounds.swoosh.files,
-                set: (v) => { SETTINGS.sounds.swoosh.files = v; bump() },
+                get: () => AUDIO_SETTINGS.banks.swoosh.files,
+                set: (v) => { setAudioBankFiles('swoosh', v) },
             },
-            { type: 'number', label: 'swoosh.volume', get: () => SETTINGS.sounds.swoosh.volume, set: (v) => { SETTINGS.sounds.swoosh.volume = v; bump() }, min: 0, max: 2, step: 0.05 },
-            { type: 'number', label: 'swoosh.minVelocity', get: () => SETTINGS.sounds.swoosh.minVelocity, set: (v) => { SETTINGS.sounds.swoosh.minVelocity = v; bump() }, min: 0, max: 5000, step: 10 },
-            { type: 'number', label: 'swoosh.maxVelocity', get: () => SETTINGS.sounds.swoosh.maxVelocity, set: (v) => { SETTINGS.sounds.swoosh.maxVelocity = v; bump() }, min: 0, max: 10000, step: 50 },
-            { type: 'number', label: 'swoosh.cooldownMs', get: () => SETTINGS.sounds.swoosh.cooldownMs, set: (v) => { SETTINGS.sounds.swoosh.cooldownMs = v; bump() }, min: 0, max: 2000, step: 10 },
+            { type: 'number', label: 'swoosh.volume', get: () => AUDIO_SETTINGS.banks.swoosh.volume, set: (v) => { setAudioBankVolume('swoosh', v) }, min: 0, max: 2, step: 0.05 },
+            { type: 'number', label: 'swoosh.minVelocity', get: () => AUDIO_SETTINGS.rules.swoosh.minVelocity, set: (v) => { AUDIO_SETTINGS.rules.swoosh.minVelocity = v; bump() }, min: 0, max: 5000, step: 10 },
+            { type: 'number', label: 'swoosh.maxVelocity', get: () => AUDIO_SETTINGS.rules.swoosh.maxVelocity, set: (v) => { AUDIO_SETTINGS.rules.swoosh.maxVelocity = v; bump() }, min: 0, max: 10000, step: 50 },
+            { type: 'number', label: 'swoosh.cooldownMs', get: () => AUDIO_SETTINGS.rules.swoosh.cooldownMs, set: (v) => { AUDIO_SETTINGS.rules.swoosh.cooldownMs = v; bump() }, min: 0, max: 2000, step: 10 },
         ],
     },
 ]

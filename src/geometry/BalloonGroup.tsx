@@ -4,7 +4,7 @@ import { Balloon20 } from "@/assets/models/Balloon20";
 import { Balloon24 } from "@/assets/models/Balloon24";
 import { Balloon28 } from "@/assets/models/Balloon28";
 import { Balloon32 } from "@/assets/models/Balloon32";
-import { playFelt, playPop } from "@/audio/SoundManager";
+import { playGameSound } from "@/audio/GameAudioRouter";
 import {
   useBalloonLifecycleRegistry,
   type BalloonLifecyclePopMeta,
@@ -571,7 +571,7 @@ export function BalloonGroup({
         });
       }
       setPopped(true);
-      playPop();
+      playGameSound({ type: "balloon_pop" });
       onPopped?.();
     },
     [camera, gameOver, getWorldPopCenter, onPopped, popCenterNdc, popCenterWorld, tuning],
@@ -615,7 +615,7 @@ export function BalloonGroup({
     const pos = payloadRef.current?.getPosition();
     if (pos && pos.y < 0.05) {
       feltPlayedRef.current = true;
-      playFelt();
+      playGameSound({ type: "payload_landed" });
     }
   });
   const popRelease = popReleaseRef.current;

@@ -1,8 +1,9 @@
 import { OrthographicCamera } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import * as THREE from "three";
-import { preload as preloadSounds } from "@/audio/SoundManager";
+import { disposeBackgroundMusic, preloadBackgroundMusic } from "@/audio/BackgroundMusicManager";
+import { preloadAudioBanks } from "@/audio/SoundManager";
 import { CursorTrailCanvas } from "@/input/CursorTrailCanvas";
 import { Scene } from "@/scene/Scene";
 import { SETTINGS, getActiveBackground } from "@/settings/GameSettings";
@@ -39,7 +40,11 @@ function GameApp() {
   const [isSettingsPanelVisible, setIsSettingsPanelVisible] = useState(false);
 
   useEffect(() => {
-    preloadSounds();
+    preloadAudioBanks();
+    preloadBackgroundMusic();
+    return () => {
+      disposeBackgroundMusic();
+    };
   }, []);
 
   useEffect(() => {
