@@ -19,3 +19,25 @@ body {
   overscroll-behavior: none;
   touch-action: none;
 }
+
+@keyframes life-loss-blink {
+  0%,
+  100% {
+    color: var(--life-loss-dark, #000000);
+  }
+  12.5%,
+  37.5%,
+  62.5%,
+  87.5% {
+    color: #ffffff;
+  }
+  25%,
+  50%,
+  75% {
+    color: var(--life-loss-dark, #000000);
+  }
+}
+
+.life-loss-blink {
+  animation: life-loss-blink 820ms steps(1, end) 1 both;
+}

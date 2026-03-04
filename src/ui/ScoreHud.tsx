@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AUDIO_SETTINGS } from '@/audio/AudioSettings'
 import { isAudioUnlocked, subscribeAudioUnlocked } from '@/audio/SoundManager'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
@@ -12,24 +12,28 @@ function formatScore(value: number): string {
   return `${sign}${digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`
 }
 
+const LIFE_LOSS_BLINK_DURATION_MS = 820
+
 export function ScoreHud() {
   useSettingsVersion()
   const uiWhite = '#fff'
   const [audioUnlocked, setAudioUnlocked] = useState(() => isAudioUnlocked())
+  const [blinkingLifeSlots, setBlinkingLifeSlots] = useState<number[]>([])
   const score = useGameplayStore((state) => state.score)
   const lastRunScore = useGameplayStore((state) => state.lastRunScore)
   const sessionHighScore = useGameplayStore((state) => state.sessionHighScore)
   const lives = useGameplayStore((state) => state.lives)
   const flowState = useGameplayStore((state) => state.flowState)
-  const maxLives = SETTINGS.gameplay.lives.initial
+  const maxLives = Math.max(0, Math.trunc(SETTINGS.gameplay.lives.initial))
   const secondaryColor = SETTINGS.colors.outline
-  const consumedLives = Math.max(0, maxLives - lives)
   const fontSize = '2rem'
   const margin = '1.5rem'
   const isTopHudHidden = flowState !== 'run'
   const topHudTransform = isTopHudHidden ? 'translateY(calc(-100% - ' + margin + '))' : 'translateY(0%)'
   const topHudOpacity = isTopHudHidden ? 0 : 1
   const isAudioOn = AUDIO_SETTINGS.enabled === true && audioUnlocked
+  const previousLivesRef = useRef(lives)
+  const blinkTimersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map())
 
   const hudTextStyle: CSSProperties = {
     fontFamily: '"Instrument Sans", sans-serif',
@@ -45,6 +49,57 @@ export function ScoreHud() {
       setAudioUnlocked(true)
     })
   }, [])
+
+  useEffect(() => {
+    const previousLives = previousLivesRef.current
+    previousLivesRef.current = lives
+    if (lives >= previousLives) return
+
+    const clampedLives = Math.max(0, Math.min(maxLives, lives))
+    const clampedPreviousLives = Math.max(0, Math.min(maxLives, previousLives))
+    const lostStartSlot = clampedLives
+    const lostEndSlot = clampedPreviousLives - 1
+    if (lostEndSlot < lostStartSlot) return
+
+    const lostSlots: number[] = []
+    for (let slot = lostStartSlot; slot <= lostEndSlot; slot += 1) {
+      lostSlots.push(slot)
+    }
+    if (lostSlots.length === 0) return
+
+    setBlinkingLifeSlots((prev) => {
+      if (prev.length === 0) return lostSlots
+      const next = prev.slice()
+      for (let i = 0; i < lostSlots.length; i += 1) {
+        const slot = lostSlots[i]
+        if (next.includes(slot)) continue
+        next.push(slot)
+      }
+      return next
+    })
+
+    for (let i = 0; i < lostSlots.length; i += 1) {
+      const slot = lostSlots[i]
+      const existingTimer = blinkTimersRef.current.get(slot)
+      if (existingTimer !== undefined) {
+        clearTimeout(existingTimer)
+      }
+      const timer = setTimeout(() => {
+        setBlinkingLifeSlots((prev) => prev.filter((value) => value !== slot))
+        blinkTimersRef.current.delete(slot)
+      }, LIFE_LOSS_BLINK_DURATION_MS)
+      blinkTimersRef.current.set(slot, timer)
+    }
+  }, [lives, maxLives])
+
+  useEffect(() => {
+    return () => {
+      blinkTimersRef.current.forEach((timer) => clearTimeout(timer))
+      blinkTimersRef.current.clear()
+    }
+  }, [])
+
+  const blinkingLifeSlotSet = new Set(blinkingLifeSlots)
 
   return (
     <>
@@ -137,32 +192,39 @@ export function ScoreHud() {
           transition: 'transform 2s .15s cubic-bezier(0.6, 0, 0, 1), opacity 2s .15s cubic-bezier(0.6, 0, 0, 1)',
         }}
       >
-        {Array.from({ length: lives }, (_, index) => (
-          <span
-            key={`life-active-${index}`}
-            className="material-icons"
-            style={{
-              color: uiWhite,
-              fontSize: fontSize,
-              lineHeight: '1em',
-            }}
-          >
-            favorite
-          </span>
-        ))}
-        {Array.from({ length: consumedLives }, (_, index) => (
-          <span
-            key={`life-consumed-${index}`}
-            className="material-icons"
-            style={{
-              color: secondaryColor,
-              fontSize: fontSize,
-              lineHeight: '1em',
-            }}
-          >
-            favorite
-          </span>
-        ))}
+        {Array.from({ length: maxLives }, (_, slotIndex) => {
+          const isActiveLife = slotIndex < lives
+          if (isActiveLife) {
+            return (
+              <span
+                key={`life-slot-${slotIndex}`}
+                className="material-icons"
+                style={{
+                  color: uiWhite,
+                  fontSize: fontSize,
+                  lineHeight: '1em',
+                }}
+              >
+                favorite
+              </span>
+            )
+          }
+          const shouldBlink = blinkingLifeSlotSet.has(slotIndex)
+          return (
+            <span
+              key={`life-slot-${slotIndex}`}
+              className={shouldBlink ? 'material-icons life-loss-blink' : 'material-icons'}
+              style={{
+                color: secondaryColor,
+                fontSize: fontSize,
+                lineHeight: '1em',
+                ['--life-loss-dark' as any]: secondaryColor,
+              } as CSSProperties}
+            >
+              favorite
+            </span>
+          )
+        })}
       </div>
     </>
   )
