@@ -263,6 +263,8 @@ export type Settings = {
     maxItemsCap: number
     /** Half-width for random x offset along the spawn marker line */
     spawnXRange: number
+    /** Center offset for random x spawn band relative to spawn marker */
+    spawnXRangeOffset: number
     /** Units past the cull line before the item is actually removed */
     cullOffset: number
   }

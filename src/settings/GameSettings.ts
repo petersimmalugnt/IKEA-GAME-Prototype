@@ -366,22 +366,23 @@ export const SETTINGS: Settings = {
     radius: 0,
     maxItems: 60,
     maxItemsCap: 120,
-    spawnXRange: 1.5,
+    spawnXRange: 2,
+    spawnXRangeOffset: 0.8,
     cullOffset: 6,
-    spawnAcceleration: 0.005,
+    spawnAcceleration: 0.003,
     spawnAccelerationCurve: "exponential",
-    maxItemsAcceleration: 0.005,
+    maxItemsAcceleration: 0.003,
     maxItemsAccelerationCurve: "exponential",
   },
 
   // --- MOTION ACCELERATION ---
   motionAcceleration: {
     cameraTracker: {
-      timeScaleAcceleration: 0.005,
+      timeScaleAcceleration: 0.003,
       timeScaleAccelerationCurve: "exponential",
     },
     balloons: {
-      timeScaleAcceleration: 0.005,
+      timeScaleAcceleration: 0.003,
       timeScaleAccelerationCurve: "exponential",
     },
   },

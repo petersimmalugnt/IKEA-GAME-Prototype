@@ -702,6 +702,7 @@ export const settingsSections: SectionDescriptor[] = [
             },
             { type: 'number', label: 'maxItemsCap', get: () => SETTINGS.spawner.maxItemsCap, set: (v) => { SETTINGS.spawner.maxItemsCap = v; bump() }, min: 1, max: 1000, step: 1 },
             { type: 'number', label: 'spawnXRange', get: () => SETTINGS.spawner.spawnXRange, set: (v) => { SETTINGS.spawner.spawnXRange = v; bump() }, min: 0, max: 10, step: 0.1 },
+            { type: 'number', label: 'spawnXRangeOffset', get: () => SETTINGS.spawner.spawnXRangeOffset, set: (v) => { SETTINGS.spawner.spawnXRangeOffset = v; bump() }, min: -10, max: 10, step: 0.1 },
             { type: 'number', label: 'cullOffset', get: () => SETTINGS.spawner.cullOffset, set: (v) => { SETTINGS.spawner.cullOffset = v; bump() }, min: 0, max: 10, step: 0.1 },
         ],
     },

@@ -156,7 +156,8 @@ export function ItemSpawner({
             useSpawnerStore.getState().activeCount < effectiveMaxItems
           ) {
             spawnTimerRef.current -= effectiveIntervalSec;
-            const xOffset = (Math.random() * 2 - 1) * cfg.spawnXRange;
+            const spawnXRange = Math.max(0, cfg.spawnXRange);
+            const xOffset = cfg.spawnXRangeOffset + (Math.random() * 2 - 1) * spawnXRange;
             const itemId = `spawn-${++spawnIdRef.current}`;
             addItem({
               id: itemId,
