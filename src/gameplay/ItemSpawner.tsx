@@ -23,7 +23,7 @@ import {
 } from "react";
 
 const SPAWN_HEIGHT = 1.3;
-const GAME_OVER_AUTO_POP_STAGGER_MS = 25;
+const GAME_OVER_AUTO_POP_STAGGER_MS = 60;
 
 type ZGetter = () => number | undefined;
 
