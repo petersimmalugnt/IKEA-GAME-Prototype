@@ -4,11 +4,9 @@ import type { AudioBankId } from '@/audio/AudioSettings.types'
 import { reloadAudioBank, syncAudioMixerGainsFromSettings } from '@/audio/SoundManager'
 import {
     RENDER_STYLES,
-    CONTROL_INPUT_SOURCES,
-    EXTERNAL_CONTROL_MODES,
+    CURSOR_INPUT_SOURCES,
     CAMERA_MODES,
     CAMERA_FOLLOW_Z_CLAMP_MODES,
-    STREAMING_CENTER_SOURCES,
     SMAA_PRESET_NAMES,
     PALETTE_VARIANT_NAMES,
 } from '@/settings/GameSettings.types'
@@ -198,77 +196,6 @@ export const settingsSections: SectionDescriptor[] = [
         ],
     },
 
-    // ── Controls ──
-    {
-        key: 'controls',
-        label: 'Controls',
-        fields: [
-            {
-                type: 'select', label: 'inputSource',
-                get: () => SETTINGS.controls.inputSource,
-                set: (v) => { SETTINGS.controls.inputSource = v as typeof SETTINGS.controls.inputSource; bump() },
-                options: CONTROL_INPUT_SOURCES,
-            },
-            // external sub-fields
-            {
-                type: 'select', label: 'external.mode',
-                get: () => SETTINGS.controls.external.mode,
-                set: (v) => { SETTINGS.controls.external.mode = v as typeof SETTINGS.controls.external.mode; bump() },
-                options: EXTERNAL_CONTROL_MODES,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard',
-            },
-            {
-                type: 'number', label: 'external.staleTimeoutMs',
-                get: () => SETTINGS.controls.external.staleTimeoutMs,
-                set: (v) => { SETTINGS.controls.external.staleTimeoutMs = v; bump() },
-                min: 0, max: 2000, step: 10,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard',
-            },
-            // absolute
-            {
-                type: 'number', label: 'absolute.followLerp',
-                get: () => SETTINGS.controls.external.absolute.followLerp,
-                set: (v) => { SETTINGS.controls.external.absolute.followLerp = v; bump() },
-                min: 0, max: 1, step: 0.01,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard' && SETTINGS.controls.external.mode === 'absolute',
-            },
-            {
-                type: 'number', label: 'absolute.maxUnits/s',
-                get: () => SETTINGS.controls.external.absolute.maxUnitsPerSecond,
-                set: (v) => { SETTINGS.controls.external.absolute.maxUnitsPerSecond = v; bump() },
-                min: 0, max: 50, step: 0.5,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard' && SETTINGS.controls.external.mode === 'absolute',
-            },
-            {
-                type: 'number', label: 'absolute.maxTargetStep',
-                get: () => SETTINGS.controls.external.absolute.maxTargetStep,
-                set: (v) => { SETTINGS.controls.external.absolute.maxTargetStep = v; bump() },
-                min: 0, max: 5, step: 0.05,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard' && SETTINGS.controls.external.mode === 'absolute',
-            },
-            // websocket
-            {
-                type: 'boolean', label: 'websocket.enabled',
-                get: () => SETTINGS.controls.external.websocket.enabled,
-                set: (v) => { SETTINGS.controls.external.websocket.enabled = v; bump() },
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard',
-            },
-            {
-                type: 'text', label: 'websocket.url',
-                get: () => SETTINGS.controls.external.websocket.url,
-                set: (v) => { SETTINGS.controls.external.websocket.url = v; bump() },
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard' && SETTINGS.controls.external.websocket.enabled,
-            },
-            {
-                type: 'number', label: 'websocket.reconnectMs',
-                get: () => SETTINGS.controls.external.websocket.reconnectMs,
-                set: (v) => { SETTINGS.controls.external.websocket.reconnectMs = v; bump() },
-                min: 100, max: 10000, step: 100,
-                visible: () => SETTINGS.controls.inputSource !== 'keyboard' && SETTINGS.controls.external.websocket.enabled,
-            },
-        ],
-    },
-
     // ── Debug ──
     {
         key: 'debug',
@@ -280,49 +207,6 @@ export const settingsSections: SectionDescriptor[] = [
             { type: 'boolean', label: 'showGrid', get: () => SETTINGS.debug.showGrid, set: (v) => { SETTINGS.debug.showGrid = v; bump() } },
             { type: 'boolean', label: 'showCameraFrustum', get: () => SETTINGS.debug.showCameraFrustum, set: (v) => { SETTINGS.debug.showCameraFrustum = v; bump() } },
             { type: 'boolean', label: 'showDebugCamera', get: () => SETTINGS.debug.showDebugCamera, set: (v) => { SETTINGS.debug.showDebugCamera = v; bump() } },
-            // streaming sub
-            { type: 'boolean', label: 'streaming.enabled', get: () => SETTINGS.debug.streaming.enabled, set: (v) => { SETTINGS.debug.streaming.enabled = v; bump() } },
-            { type: 'boolean', label: 'streaming.showRadii', get: () => SETTINGS.debug.streaming.showRadii, set: (v) => { SETTINGS.debug.streaming.showRadii = v; bump() } },
-            { type: 'boolean', label: 'streaming.showChunkBounds', get: () => SETTINGS.debug.streaming.showChunkBounds, set: (v) => { SETTINGS.debug.streaming.showChunkBounds = v; bump() } },
-            { type: 'boolean', label: 'streaming.showAllChunks', get: () => SETTINGS.debug.streaming.showAllChunkBounds, set: (v) => { SETTINGS.debug.streaming.showAllChunkBounds = v; bump() } },
-            // benchmark sub
-            { type: 'boolean', label: 'benchmark.enabled', get: () => SETTINGS.debug.benchmark.enabled, set: (v) => { SETTINGS.debug.benchmark.enabled = v; bump() } },
-            { type: 'number', label: 'benchmark.gridX', get: () => SETTINGS.debug.benchmark.gridX, set: (v) => { SETTINGS.debug.benchmark.gridX = v; bump() }, min: 1, max: 100, step: 1 },
-            { type: 'number', label: 'benchmark.gridZ', get: () => SETTINGS.debug.benchmark.gridZ, set: (v) => { SETTINGS.debug.benchmark.gridZ = v; bump() }, min: 1, max: 100, step: 1 },
-            { type: 'number', label: 'benchmark.layers', get: () => SETTINGS.debug.benchmark.layers, set: (v) => { SETTINGS.debug.benchmark.layers = v; bump() }, min: 1, max: 20, step: 1 },
-            { type: 'number', label: 'benchmark.spacing', get: () => SETTINGS.debug.benchmark.spacing, set: (v) => { SETTINGS.debug.benchmark.spacing = v; bump() }, min: 0.1, max: 10, step: 0.05 },
-            { type: 'number', label: 'benchmark.heightStep', get: () => SETTINGS.debug.benchmark.heightStep, set: (v) => { SETTINGS.debug.benchmark.heightStep = v; bump() }, min: 0.01, max: 5, step: 0.01 },
-            {
-                type: 'vec3', label: 'benchmark.origin',
-                get: () => SETTINGS.debug.benchmark.origin as Vec3,
-                set: (v) => { SETTINGS.debug.benchmark.origin = v; bump() },
-                min: -50, max: 50, step: 0.5,
-            },
-            { type: 'boolean', label: 'benchmark.usePhysics', get: () => SETTINGS.debug.benchmark.usePhysics, set: (v) => { SETTINGS.debug.benchmark.usePhysics = v; bump() } },
-            { type: 'number', label: 'benchmark.fixedColliderEvery', get: () => SETTINGS.debug.benchmark.fixedColliderEvery, set: (v) => { SETTINGS.debug.benchmark.fixedColliderEvery = v; bump() }, min: 1, max: 50, step: 1 },
-        ],
-    },
-
-    // ── Streaming ──
-    {
-        key: 'streaming',
-        label: 'Streaming',
-        fields: [
-            { type: 'boolean', label: 'enabled', get: () => SETTINGS.streaming.enabled, set: (v) => { SETTINGS.streaming.enabled = v; bump() } },
-            { type: 'number', label: 'cellSize', get: () => SETTINGS.streaming.cellSize, set: (v) => { SETTINGS.streaming.cellSize = v; bump() }, min: 1, max: 64, step: 1 },
-            { type: 'number', label: 'updateIntervalMs', get: () => SETTINGS.streaming.updateIntervalMs, set: (v) => { SETTINGS.streaming.updateIntervalMs = v; bump() }, min: 16, max: 1000, step: 1 },
-            { type: 'number', label: 'preloadRadius', get: () => SETTINGS.streaming.preloadRadius, set: (v) => { SETTINGS.streaming.preloadRadius = v; bump() }, min: 0, max: 100, step: 0.1 },
-            { type: 'number', label: 'renderLoadRadius', get: () => SETTINGS.streaming.renderLoadRadius, set: (v) => { SETTINGS.streaming.renderLoadRadius = v; bump() }, min: 0, max: 100, step: 0.1 },
-            { type: 'number', label: 'renderUnloadRadius', get: () => SETTINGS.streaming.renderUnloadRadius, set: (v) => { SETTINGS.streaming.renderUnloadRadius = v; bump() }, min: 0, max: 100, step: 0.1 },
-            { type: 'number', label: 'physicsLoadRadius', get: () => SETTINGS.streaming.physicsLoadRadius, set: (v) => { SETTINGS.streaming.physicsLoadRadius = v; bump() }, min: 0, max: 100, step: 0.1 },
-            { type: 'number', label: 'physicsUnloadRadius', get: () => SETTINGS.streaming.physicsUnloadRadius, set: (v) => { SETTINGS.streaming.physicsUnloadRadius = v; bump() }, min: 0, max: 100, step: 0.1 },
-            {
-                type: 'select', label: 'center.source',
-                get: () => SETTINGS.streaming.center.source,
-                set: (v) => { SETTINGS.streaming.center.source = v as typeof SETTINGS.streaming.center.source; bump() },
-                options: STREAMING_CENTER_SOURCES,
-            },
-            { type: 'text', label: 'center.targetId', get: () => SETTINGS.streaming.center.targetId, set: (v) => { SETTINGS.streaming.center.targetId = v; bump() } },
         ],
     },
 
@@ -379,28 +263,6 @@ export const settingsSections: SectionDescriptor[] = [
         ],
     },
 
-    // ── Pixelation ──
-    {
-        key: 'pixelation',
-        label: 'Pixelation',
-        fields: [
-            { type: 'boolean', label: 'enabled', get: () => SETTINGS.pixelation.enabled, set: (v) => { SETTINGS.pixelation.enabled = v; bump() } },
-            { type: 'number', label: 'granularity', get: () => SETTINGS.pixelation.granularity, set: (v) => { SETTINGS.pixelation.granularity = v; bump() }, min: 1, max: 32, step: 1 },
-        ],
-    },
-
-    // ── RetroPixelPass ──
-    {
-        key: 'retroPixelPass',
-        label: 'RetroPixelPass',
-        fields: [
-            { type: 'number', label: 'pixelSize', get: () => SETTINGS.retroPixelPass.pixelSize, set: (v) => { SETTINGS.retroPixelPass.pixelSize = v; bump() }, min: 1, max: 32, step: 1 },
-            { type: 'number', label: 'normalEdgeStrength', get: () => SETTINGS.retroPixelPass.normalEdgeStrength, set: (v) => { SETTINGS.retroPixelPass.normalEdgeStrength = v; bump() }, min: 0, max: 2, step: 0.01 },
-            { type: 'number', label: 'depthEdgeStrength', get: () => SETTINGS.retroPixelPass.depthEdgeStrength, set: (v) => { SETTINGS.retroPixelPass.depthEdgeStrength = v; bump() }, min: 0, max: 2, step: 0.01 },
-            { type: 'number', label: 'depthEdgeThresholdMin', get: () => SETTINGS.retroPixelPass.depthEdgeThresholdMin, set: (v) => { SETTINGS.retroPixelPass.depthEdgeThresholdMin = v; bump() }, min: 0, max: 0.01, step: 0.00005 },
-            { type: 'number', label: 'depthEdgeThresholdMax', get: () => SETTINGS.retroPixelPass.depthEdgeThresholdMax, set: (v) => { SETTINGS.retroPixelPass.depthEdgeThresholdMax = v; bump() }, min: 0, max: 0.05, step: 0.0001 },
-        ],
-    },
 
     // ── Camera ──
     {
@@ -539,19 +401,6 @@ export const settingsSections: SectionDescriptor[] = [
         ],
     },
 
-    // ── Player ──
-    {
-        key: 'player',
-        label: 'Player',
-        fields: [
-            { type: 'number', label: 'impulseStrength', get: () => SETTINGS.player.impulseStrength, set: (v) => { SETTINGS.player.impulseStrength = v; bump() }, min: 0, max: 0.5, step: 0.001 },
-            { type: 'number', label: 'jumpStrength', get: () => SETTINGS.player.jumpStrength, set: (v) => { SETTINGS.player.jumpStrength = v; bump() }, min: 0, max: 1, step: 0.001 },
-            { type: 'number', label: 'linearDamping', get: () => SETTINGS.player.linearDamping, set: (v) => { SETTINGS.player.linearDamping = v; bump() }, min: 0, max: 20, step: 0.1 },
-            { type: 'number', label: 'angularDamping', get: () => SETTINGS.player.angularDamping, set: (v) => { SETTINGS.player.angularDamping = v; bump() }, min: 0, max: 20, step: 0.1 },
-            { type: 'number', label: 'mass', get: () => SETTINGS.player.mass, set: (v) => { SETTINGS.player.mass = v; bump() }, min: 0.01, max: 10, step: 0.01 },
-            { type: 'number', label: 'friction', get: () => SETTINGS.player.friction, set: (v) => { SETTINGS.player.friction = v; bump() }, min: 0, max: 10, step: 0.1 },
-        ],
-    },
 
     // ── Gameplay ──
     {
@@ -744,7 +593,41 @@ export const settingsSections: SectionDescriptor[] = [
         key: 'cursor',
         label: 'Cursor',
         fields: [
+            {
+                type: 'select', label: 'inputSource',
+                get: () => SETTINGS.cursor.inputSource,
+                set: (v) => { SETTINGS.cursor.inputSource = v as typeof SETTINGS.cursor.inputSource; bump() },
+                options: CURSOR_INPUT_SOURCES,
+            },
             { type: 'number', label: 'minPopVelocity', get: () => SETTINGS.cursor.minPopVelocity, set: (v) => { SETTINGS.cursor.minPopVelocity = v; bump() }, min: 0, max: 2000, step: 10 },
+            { type: 'boolean', label: 'external.enabled', get: () => SETTINGS.cursor.external.enabled, set: (v) => { SETTINGS.cursor.external.enabled = v; bump() } },
+            {
+                type: 'text', label: 'external.websocket.url',
+                get: () => SETTINGS.cursor.external.websocket.url,
+                set: (v) => { SETTINGS.cursor.external.websocket.url = v; bump() },
+                visible: () => SETTINGS.cursor.inputSource === 'external' && SETTINGS.cursor.external.enabled,
+            },
+            {
+                type: 'number', label: 'external.websocket.reconnectMs',
+                get: () => SETTINGS.cursor.external.websocket.reconnectMs,
+                set: (v) => { SETTINGS.cursor.external.websocket.reconnectMs = v; bump() },
+                min: 100, max: 10000, step: 100,
+                visible: () => SETTINGS.cursor.inputSource === 'external' && SETTINGS.cursor.external.enabled,
+            },
+            {
+                type: 'number', label: 'external.staleTimeoutMs',
+                get: () => SETTINGS.cursor.external.staleTimeoutMs,
+                set: (v) => { SETTINGS.cursor.external.staleTimeoutMs = v; bump() },
+                min: 16, max: 2000, step: 1,
+                visible: () => SETTINGS.cursor.inputSource === 'external' && SETTINGS.cursor.external.enabled,
+            },
+            {
+                type: 'number', label: 'external.maxPointers',
+                get: () => SETTINGS.cursor.external.maxPointers,
+                set: (v) => { SETTINGS.cursor.external.maxPointers = v; bump() },
+                min: 1, max: 2, step: 1,
+                visible: () => SETTINGS.cursor.inputSource === 'external' && SETTINGS.cursor.external.enabled,
+            },
             { type: 'number', label: 'trail.maxAge', get: () => SETTINGS.cursor.trail.maxAge, set: (v) => { SETTINGS.cursor.trail.maxAge = v; bump() }, min: 0, max: 2, step: 0.01 },
             { type: 'color', label: 'trail.color', get: () => SETTINGS.cursor.trail.color, set: (v) => { SETTINGS.cursor.trail.color = v; bump() } },
             { type: 'number', label: 'trail.lineWidth', get: () => SETTINGS.cursor.trail.lineWidth, set: (v) => { SETTINGS.cursor.trail.lineWidth = v; bump() }, min: 0, max: 20, step: 0.5 },

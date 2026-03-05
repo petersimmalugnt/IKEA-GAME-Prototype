@@ -149,6 +149,7 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
     velocityPx: 0,
     velocityScreenXPx: 0,
     velocityScreenYPx: 0,
+    pointerSlot: 0,
   })
   const popMetaRef = useRef<BalloonLifecyclePopMeta>({
     worldDirX: 0,

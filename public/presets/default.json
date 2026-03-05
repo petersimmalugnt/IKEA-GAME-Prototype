@@ -2,58 +2,10 @@
   "render": {
     "style": "toon"
   },
-  "controls": {
-    "inputSource": "keyboard",
-    "external": {
-      "mode": "absolute",
-      "staleTimeoutMs": 160,
-      "absolute": {
-        "followLerp": 0.5,
-        "maxUnitsPerSecond": 8,
-        "maxTargetStep": 0.75
-      },
-      "websocket": {
-        "enabled": true,
-        "url": "ws://127.0.0.1:8080",
-        "reconnectMs": 1000
-      }
-    }
-  },
   "debug": {
     "enabled": true,
     "showColliders": true,
-    "showStats": true,
-    "streaming": {
-      "enabled": false,
-      "showRadii": true,
-      "showChunkBounds": true,
-      "showAllChunkBounds": true
-    },
-    "benchmark": {
-      "enabled": false,
-      "gridX": 20,
-      "gridZ": 20,
-      "layers": 2,
-      "spacing": 1.25,
-      "heightStep": 0.45,
-      "origin": [-12, 0, -12],
-      "usePhysics": false,
-      "fixedColliderEvery": 4
-    }
-  },
-  "streaming": {
-    "enabled": true,
-    "cellSize": 8,
-    "updateIntervalMs": 120,
-    "preloadRadius": 26,
-    "renderLoadRadius": 20,
-    "renderUnloadRadius": 24,
-    "physicsLoadRadius": 14,
-    "physicsUnloadRadius": 18,
-    "center": {
-      "source": "target",
-      "targetId": "player"
-    }
+    "showStats": true
   },
   "colors": {
     "shadow": "#141414",
@@ -124,17 +76,6 @@
     "smaaEnabled": true,
     "smaaPreset": "ultra"
   },
-  "pixelation": {
-    "enabled": false,
-    "granularity": 8
-  },
-  "retroPixelPass": {
-    "pixelSize": 8,
-    "normalEdgeStrength": 0.5,
-    "depthEdgeStrength": 0.45,
-    "depthEdgeThresholdMin": 0.0005,
-    "depthEdgeThresholdMax": 0.003
-  },
   "camera": {
     "mode": "static",
     "base": {
@@ -172,12 +113,7 @@
     "castMidtoneStep": 0.2,
     "castShadowStep": 0.6
   },
-  "player": {
-    "impulseStrength": 0.02,
-    "jumpStrength": 0.08,
-    "linearDamping": 1.5,
-    "angularDamping": 2.0,
-    "mass": 0.1,
-    "friction": 1.5
+  "cursor": {
+    "inputSource": "mouse"
   }
 }

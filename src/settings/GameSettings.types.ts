@@ -26,19 +26,15 @@ export const PALETTE_VARIANT_NAMES = ['classic', 'greyscale', 'green', 'test1', 
 export const SMAA_PRESET_NAMES = ['low', 'medium', 'high', 'ultra'] as const
 export const CAMERA_MODES = ['static', 'follow'] as const
 export const CAMERA_FOLLOW_Z_CLAMP_MODES = ['always', 'tilingOnly', 'never'] as const
-export const STREAMING_CENTER_SOURCES = ['target', 'cameraFocus'] as const
-export const RENDER_STYLES = ['toon', 'pixel', 'retroPixelPass'] as const
-export const CONTROL_INPUT_SOURCES = ['keyboard', 'external', 'hybrid'] as const
-export const EXTERNAL_CONTROL_MODES = ['digital', 'absolute'] as const
+export const RENDER_STYLES = ['toon'] as const
+export const CURSOR_INPUT_SOURCES = ['mouse', 'external'] as const
 
 export type PaletteVariantName = (typeof PALETTE_VARIANT_NAMES)[number]
 export type SMAAPresetName = (typeof SMAA_PRESET_NAMES)[number]
 export type CameraMode = (typeof CAMERA_MODES)[number]
 export type CameraFollowZClampMode = (typeof CAMERA_FOLLOW_Z_CLAMP_MODES)[number]
-export type StreamingCenterSource = (typeof STREAMING_CENTER_SOURCES)[number]
 export type RenderStyle = (typeof RENDER_STYLES)[number]
-export type ControlInputSource = (typeof CONTROL_INPUT_SOURCES)[number]
-export type ExternalControlMode = (typeof EXTERNAL_CONTROL_MODES)[number]
+export type CursorInputSource = (typeof CURSOR_INPUT_SOURCES)[number]
 
 export type AxisMask = {
   x: boolean
@@ -59,23 +55,6 @@ export type Settings = {
   scoreboard: {
     websocket: WebSocketChannelSettings
   }
-  controls: {
-    inputSource: ControlInputSource
-    external: {
-      mode: ExternalControlMode
-      staleTimeoutMs: number
-      absolute: {
-        followLerp: number
-        maxUnitsPerSecond: number
-        maxTargetStep: number
-      }
-      websocket: {
-        enabled: boolean
-        url: string
-        reconnectMs: number
-      }
-    }
-  }
   debug: {
     enabled: boolean
     showColliders: boolean
@@ -83,37 +62,6 @@ export type Settings = {
     showGrid: boolean
     showCameraFrustum: boolean
     showDebugCamera: boolean
-    streaming: {
-      enabled: boolean
-      showRadii: boolean
-      showChunkBounds: boolean
-      showAllChunkBounds: boolean
-    }
-    benchmark: {
-      enabled: boolean
-      gridX: number
-      gridZ: number
-      layers: number
-      spacing: number
-      heightStep: number
-      origin: Vec3
-      usePhysics: boolean
-      fixedColliderEvery: number
-    }
-  }
-  streaming: {
-    enabled: boolean
-    cellSize: number
-    updateIntervalMs: number
-    preloadRadius: number
-    renderLoadRadius: number
-    renderUnloadRadius: number
-    physicsLoadRadius: number
-    physicsUnloadRadius: number
-    center: {
-      source: StreamingCenterSource
-      targetId: string
-    }
   }
   colors: {
     shadow: string
@@ -132,17 +80,6 @@ export type Settings = {
     composerMultisampling: number
     smaaEnabled: boolean
     smaaPreset: SMAAPresetName
-  }
-  pixelation: {
-    enabled: boolean
-    granularity: number
-  }
-  retroPixelPass: {
-    pixelSize: number
-    normalEdgeStrength: number
-    depthEdgeStrength: number
-    depthEdgeThresholdMin: number
-    depthEdgeThresholdMax: number
   }
   camera: {
     mode: CameraMode
@@ -183,14 +120,6 @@ export type Settings = {
     midtoneStep: number
     castMidtoneStep: number
     castShadowStep: number
-  }
-  player: {
-    impulseStrength: number
-    jumpStrength: number
-    linearDamping: number
-    angularDamping: number
-    mass: number
-    friction: number
   }
   gameplay: {
     contagion: {
@@ -279,8 +208,18 @@ export type Settings = {
     }
   }
   cursor: {
+    inputSource: CursorInputSource
     /** Minimum cursor speed in px/s required to pop a balloon on hover */
     minPopVelocity: number
+    external: {
+      enabled: boolean
+      websocket: {
+        url: string
+        reconnectMs: number
+      }
+      staleTimeoutMs: number
+      maxPointers: number
+    }
     trail: {
       /** How long (in seconds) trail points persist before fading out */
       maxAge: number

@@ -1,11 +1,18 @@
 import { useEffect, useRef } from 'react'
 import { tryPlaySwooshFromVelocity } from '@/audio/GameAudioRouter'
 import { SETTINGS } from '@/settings/GameSettings'
-import { updateCursorFromMouseEvent, decayCursorVelocity, getCursorVelocityPx } from '@/input/cursorVelocity'
+import { submitMouseCursorSample } from '@/input/CursorInputRouter'
+import {
+  decayCursorVelocity,
+  getCursorVelocityPx,
+  readCursorPointerRenderState,
+  type CursorPointerRenderState,
+} from '@/input/cursorVelocity'
 
 const MAX_TRAIL_POINTS = 96
-
-type ScreenPoint = { x: number; y: number; time: number }
+const TRAIL_SLOT_COUNT = 2
+const MIN_POINT_DISTANCE_PX = 0.25
+const MIN_POINT_TIME_MS = 8
 
 export function CursorTrailCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -17,17 +24,126 @@ export function CursorTrailCanvas() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const history: ScreenPoint[] = []
+    const historyX = [
+      new Float32Array(MAX_TRAIL_POINTS),
+      new Float32Array(MAX_TRAIL_POINTS),
+    ]
+    const historyY = [
+      new Float32Array(MAX_TRAIL_POINTS),
+      new Float32Array(MAX_TRAIL_POINTS),
+    ]
+    const historyTime = [
+      new Float64Array(MAX_TRAIL_POINTS),
+      new Float64Array(MAX_TRAIL_POINTS),
+    ]
+    const historyWriteIndex = new Int32Array(TRAIL_SLOT_COUNT)
+    const historyCount = new Int32Array(TRAIL_SLOT_COUNT)
+
     let rafId = 0
     let lastFrameTime = performance.now()
+    let previousInputSource = SETTINGS.cursor.inputSource
+
+    const pointerRenderState0: CursorPointerRenderState = {
+      slot: 0,
+      active: false,
+      x: 0,
+      y: 0,
+      velocityPx: 0,
+    }
+    const pointerRenderState1: CursorPointerRenderState = {
+      slot: 1,
+      active: false,
+      x: 0,
+      y: 0,
+      velocityPx: 0,
+    }
+
+    const clearHistorySlot = (slot: 0 | 1) => {
+      historyWriteIndex[slot] = 0
+      historyCount[slot] = 0
+    }
+
+    const clearAllHistory = () => {
+      clearHistorySlot(0)
+      clearHistorySlot(1)
+    }
+
+    const pushHistoryPoint = (slot: 0 | 1, x: number, y: number, timeMs: number) => {
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(timeMs)) return
+
+      const count = historyCount[slot]
+      const writeIndex = historyWriteIndex[slot]
+      if (count > 0) {
+        const previousIndex = (writeIndex - 1 + MAX_TRAIL_POINTS) % MAX_TRAIL_POINTS
+        const dx = x - historyX[slot][previousIndex]
+        const dy = y - historyY[slot][previousIndex]
+        const dt = timeMs - historyTime[slot][previousIndex]
+        if ((dx * dx + dy * dy) <= (MIN_POINT_DISTANCE_PX * MIN_POINT_DISTANCE_PX) && dt < MIN_POINT_TIME_MS) {
+          return
+        }
+      }
+
+      historyX[slot][writeIndex] = x
+      historyY[slot][writeIndex] = y
+      historyTime[slot][writeIndex] = timeMs
+
+      historyWriteIndex[slot] = (writeIndex + 1) % MAX_TRAIL_POINTS
+      if (count < MAX_TRAIL_POINTS) {
+        historyCount[slot] = count + 1
+      }
+    }
+
+    const pruneHistorySlot = (slot: 0 | 1, nowMs: number, maxAgeMs: number) => {
+      let count = historyCount[slot]
+      while (count > 1) {
+        const oldestIndex = (historyWriteIndex[slot] - count + MAX_TRAIL_POINTS) % MAX_TRAIL_POINTS
+        if (nowMs - historyTime[slot][oldestIndex] <= maxAgeMs) break
+        count -= 1
+      }
+      historyCount[slot] = count
+    }
+
+    const drawHistorySlot = (slot: 0 | 1, smoothing: number, color: string, lineWidth: number) => {
+      const count = historyCount[slot]
+      if (count < 2) return
+
+      const oldestIndex = (historyWriteIndex[slot] - count + MAX_TRAIL_POINTS) % MAX_TRAIL_POINTS
+      let index = oldestIndex
+      let previousX = historyX[slot][index]
+      let previousY = historyY[slot][index]
+
+      ctx.beginPath()
+      ctx.moveTo(previousX, previousY)
+
+      for (let i = 1; i < count; i += 1) {
+        index = (oldestIndex + i) % MAX_TRAIL_POINTS
+        const currentX = historyX[slot][index]
+        const currentY = historyY[slot][index]
+        const midX = (previousX + currentX) * 0.5
+        const midY = (previousY + currentY) * 0.5
+        const cpX = midX + (previousX - midX) * smoothing
+        const cpY = midY + (previousY - midY) * smoothing
+        ctx.quadraticCurveTo(cpX, cpY, midX, midY)
+        previousX = currentX
+        previousY = currentY
+      }
+
+      ctx.lineTo(previousX, previousY)
+      ctx.strokeStyle = color
+      ctx.lineWidth = lineWidth
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      ctx.globalAlpha = 0.9
+      ctx.stroke()
+    }
 
     const syncSize = () => {
       const dpr = window.devicePixelRatio ?? 1
       const w = canvas.clientWidth
       const h = canvas.clientHeight
-      canvas.width = w * dpr
-      canvas.height = h * dpr
-      ctx.scale(dpr, dpr)
+      canvas.width = Math.max(1, Math.floor(w * dpr))
+      canvas.height = Math.max(1, Math.floor(h * dpr))
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     }
 
     syncSize()
@@ -44,6 +160,7 @@ export function CursorTrailCanvas() {
 
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerType !== 'mouse') return
+      if (SETTINGS.cursor.inputSource !== 'mouse') return
 
       const samples = typeof e.getCoalescedEvents === 'function'
         ? e.getCoalescedEvents()
@@ -53,15 +170,15 @@ export function CursorTrailCanvas() {
         for (let i = 0; i < samples.length; i += 1) {
           const sample = samples[i]
           const eventTime = normalizeEventTime(sample.timeStamp)
-          updateCursorFromMouseEvent(sample.clientX, sample.clientY, eventTime)
-          history.push({ x: sample.clientX, y: sample.clientY, time: eventTime })
+          submitMouseCursorSample(sample.clientX, sample.clientY, eventTime)
+          pushHistoryPoint(0, sample.clientX, sample.clientY, eventTime)
         }
         return
       }
 
       const eventTime = normalizeEventTime(e.timeStamp)
-      updateCursorFromMouseEvent(e.clientX, e.clientY, eventTime)
-      history.push({ x: e.clientX, y: e.clientY, time: eventTime })
+      submitMouseCursorSample(e.clientX, e.clientY, eventTime)
+      pushHistoryPoint(0, e.clientX, e.clientY, eventTime)
     }
 
     window.addEventListener('pointermove', onPointerMove, { passive: true })
@@ -79,38 +196,37 @@ export function CursorTrailCanvas() {
       const velocity = getCursorVelocityPx()
       tryPlaySwooshFromVelocity(velocity, now)
 
-      // Evict old points
+      const inputSource = SETTINGS.cursor.inputSource
+      if (inputSource !== previousInputSource) {
+        clearAllHistory()
+        previousInputSource = inputSource
+      }
+
+      if (inputSource === 'external') {
+        if (readCursorPointerRenderState(0, now, pointerRenderState0)) {
+          pushHistoryPoint(0, pointerRenderState0.x, pointerRenderState0.y, now)
+        }
+        if (readCursorPointerRenderState(1, now, pointerRenderState1)) {
+          pushHistoryPoint(1, pointerRenderState1.x, pointerRenderState1.y, now)
+        }
+      }
+
       const maxAgeMs = SETTINGS.cursor.trail.maxAge * 1000
-      while (history.length > 1 && now - history[0].time > maxAgeMs) {
-        history.shift()
-      }
-      if (history.length > MAX_TRAIL_POINTS) {
-        history.splice(0, history.length - MAX_TRAIL_POINTS)
-      }
+      pruneHistorySlot(0, now, maxAgeMs)
+      pruneHistorySlot(1, now, maxAgeMs)
 
       const w = canvas.clientWidth
       const h = canvas.clientHeight
       ctx.clearRect(0, 0, w, h)
 
-      if (history.length < 2) return
-
       const smoothing = SETTINGS.cursor.trail.smoothing ?? 0.5
-      ctx.beginPath()
-      ctx.moveTo(history[0].x, history[0].y)
-      for (let i = 0; i < history.length - 1; i++) {
-        const midX = (history[i].x + history[i + 1].x) / 2
-        const midY = (history[i].y + history[i + 1].y) / 2
-        const cpX = midX + (history[i].x - midX) * smoothing
-        const cpY = midY + (history[i].y - midY) * smoothing
-        ctx.quadraticCurveTo(cpX, cpY, midX, midY)
+      const lineWidth = SETTINGS.cursor.trail.lineWidth ?? 4
+      const color = SETTINGS.cursor.trail.color
+
+      drawHistorySlot(0, smoothing, color, lineWidth)
+      if (inputSource === 'external') {
+        drawHistorySlot(1, smoothing, color, lineWidth)
       }
-      ctx.lineTo(history[history.length - 1].x, history[history.length - 1].y)
-      ctx.strokeStyle = SETTINGS.cursor.trail.color
-      ctx.lineWidth = SETTINGS.cursor.trail.lineWidth ?? 4
-      ctx.lineCap = 'round'
-      ctx.lineJoin = 'round'
-      ctx.globalAlpha = 0.9
-      ctx.stroke()
     }
 
     rafId = requestAnimationFrame(frame)

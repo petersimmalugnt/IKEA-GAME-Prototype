@@ -4,8 +4,6 @@ import { GameMusicDirector } from "@/audio/GameMusicDirector";
 import { ContagionRuntime } from "@/gameplay/ContagionRuntime";
 import { useGameplayStore } from "@/gameplay/gameplayStore";
 import { ItemSpawner } from "@/gameplay/ItemSpawner";
-import { ExternalControlBridge } from "@/input/control/ExternalControlBridge";
-import { GameKeyboardControls } from "@/input/GameKeyboardControls";
 import { LevelTileManager } from "@/levels/LevelTileManager";
 import { LiveLevelSync } from "@/LiveLevelSync";
 import { ScoreboardBridge } from "@/scoreboard/ScoreboardBridge";
@@ -14,7 +12,6 @@ import { CubeElement } from "@/primitives/CubeElement";
 import { InvisibleFloor } from "@/primitives/InvisibleFloor";
 import { GameEffects } from "@/render/Effects";
 import { GameLights } from "@/render/Lights";
-import { type PlayerHandle } from "@/scene/Player";
 import type { PositionTargetHandle } from "@/scene/PositionTargetHandle";
 import {
   MotionSystemProvider,
@@ -24,6 +21,7 @@ import { GameRunClockRuntime } from "@/game/GameRunClock";
 import { SETTINGS } from "@/settings/GameSettings";
 import { useSettingsVersion } from "@/settings/settingsStore";
 import { BalloonGroup } from "@/geometry/BalloonGroup";
+import { ExternalCursorBridge } from "@/input/ExternalCursorBridge";
 import { Stats } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Physics } from "@react-three/rapier";
@@ -37,7 +35,7 @@ const IDLE_BALLOON_ENTRY_SPEED_Z = 0.4;
 
 export function Scene() {
   useSettingsVersion();
-  const playerRef = useRef<PlayerHandle | null>(null);
+  const playerRef = useRef<PositionTargetHandle | null>(null);
   const directionalLightRef = useRef<THREE.DirectionalLight | null>(null);
   const spawnMarkerRef = useRef<PositionTargetHandle | null>(null);
   const cullMarkerRef = useRef<PositionTargetHandle | null>(null);
@@ -113,11 +111,11 @@ export function Scene() {
   });
 
   return (
-    <GameKeyboardControls>
+    <>
       <GameMusicDirector />
-      <ExternalControlBridge />
       <LiveLevelSync />
       <ScoreboardBridge />
+      <ExternalCursorBridge />
       <Physics
         gravity={[0, -9.81, 0]}
         debug={isDebug && SETTINGS.debug.showColliders}
@@ -207,6 +205,6 @@ export function Scene() {
 
       {/* Debug: FPS / MS / MB overlay */}
       {isDebug && SETTINGS.debug.showStats && <Stats />}
-    </GameKeyboardControls>
+    </>
   );
 }

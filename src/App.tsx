@@ -11,6 +11,7 @@ import { useSettingsVersion } from "@/settings/settingsStore";
 import { GltfConverter } from "@/tools/GltfConverter";
 import { DocsPage } from "@/ui/docs/DocsPage";
 import { GameFlowOverlay } from "@/ui/GameFlowOverlay";
+import { CursorSourcePage } from "@/ui/input/CursorSourcePage";
 import { ScoreboardPage } from "@/ui/scoreboard/ScoreboardPage";
 import { GameSettingsPanel } from "@/ui/settings/GameSettingsPanel";
 import { ScoreHud } from "@/ui/ScoreHud";
@@ -20,6 +21,7 @@ export default function App() {
   const isConverter = window.location.pathname === "/converter";
   const isDocs = window.location.pathname === "/docs";
   const isScoreboard = window.location.pathname === "/scoreboard";
+  const isCursorSource = window.location.pathname === "/cursor-source";
 
   if (isConverter) {
     return <GltfConverter />;
@@ -31,6 +33,10 @@ export default function App() {
 
   if (isScoreboard) {
     return <ScoreboardPage />;
+  }
+
+  if (isCursorSource) {
+    return <CursorSourcePage />;
   }
 
   return <GameApp />;

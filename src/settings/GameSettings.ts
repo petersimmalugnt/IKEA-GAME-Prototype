@@ -8,19 +8,16 @@ import * as THREE from "three";
 
 export {
   CAMERA_MODES,
-  CONTROL_INPUT_SOURCES,
-  EXTERNAL_CONTROL_MODES,
+  CURSOR_INPUT_SOURCES,
   PALETTE_VARIANT_NAMES,
   RENDER_STYLES,
   SMAA_PRESET_NAMES,
-  STREAMING_CENTER_SOURCES,
 } from "@/settings/GameSettings.types";
 
 export type {
   AxisMask,
   CameraMode,
-  ControlInputSource,
-  ExternalControlMode,
+  CursorInputSource,
   MaterialColorIndex,
   PaletteAutoMidSettings,
   PaletteEntry,
@@ -29,7 +26,6 @@ export type {
   RenderStyle,
   Settings,
   SMAAPresetName,
-  StreamingCenterSource,
   Vec3,
   WebSocketChannelSettings,
 } from "@/settings/GameSettings.types";
@@ -37,7 +33,7 @@ export type {
 export const SETTINGS: Settings = {
   // --- RENDER STYLE ---
   render: {
-    style: "toon", // 'toon' | 'pixel' | 'retroPixelPass'
+    style: "toon",
   },
 
   // --- SCOREBOARD ---
@@ -51,25 +47,6 @@ export const SETTINGS: Settings = {
     },
   },
 
-  // --- INPUT PIPELINE ---
-  controls: {
-    inputSource: "keyboard", // 'keyboard' | 'external' | 'hybrid'
-    external: {
-      mode: "digital", // 'digital' = piltangent-triggers, 'absolute' = målposition (x,z)
-      staleTimeoutMs: 160, // Om paket uteblir längre än detta släpps extern input
-      absolute: {
-        followLerp: 0.5, // Kort smoothing för att dämpa jitter i måldata
-        maxUnitsPerSecond: 8, // Hastighets-clamp mot målpunkten
-        maxTargetStep: 0.75, // Max tillåtet hopp i målpunkt per update (anti-glitch)
-      },
-      websocket: {
-        enabled: true, // Sätt true för inbyggd WS-klient i spelet
-        url: "ws://127.0.0.1:8080",
-        reconnectMs: 1000,
-      },
-    },
-  },
-
   // --- DEBUG ---
   debug: {
     enabled: false, // Master-toggle för allt debug
@@ -78,39 +55,6 @@ export const SETTINGS: Settings = {
     showGrid: false, // Visa rutnät på marken
     showCameraFrustum: false, // Visa kamerans synliga område projicerat på golvet
     showDebugCamera: true, // PiP top-down view som visar default-kamerans FOV
-    streaming: {
-      enabled: false, // Visa streaming-debug i scenen
-      showRadii: true, // Visar preload/render/physics-radier runt spelaren
-      showChunkBounds: true, // Visar chunk-gridfärger för aktiva zoner
-      showAllChunkBounds: true, // Om true: visar alla chunk-rutor (mycket brus)
-    },
-    benchmark: {
-      enabled: false, // Aktivera tung benchmark-scen (många auto-genererade objekt)
-      gridX: 20, // Antal objekt i X-led
-      gridZ: 20, // Antal objekt i Z-led
-      layers: 2, // Antal vertikala lager
-      spacing: 1.25, // Avstånd mellan benchmark-objekt
-      heightStep: 0.45, // Höjdskillnad mellan lager
-      origin: [-12, 0, -12], // Startposition för benchmark-grid
-      usePhysics: false, // Om true: vissa benchmark-objekt får fixed physics
-      fixedColliderEvery: 4, // Var N:te objekt får fixed physics när usePhysics=true
-    },
-  },
-
-  // --- STREAMING (Automatisk chunk-aktivering) ---
-  streaming: {
-    enabled: false, // Master-toggle för streaming av auto-genererade/world-objekt
-    cellSize: 1, // Storlek på varje chunk-cell i world-units
-    updateIntervalMs: 120, // Hur ofta chunk-aktivering uppdateras
-    preloadRadius: 2.6, // Chunks inom denna radie markeras som preload
-    renderLoadRadius: 2.0, // Chunks laddas in visuellt inom denna radie
-    renderUnloadRadius: 2.4, // Chunks tas bort visuellt först utanför denna radie
-    physicsLoadRadius: 1.4, // Physics aktiveras inom denna radie
-    physicsUnloadRadius: 1.8, // Physics stängs av först utanför denna radie
-    center: {
-      source: "target", // 'target' = följ targetId, 'cameraFocus' = följ kamerans focus/lookAt
-      targetId: "player",
-    },
   },
 
   // --- FÄRGER ---
@@ -225,21 +169,6 @@ export const SETTINGS: Settings = {
     smaaPreset: "ultra", // low | medium | high | ultra
   },
 
-  // --- PIXELATION (Pixelart-test via postprocess-pass) ---
-  pixelation: {
-    enabled: true, // Används när render.style = 'pixel'
-    granularity: 8, // 1 = subtilt, högre = mer pixligt
-  },
-
-  // --- RETRO PIXEL PASS (three/examples RenderPixelatedPass) ---
-  retroPixelPass: {
-    pixelSize: 8, // Storlek på "pixlarna"
-    normalEdgeStrength: 0.5, // Kantstyrka baserad på normaler
-    depthEdgeStrength: 0.45, // Kantstyrka baserad på depth
-    depthEdgeThresholdMin: 0.0005, // Lägre värden gör depth-kanter känsligare (bra för ortografisk kamera)
-    depthEdgeThresholdMax: 0.003, // Bör vara större än min-värdet
-  },
-
   // --- KAMERA ---
   camera: {
     mode: "follow", // 'follow' eller 'static'
@@ -284,16 +213,6 @@ export const SETTINGS: Settings = {
     midtoneStep: 0.1, // Gräns för mellantonen
     castMidtoneStep: 0.2, // Start för cast-shadow midtone (0 = ingen skugga, 1 = full skugga)
     castShadowStep: 0.6, // Start för cast-shadow mörkaste zon
-  },
-
-  // --- SPELARFYSIK ---
-  player: {
-    impulseStrength: 0.01, // Hur hårt bollen knuffas
-    jumpStrength: 0.08, // Hur högt bollen hoppar
-    linearDamping: 1.5, // Luftmotstånd (bromsar farten framåt)
-    angularDamping: 2.0, // Rotationsmotstånd (bromsar rullandet)
-    mass: 0.1, // Bollens tyngd
-    friction: 1.5, // Grepp mot underlaget
   },
 
   // --- GAMEPLAY ---
@@ -389,7 +308,17 @@ export const SETTINGS: Settings = {
 
   // --- CURSOR ---
   cursor: {
+    inputSource: "external",
     minPopVelocity: 300,
+    external: {
+      enabled: true,
+      websocket: {
+        url: "ws://127.0.0.1:5173/ws/cursor",
+        reconnectMs: 1000,
+      },
+      staleTimeoutMs: 120,
+      maxPointers: 2,
+    },
     trail: {
       maxAge: 0.2,
       color: "#ffffff",

@@ -67,7 +67,27 @@ function normalizeLegacyPaletteVariants(preset: Record<string, unknown>) {
   })
 }
 
+function assertNoLegacyPresetFields(preset: Record<string, unknown>) {
+  const legacyTopLevelKeys = ['controls', 'streaming', 'player', 'pixelation', 'retroPixelPass']
+  for (const key of legacyTopLevelKeys) {
+    if (key in preset) {
+      throw new Error(`Preset contains removed field "${key}". Export a new preset from current settings.`)
+    }
+  }
+
+  const render = preset.render
+  if (isRecord(render) && typeof render.style === 'string' && render.style !== 'toon') {
+    throw new Error(`Preset render.style "${render.style}" is unsupported. Only "toon" is allowed.`)
+  }
+
+  const debug = preset.debug
+  if (isRecord(debug) && ('streaming' in debug || 'benchmark' in debug)) {
+    throw new Error('Preset contains removed debug fields ("debug.streaming" or "debug.benchmark").')
+  }
+}
+
 function normalizePreset(preset: Record<string, unknown>): Record<string, unknown> {
+  assertNoLegacyPresetFields(preset)
   normalizeLegacyPaletteVariants(preset)
   return preset
 }
