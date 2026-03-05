@@ -132,12 +132,6 @@ export function Scene() {
         >
           <MotionSystemProvider>
             <BalloonLifecycleRuntime>
-              {/* SPELAREN */}
-              {/* <Player
-                contagionCarrier
-                contagionColor={8}
-                position={[-1.4, 0.4, 0.4]}
-              /> */}
 
               {/* CAMERA TRACKER */}
 
