@@ -41,6 +41,18 @@ type BalloonDetailLevel =
 type BalloonDropType = "block" | "ball";
 type BalloonFlowRole = "idle_start" | "run_spawn";
 const AUTO_POP_CLEANUP_DELAY_MS = 180;
+let activeAutoPopWaveSignal = Number.NaN;
+let nextAutoPopWaveIndex = 0;
+
+function reserveAutoPopWaveIndex(autoPopSignal: number): number {
+  if (autoPopSignal !== activeAutoPopWaveSignal) {
+    activeAutoPopWaveSignal = autoPopSignal;
+    nextAutoPopWaveIndex = 0;
+  }
+  const waveIndex = nextAutoPopWaveIndex;
+  nextAutoPopWaveIndex += 1;
+  return waveIndex;
+}
 
 export type BalloonPopReleaseTuning = {
   linearSpeedMin?: number;
@@ -85,7 +97,7 @@ type BalloonGroupProps = Omit<TransformMotionProps, "ref" | "children"> & {
   onMissed?: () => void;
   onCleanupRequested?: () => void;
   autoPopSignal?: number;
-  autoPopDelayMs?: number;
+  autoPopStaggerMs?: number;
   /** Called once on mount; the provided getter returns the item's current world Z. Returns an unregister function. */
   onRegisterCullZ?: (getter: () => number | undefined) => () => void;
   popReleaseTuning?: BalloonPopReleaseTuning;
@@ -436,7 +448,7 @@ export function BalloonGroup({
   onMissed,
   onCleanupRequested,
   autoPopSignal = 0,
-  autoPopDelayMs = 0,
+  autoPopStaggerMs = 0,
   onRegisterCullZ,
   popReleaseTuning,
   positionVelocity,
@@ -624,7 +636,8 @@ export function BalloonGroup({
   );
 
   const triggerAutoPop = useCallback(() => {
-    if (flowRole !== "run_spawn" || flowState !== "game_over_travel") return;
+    if (flowRole !== "run_spawn") return;
+    if (useGameplayStore.getState().flowState !== "game_over_travel") return;
     if (poppedRef.current) return;
 
     poppedRef.current = true;
@@ -658,7 +671,7 @@ export function BalloonGroup({
       cleanupTimerRef.current = null;
       onCleanupRequested?.();
     }, AUTO_POP_CLEANUP_DELAY_MS);
-  }, [camera, flowRole, flowState, getWorldPopCenter, onCleanupRequested, popCenterNdc, popCenterWorld]);
+  }, [camera, flowRole, getWorldPopCenter, onCleanupRequested, popCenterNdc, popCenterWorld]);
 
   useEffect(() => {
     if (!lifecycleRegistry) return;
@@ -686,12 +699,20 @@ export function BalloonGroup({
 
   useEffect(() => {
     if (flowRole !== "run_spawn") return;
-    if (flowState !== "game_over_travel") return;
+    if (flowState !== "game_over_travel") {
+      if (autoPopTimerRef.current !== null) {
+        clearTimeout(autoPopTimerRef.current);
+        autoPopTimerRef.current = null;
+      }
+      return;
+    }
     if (autoPopSignal <= lastAutoPopSignalRef.current) return;
     lastAutoPopSignalRef.current = autoPopSignal;
     if (poppedRef.current) return;
 
-    const delayMs = Math.max(0, autoPopDelayMs);
+    const staggerMs = Math.max(0, autoPopStaggerMs);
+    const waveIndex = reserveAutoPopWaveIndex(autoPopSignal);
+    const delayMs = waveIndex * staggerMs;
     if (autoPopTimerRef.current !== null) {
       clearTimeout(autoPopTimerRef.current);
       autoPopTimerRef.current = null;
@@ -702,9 +723,10 @@ export function BalloonGroup({
     }
     autoPopTimerRef.current = setTimeout(() => {
       autoPopTimerRef.current = null;
+      if (useGameplayStore.getState().flowState !== "game_over_travel") return;
       triggerAutoPop();
     }, delayMs);
-  }, [autoPopDelayMs, autoPopSignal, flowRole, flowState, triggerAutoPop]);
+  }, [autoPopSignal, autoPopStaggerMs, flowRole, flowState, triggerAutoPop]);
 
   useEffect(() => {
     return () => {

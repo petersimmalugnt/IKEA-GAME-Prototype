@@ -33,14 +33,14 @@ function SpawnedItemView({
   onRegisterCullZ,
   onCleanupRequested,
   autoPopSignal,
-  autoPopDelayMs,
+  autoPopStaggerMs,
 }: {
   item: SpawnedItemDescriptor;
   templates: ReactElement[];
   onRegisterCullZ: (getter: ZGetter) => () => void;
   onCleanupRequested: () => void;
   autoPopSignal: number;
-  autoPopDelayMs: number;
+  autoPopStaggerMs: number;
 }) {
   if (templates.length === 0) return null;
   const template = templates[item.templateIndex % templates.length];
@@ -50,7 +50,7 @@ function SpawnedItemView({
     onRegisterCullZ,
     onCleanupRequested,
     autoPopSignal,
-    autoPopDelayMs,
+    autoPopStaggerMs,
   });
 }
 
@@ -66,12 +66,10 @@ export function ItemSpawner({
   children,
 }: ItemSpawnerProps) {
   const flowState = useGameplayStore((state) => state.flowState);
-  const flowEpoch = useGameplayStore((state) => state.flowEpoch);
   const spawnTimerRef = useRef(0);
   const spawnIdRef = useRef(0);
   const cullGettersRef = useRef<Map<string, ZGetter>>(new Map());
   const previousFlowStateRef = useRef(flowState);
-  const autoPopDelayByItemIdRef = useRef<Map<string, number>>(new Map());
   const [autoPopSignal, setAutoPopSignal] = useState(0);
 
   const templates = useMemo(() => {
@@ -96,26 +94,14 @@ export function ItemSpawner({
     previousFlowStateRef.current = flowState;
 
     if (!enteringGameOverTravel) {
-      if (flowState !== "game_over_travel") {
-        autoPopDelayByItemIdRef.current.clear();
-      }
       return;
     }
 
-    const activeItems = useSpawnerStore.getState().items;
-    const nextDelayMap = new Map<string, number>();
-    for (let i = 0; i < activeItems.length; i += 1) {
-      const item = activeItems[i];
-      if (!item) continue;
-      nextDelayMap.set(item.id, i * GAME_OVER_AUTO_POP_STAGGER_MS);
-    }
-    autoPopDelayByItemIdRef.current = nextDelayMap;
     setAutoPopSignal((signal) => signal + 1);
-  }, [flowEpoch, flowState]);
+  }, [flowState]);
 
   const removeSpawnedItem = useCallback((id: string) => {
     cullGettersRef.current.delete(id);
-    autoPopDelayByItemIdRef.current.delete(id);
     useEntityStore.getState().unregister(id);
     useSpawnerStore.getState().removeItem(id);
   }, []);
@@ -212,7 +198,7 @@ export function ItemSpawner({
           onRegisterCullZ={makeRegisterCullZ(item.id)}
           onCleanupRequested={makeCleanupRequested(item.id)}
           autoPopSignal={autoPopSignal}
-          autoPopDelayMs={autoPopDelayByItemIdRef.current.get(item.id) ?? 0}
+          autoPopStaggerMs={GAME_OVER_AUTO_POP_STAGGER_MS}
         />
       ))}
     </group>
