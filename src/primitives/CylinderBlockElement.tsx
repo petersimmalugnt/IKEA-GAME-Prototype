@@ -12,8 +12,8 @@ export type CylinderBlockHeightPreset = (typeof CYLINDER_BLOCK_HEIGHT_PRESETS)[n
 
 // Hardcoded visual/collider resolution for CylinderBlockElement.
 // Tune these values manually for perf/quality tradeoff.
-const CYLINDER_BLOCK_VISUAL_SEGMENTS = 16
-const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 8
+const CYLINDER_BLOCK_VISUAL_SEGMENTS = 24
+const CYLINDER_BLOCK_COLLIDER_SEGMENTS = 12
 const CYLINDER_BLOCK_DEFAULT_LINEAR_DAMPING = 0.12
 const CYLINDER_BLOCK_DEFAULT_ANGULAR_DAMPING = 0.3
 

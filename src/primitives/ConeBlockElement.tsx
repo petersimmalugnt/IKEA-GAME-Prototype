@@ -12,8 +12,8 @@ export type ConeBlockHeightPreset = (typeof CONE_BLOCK_HEIGHT_PRESETS)[number]
 
 // Hardcoded visual/collider resolution for ConeBlockElement.
 // Tune these values manually for perf/quality tradeoff.
-const CONE_BLOCK_VISUAL_SEGMENTS = 12
-const CONE_BLOCK_COLLIDER_SEGMENTS = 6
+const CONE_BLOCK_VISUAL_SEGMENTS = 16
+const CONE_BLOCK_COLLIDER_SEGMENTS = 12
 
 export type ConeBlockElementProps = Simplify<Omit<ConeElementProps, 'radius' | 'height' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: ConeBlockSizePreset

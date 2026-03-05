@@ -39,7 +39,9 @@ type SegmentCollider = {
   args: Vec3
 }
 
-// Line2-baserad spline med pixelkonstant tjocklek + valfri fysik/segmentcolliders.
+const SPLINE_RETINA_BASE_MULTIPLIER = 2
+
+// Line2-baserad spline med skärmkonsekvent tjocklek (DPR-oberoende) + valfri fysik/segmentcolliders.
 export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(function SplineElement({
   points = [[0, 0, 0], [0, 0.2, 0]],
   segments = 50,
@@ -59,12 +61,12 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
   rotation = [0, 0, 0],
   scale,
 }, ref) {
-  const { size, camera: rawCamera, gl } = useThree()
+  const { size, camera: rawCamera } = useThree()
   const camera = rawCamera as THREE.OrthographicCamera
   const rotationRadians = useMemo(() => toRadians(rotation), [rotation])
   const colliderRestitutionProps = Number.isFinite(restitution) ? { restitution } : {}
   const finalColor = color || SETTINGS.colors.outline
-  const finalLineWidth = lineWidth ?? (SETTINGS.lines.thickness * gl.getPixelRatio())
+  const resolvedSplineScreenWidthPx = lineWidth ?? (SETTINGS.lines.thickness * SPLINE_RETINA_BASE_MULTIPLIER)
 
   const curvePoints = useMemo(() => {
     const vectors = points.map((p) => new THREE.Vector3(...p))
@@ -99,7 +101,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
 
     const material = new LineMaterial({
       color: new THREE.Color(finalColor).getHex(),
-      linewidth: finalLineWidth,
+      linewidth: resolvedSplineScreenWidthPx,
       worldUnits: false,
       resolution: new THREE.Vector2(size.width, size.height),
     })
@@ -110,7 +112,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
     line.userData.excludeFromOutlines = true
 
     return line
-  }, [curvePoints, finalColor, finalLineWidth, size.width, size.height])
+  }, [curvePoints, finalColor, resolvedSplineScreenWidthPx, size.width, size.height])
 
   useLayoutEffect(() => {
     const material = line2.material as LineMaterial
@@ -119,7 +121,9 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
 
   const colliders = useMemo<SegmentCollider[]>(() => {
     const zoom = camera.zoom || 300
-    const proxyHalfThickness = (finalLineWidth / zoom) / 2
+    const safeHeight = Math.max(1, size.height)
+    const worldPerPixel = (camera.top - camera.bottom) / (zoom * safeHeight)
+    const proxyHalfThickness = resolvedSplineScreenWidthPx * worldPerPixel * 0.5
 
     const result: SegmentCollider[] = []
     for (let i = 0; i < curvePoints.length - 1; i++) {
@@ -148,7 +152,7 @@ export const SplineElement = forwardRef<THREE.Group, SplineElementProps>(functio
       })
     }
     return result
-  }, [curvePoints, finalLineWidth, camera.zoom])
+  }, [curvePoints, resolvedSplineScreenWidthPx, camera.top, camera.bottom, camera.zoom, size.height])
 
   const shadowProxyRef = useRef<THREE.InstancedMesh | null>(null)
 

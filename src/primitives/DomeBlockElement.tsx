@@ -10,7 +10,7 @@ export type DomeBlockSizePreset = (typeof DOME_BLOCK_SIZE_PRESETS)[number]
 // Hardcoded visual/collider resolution for DomeBlockElement.
 // Tune these values manually for perf/quality tradeoff.
 const DOME_BLOCK_VISUAL_SEGMENTS = 16
-const DOME_BLOCK_COLLIDER_SEGMENTS = 6
+const DOME_BLOCK_COLLIDER_SEGMENTS = 12
 
 export type DomeBlockElementProps = Simplify<Omit<DomeElementProps, 'radius' | 'align' | 'segments' | 'colliderSegments'> & {
     sizePreset?: DomeBlockSizePreset

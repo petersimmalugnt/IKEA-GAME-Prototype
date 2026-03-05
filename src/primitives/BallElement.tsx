@@ -9,8 +9,8 @@ export type BallSizePreset = (typeof BALL_SIZE_PRESETS)[number]
 
 // Hardcoded visual resolution for BallElement.
 // Tune this value manually for perf/quality tradeoff.
-const BALL_VISUAL_SEGMENTS = 12
-const BALL_COLLIDER_SEGMENTS = 6
+const BALL_VISUAL_SEGMENTS = 24
+const BALL_COLLIDER_SEGMENTS = 12
 const BALL_LINEAR_DAMPING = 0.5
 const BALL_ANGULAR_DAMPING = 10
 
