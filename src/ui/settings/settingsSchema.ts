@@ -632,6 +632,9 @@ export const settingsSections: SectionDescriptor[] = [
             { type: 'color', label: 'trail.color', get: () => SETTINGS.cursor.trail.color, set: (v) => { SETTINGS.cursor.trail.color = v; bump() } },
             { type: 'number', label: 'trail.lineWidth', get: () => SETTINGS.cursor.trail.lineWidth, set: (v) => { SETTINGS.cursor.trail.lineWidth = v; bump() }, min: 0, max: 20, step: 0.5 },
             { type: 'number', label: 'trail.smoothing', get: () => SETTINGS.cursor.trail.smoothing, set: (v) => { SETTINGS.cursor.trail.smoothing = v; bump() }, min: 0, max: 1, step: 0.01 },
+            { type: 'number', label: 'trail.externalFollowMinAlpha', get: () => SETTINGS.cursor.trail.externalFollowMinAlpha, set: (v) => { SETTINGS.cursor.trail.externalFollowMinAlpha = v; bump() }, min: 0, max: 1, step: 0.01, visible: () => SETTINGS.cursor.inputSource === 'external' },
+            { type: 'number', label: 'trail.externalFollowMaxAlpha', get: () => SETTINGS.cursor.trail.externalFollowMaxAlpha, set: (v) => { SETTINGS.cursor.trail.externalFollowMaxAlpha = v; bump() }, min: 0, max: 1, step: 0.01, visible: () => SETTINGS.cursor.inputSource === 'external' },
+            { type: 'number', label: 'trail.externalFollowFastDistancePx', get: () => SETTINGS.cursor.trail.externalFollowFastDistancePx, set: (v) => { SETTINGS.cursor.trail.externalFollowFastDistancePx = v; bump() }, min: 1, max: 500, step: 1, visible: () => SETTINGS.cursor.inputSource === 'external' },
         ],
     },
 

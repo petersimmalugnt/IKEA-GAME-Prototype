@@ -228,6 +228,12 @@ export type Settings = {
       lineWidth: number
       /** Curve smoothing: 0 = tight polyline, 1 = fully smoothed quadratic curve */
       smoothing: number
+      /** Visual-only external trail follow smoothing at slow movement */
+      externalFollowMinAlpha: number
+      /** Visual-only external trail follow smoothing at fast movement */
+      externalFollowMaxAlpha: number
+      /** Distance in px where external trail follow reaches max alpha */
+      externalFollowFastDistancePx: number
     }
   }
 }

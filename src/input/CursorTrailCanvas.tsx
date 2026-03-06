@@ -16,6 +16,18 @@ const MIN_POINT_TIME_MS = 8
 const EXTERNAL_TRAIL_BREAK_JUMP_RATIO = 0.18
 const EXTERNAL_TRAIL_BREAK_MIN_PX = 220
 
+type ExternalVisualFollower = {
+  active: boolean
+  x: number
+  y: number
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (value < min) return min
+  if (value > max) return max
+  return value
+}
+
 export function CursorTrailCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -40,6 +52,14 @@ export function CursorTrailCanvas() {
     ]
     const historyWriteIndex = new Int32Array(TRAIL_SLOT_COUNT)
     const historyCount = new Int32Array(TRAIL_SLOT_COUNT)
+    const externalVisualFollowers: ExternalVisualFollower[] = Array.from(
+      { length: TRAIL_SLOT_COUNT },
+      () => ({
+        active: false,
+        x: 0,
+        y: 0,
+      }),
+    )
 
     let rafId = 0
     let lastFrameTime = performance.now()
@@ -63,6 +83,10 @@ export function CursorTrailCanvas() {
     const clearHistorySlot = (slot: 0 | 1) => {
       historyWriteIndex[slot] = 0
       historyCount[slot] = 0
+      const follower = externalVisualFollowers[slot]
+      if (follower) {
+        follower.active = false
+      }
     }
 
     const clearAllHistory = () => {
@@ -81,6 +105,19 @@ export function CursorTrailCanvas() {
         EXTERNAL_TRAIL_BREAK_MIN_PX,
         viewportMin * EXTERNAL_TRAIL_BREAK_JUMP_RATIO,
       )
+    }
+
+    const resolveExternalFollowAlpha = (distancePx: number, deltaSec: number) => {
+      const minAlpha = clamp(SETTINGS.cursor.trail.externalFollowMinAlpha ?? 0.18, 0, 1)
+      const maxAlpha = clamp(SETTINGS.cursor.trail.externalFollowMaxAlpha ?? 0.55, minAlpha, 1)
+      const fastDistancePx = Math.max(
+        1,
+        SETTINGS.cursor.trail.externalFollowFastDistancePx ?? 90,
+      )
+      const distanceT = clamp(distancePx / fastDistancePx, 0, 1)
+      const frameAlpha = minAlpha + (maxAlpha - minAlpha) * distanceT
+      const normalizedFrame = clamp(deltaSec * 60, 0, 4)
+      return 1 - Math.pow(1 - frameAlpha, normalizedFrame)
     }
 
     const pushHistoryPoint = (slot: 0 | 1, x: number, y: number, timeMs: number) => {
@@ -122,6 +159,43 @@ export function CursorTrailCanvas() {
       }
 
       pushHistoryPoint(slot, x, y, timeMs)
+    }
+
+    const pushSmoothedExternalHistoryPoint = (
+      slot: 0 | 1,
+      targetX: number,
+      targetY: number,
+      timeMs: number,
+      deltaSec: number,
+    ) => {
+      const follower = externalVisualFollowers[slot]
+      if (!follower) return
+
+      const breakDistancePx = resolveExternalTrailBreakDistancePx()
+      if (!follower.active) {
+        follower.active = true
+        follower.x = targetX
+        follower.y = targetY
+        pushExternalHistoryPoint(slot, targetX, targetY, timeMs)
+        return
+      }
+
+      const dx = targetX - follower.x
+      const dy = targetY - follower.y
+      const dist = Math.hypot(dx, dy)
+      if (dist > breakDistancePx) {
+        clearHistorySlot(slot)
+        follower.active = true
+        follower.x = targetX
+        follower.y = targetY
+        pushExternalHistoryPoint(slot, targetX, targetY, timeMs)
+        return
+      }
+
+      const alpha = resolveExternalFollowAlpha(dist, deltaSec)
+      follower.x += dx * alpha
+      follower.y += dy * alpha
+      pushExternalHistoryPoint(slot, follower.x, follower.y, timeMs)
     }
 
     const pruneHistorySlot = (slot: 0 | 1, nowMs: number, maxAgeMs: number) => {
@@ -235,12 +309,24 @@ export function CursorTrailCanvas() {
 
       if (inputSource === 'external') {
         if (readCursorPointerRenderState(0, now, pointerRenderState0)) {
-          pushExternalHistoryPoint(0, pointerRenderState0.x, pointerRenderState0.y, now)
+          pushSmoothedExternalHistoryPoint(
+            0,
+            pointerRenderState0.x,
+            pointerRenderState0.y,
+            now,
+            delta,
+          )
         } else {
           clearHistorySlot(0)
         }
         if (readCursorPointerRenderState(1, now, pointerRenderState1)) {
-          pushExternalHistoryPoint(1, pointerRenderState1.x, pointerRenderState1.y, now)
+          pushSmoothedExternalHistoryPoint(
+            1,
+            pointerRenderState1.x,
+            pointerRenderState1.y,
+            now,
+            delta,
+          )
         } else {
           clearHistorySlot(1)
         }

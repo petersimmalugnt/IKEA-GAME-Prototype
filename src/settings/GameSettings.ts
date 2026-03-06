@@ -325,6 +325,9 @@ export const SETTINGS: Settings = {
       color: "#ffffff",
       lineWidth: 3,
       smoothing: 0.75,
+      externalFollowMinAlpha: 0.18,
+      externalFollowMaxAlpha: 0.55,
+      externalFollowFastDistancePx: 90,
     },
   },
 };
