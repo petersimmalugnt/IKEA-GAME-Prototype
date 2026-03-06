@@ -44,6 +44,8 @@ const MOUSE_POINTER_ID = '__mouse__'
 const EXTERNAL_TIME_OFFSET_BLEND = 0.2
 const EXTERNAL_MAX_EXTRAPOLATION_MS = 30
 const EXTERNAL_MIN_SAMPLE_STEP_MS = 0.25
+const EXTERNAL_MAX_SEGMENT_JUMP_RATIO = 0.18
+const EXTERNAL_MAX_SEGMENT_JUMP_MIN_PX = 220
 const SEGMENT_EPSILON = 1e-6
 
 const SWEEP_BUFFER_SIZE = 128
@@ -106,6 +108,19 @@ function resolveExternalStaleTimeoutMs(): number {
   const timeout = SETTINGS.cursor.external.staleTimeoutMs
   if (!Number.isFinite(timeout)) return 120
   return Math.max(1, timeout)
+}
+
+function resolveExternalSegmentJumpLimitPx(): number {
+  const width = window.innerWidth
+  const height = window.innerHeight
+  const viewportMin = Math.min(
+    Number.isFinite(width) && width > 0 ? width : EXTERNAL_MAX_SEGMENT_JUMP_MIN_PX,
+    Number.isFinite(height) && height > 0 ? height : EXTERNAL_MAX_SEGMENT_JUMP_MIN_PX,
+  )
+  return Math.max(
+    EXTERNAL_MAX_SEGMENT_JUMP_MIN_PX,
+    viewportMin * EXTERNAL_MAX_SEGMENT_JUMP_RATIO,
+  )
 }
 
 function resetSlot(slot: PointerSlotState): void {
@@ -180,6 +195,24 @@ function pushSampleToSlot(
     const dx = x - slot.x
     const dy = y - slot.y
     const dist = Math.hypot(dx, dy)
+    const isExternalPointer = slot.id !== MOUSE_POINTER_ID
+    const suppressSweepSegment = (
+      isExternalPointer
+      && dist > resolveExternalSegmentJumpLimitPx()
+    )
+
+    if (suppressSweepSegment) {
+      slot.velocityPx = 0
+      slot.velocityScreenXPx = 0
+      slot.velocityScreenYPx = 0
+      slot.active = true
+      slot.x = x
+      slot.y = y
+      slot.lastMoveTime = timeMs
+      slot.lastPacketMs = packetTimeMs
+      return
+    }
+
     slot.velocityPx = (dist / dt) * 1000
 
     const rawVelocityScreenXPx = (dx / dt) * 1000
