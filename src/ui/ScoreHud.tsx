@@ -4,7 +4,7 @@ import { isAudioUnlocked, subscribeAudioUnlocked } from '@/audio/SoundManager'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 import { SETTINGS } from '@/settings/GameSettings'
 import { useSettingsVersion } from '@/settings/settingsStore'
-import { POPDOT_SHADOW_STYLE, POPDOT_STYLE_1, POPDOT_STYLE_2, POPDOT_STYLE_3, POPDOT_STYLE_4 } from '@/ui/hudTypography'
+import { POPDOT_STYLE_3, POPDOT_STYLE_4, createPopdotShadowStyle } from '@/ui/hudTypography'
 
 function formatScore(value: number): string {
   const truncated = Number.isFinite(value) ? Math.trunc(value) : 0
@@ -17,6 +17,7 @@ const LIFE_LOSS_BLINK_DURATION_MS = 820
 const SCORE_LERP_RESPONSE = 16
 const SCORE_LERP_MAX_DT_SEC = 0.05
 const HEART_LIGATURE = '#heart'
+const SHADOW_STYLE_2 = createPopdotShadowStyle(2)
 
 export function ScoreHud() {
   useSettingsVersion()
@@ -220,7 +221,7 @@ export function ScoreHud() {
             textWrap: 'balance',
           }}
         >
-          <span style={{ ...POPDOT_STYLE_3, ...POPDOT_SHADOW_STYLE, fontSize: '0.375em', lineHeight: '1em', maxWidth: '30ch' }}>
+          <span style={{ ...POPDOT_STYLE_3, ...SHADOW_STYLE_2, fontSize: '0.375em', lineHeight: '1em', maxWidth: '30ch' }}>
             Click anywhere to enable the soundtrack and SFX
           </span>
           <span

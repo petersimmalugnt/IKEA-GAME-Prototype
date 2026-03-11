@@ -1,4 +1,4 @@
-export type ScorePopStyleKey = 'style1' | 'style2' | 'style3' | 'style4'
+export type ScorePopStyleKey = 'style1' | 'style2' | 'style3' | 'style4' | 'style5'
 
 export type ScorePopEvent = {
   text: string

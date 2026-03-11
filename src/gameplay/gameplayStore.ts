@@ -279,11 +279,11 @@ function flushPendingComboStrike(): void {
     }
     const invCount = 1 / strikeSize
     emitScorePop({
-      text: `x${finalMultiplier}`,
+      text: `X${finalMultiplier}\nCOMBO!`,
       x: sumX * invCount,
       y: sumY * invCount,
       burst: false,
-      style: 'style1',
+      style: 'style5',
     })
     playGameSound({ type: 'combo_triggered', multiplier: finalMultiplier })
     sendScoreboardEvent({

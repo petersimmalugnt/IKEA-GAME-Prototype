@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 import { SETTINGS } from '@/settings/GameSettings'
-import { POPDOT_SHADOW_STYLE, POPDOT_STYLE_1, POPDOT_STYLE_2, POPDOT_STYLE_3 } from '@/ui/hudTypography'
+import { POPDOT_STYLE_1, POPDOT_STYLE_2, POPDOT_STYLE_3, POPDOT_STYLE_4, POPDOT_STYLE_5, createPopdotShadowStyle } from '@/ui/hudTypography'
 
 function formatScore(value: number): string {
   const truncated = Number.isFinite(value) ? Math.trunc(value) : 0
@@ -24,6 +24,12 @@ function resolveRemainingRatio(endsAtMs: number, nowMs: number, durationMs: numb
   return Math.max(0, Math.min(1, remainingMs / durationMs))
 }
 
+const SHADOW_STYLE_2 = createPopdotShadowStyle(2)
+const SHADOW_STYLE_4 = createPopdotShadowStyle(4)
+const SHADOW_STYLE_8 = createPopdotShadowStyle(8)
+const SHADOW_STYLE_12 = createPopdotShadowStyle(12)
+const SHADOW_STYLE_16 = createPopdotShadowStyle(16)
+
 export function GameFlowOverlay() {
   const flowState = useGameplayStore((state) => state.flowState)
   const gameOverInputEndsAtMs = useGameplayStore((state) => state.gameOverInputEndsAtMs)
@@ -44,7 +50,7 @@ export function GameFlowOverlay() {
   if (flowState === 'idle') {
     return (
       <div style={styles.centerWrap}>
-        <div style={styles.idlePrompt}>POP BALLOON TO START</div>
+        <div style={styles.idlePrompt}>POP BALLOON TO START!</div>
       </div>
     )
   }
@@ -60,7 +66,7 @@ export function GameFlowOverlay() {
 
     return (
       <div style={styles.centerWrap}>
-        <div style={styles.gameOverTitle}>GAME OVER</div>
+        <div style={styles.gameOverTitle}>GAME OVER!</div>
         <div style={styles.scoreRow}>
           <span style={styles.scoreLabel}>SCORE</span>
           <span style={styles.scoreValue}>{formatScore(lastRunScore)}</span>
@@ -128,8 +134,11 @@ const styles = {
   },
   idlePrompt: {
     ...POPDOT_STYLE_1,
-    ...POPDOT_SHADOW_STYLE,
-    fontSize: '1.25rem',
+    ...SHADOW_STYLE_8,
+    lineHeight: '.8em',
+    fontSize: '4rem',
+    textWrap: 'balance',
+    maxWidth: '20ch',
     textTransform: 'uppercase' as const,
   },
   highScoreTitle: {
@@ -143,8 +152,8 @@ const styles = {
   },
   gameOverTitle: {
     ...POPDOT_STYLE_1,
-    ...POPDOT_SHADOW_STYLE,
-    fontSize: '2.2rem',
+    ...SHADOW_STYLE_16,
+    fontSize: '12rem',
     textTransform: 'uppercase' as const,
   },
   scoreRow: {
@@ -155,19 +164,19 @@ const styles = {
   },
   scoreLabel: {
     ...POPDOT_STYLE_2,
-    ...POPDOT_SHADOW_STYLE,
+    ...SHADOW_STYLE_2,
     fontSize: '0.85rem',
     textTransform: 'uppercase' as const,
     opacity: 0.9,
   },
   scoreValue: {
     ...POPDOT_STYLE_1,
-    ...POPDOT_SHADOW_STYLE,
+    ...SHADOW_STYLE_2,
     fontSize: '2rem',
   },
   highScoreEntry: {
     ...POPDOT_STYLE_3,
-    ...POPDOT_SHADOW_STYLE,
+    ...SHADOW_STYLE_2,
     marginTop: '0.45rem',
     fontSize: '1rem',
     textTransform: 'uppercase' as const,
@@ -188,7 +197,7 @@ const styles = {
   },
   timerLabel: {
     ...POPDOT_STYLE_1,
-    ...POPDOT_SHADOW_STYLE,
+    ...SHADOW_STYLE_2,
     position: 'absolute' as const,
     inset: 0,
     display: 'flex',

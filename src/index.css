@@ -39,6 +39,14 @@
   font-variation-settings: "wght" 150, "slnt" 0, "wdth" 0;
 }
 
+@font-face {
+  font-family: "popdot-canvas-style5";
+  src: url("/POPDOTVF.ttf") format("truetype");
+  font-display: swap;
+  font-weight: 100 600;
+  font-variation-settings: "slnt" 100, "wdth" 100;
+}
+
 body,
 html,
 #root {
