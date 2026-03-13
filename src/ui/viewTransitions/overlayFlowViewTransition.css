@@ -150,31 +150,32 @@
 
 /* Section C: Scenario Matrix */
 :root[data-gfo-vt-scope='flow'][data-gfo-vt-scenario='flow:idle>run'] {
-  --gfo-vt-idle-prompt-out-duration: 500ms;
+  --gfo-vt-idle-prompt-out-duration: 0ms;
 }
 
 :root[data-gfo-vt-scope='flow'][data-gfo-vt-scenario='flow:run>game_over_travel'] {
   --gfo-vt-game-over-title-in-duration: 500ms;
   --gfo-vt-score-label-in-duration: 500ms;
+  --gfo-vt-score-label-in-delay: 100ms;
   --gfo-vt-score-value-in-duration: 500ms;
-  --gfo-vt-score-value-in-delay: 100ms;
+  --gfo-vt-score-value-in-delay: 200ms;
 }
 
 :root[data-gfo-vt-scope='flow'][data-gfo-vt-scenario='flow:game_over_travel>game_over_input'] {
   --gfo-vt-game-over-title-out-duration: 250ms;
   --gfo-vt-score-label-pair-duration: 500ms;
-  --gfo-vt-score-label-pair-delay: 150ms;
+  --gfo-vt-score-label-pair-delay: 100ms;
   --gfo-vt-score-value-pair-duration: 600ms;
-  --gfo-vt-score-value-pair-delay: 200ms;
+  --gfo-vt-score-value-pair-delay: 150ms;
 
   --gfo-vt-entry-label-in-duration: 500ms;
-  --gfo-vt-entry-label-in-delay: 500ms;
+  --gfo-vt-entry-label-in-delay: 450ms;
   --gfo-vt-entry-letter-0-in-duration: 500ms;
-  --gfo-vt-entry-letter-0-in-delay: 600ms;
+  --gfo-vt-entry-letter-0-in-delay: 550ms;
   --gfo-vt-entry-letter-1-in-duration: 500ms;
   --gfo-vt-entry-letter-1-in-delay: 700ms;
   --gfo-vt-entry-letter-2-in-duration: 500ms;
-  --gfo-vt-entry-letter-2-in-delay: 800ms;
+  --gfo-vt-entry-letter-2-in-delay: 850ms;
   --gfo-vt-entry-back-in-duration: 500ms;
   --gfo-vt-entry-back-in-delay: 1s;
   --gfo-vt-entry-next-in-duration: 500ms;
@@ -203,24 +204,26 @@
 }
 
 :root[data-gfo-vt-scope='flow'][data-gfo-vt-scenario='flow:game_over_input>idle'] {
-  --gfo-vt-idle-prompt-in-duration: 500ms;
-  --gfo-vt-score-label-out-duration: 500ms;
-  --gfo-vt-score-label-out-delay: 0ms;
-  --gfo-vt-score-value-out-duration: 500ms;
-  --gfo-vt-score-value-out-delay: 100ms;
+  --gfo-vt-score-label-out-duration: 250ms;
+  --gfo-vt-score-label-out-delay: 450ms;
+  --gfo-vt-score-value-out-duration: 250ms;
+  --gfo-vt-score-value-out-delay: 400ms;
 
-  --gfo-vt-entry-label-out-duration: 500ms;
-  --gfo-vt-entry-label-out-delay: 0ms;
-  --gfo-vt-entry-letter-0-out-duration: 500ms;
-  --gfo-vt-entry-letter-0-out-delay: 100ms;
-  --gfo-vt-entry-letter-1-out-duration: 500ms;
-  --gfo-vt-entry-letter-1-out-delay: 200ms;
-  --gfo-vt-entry-letter-2-out-duration: 500ms;
-  --gfo-vt-entry-letter-2-out-delay: 300ms;
-  --gfo-vt-entry-back-out-duration: 500ms;
-  --gfo-vt-entry-back-out-delay: 400ms;
-  --gfo-vt-entry-next-out-duration: 500ms;
-  --gfo-vt-entry-next-out-delay: 500ms;
+  --gfo-vt-entry-label-out-duration: 250ms;
+  --gfo-vt-entry-label-out-delay: 350ms;
+  --gfo-vt-entry-letter-0-out-duration: 250ms;
+  --gfo-vt-entry-letter-0-out-delay: 300ms;
+  --gfo-vt-entry-letter-1-out-duration: 250ms;
+  --gfo-vt-entry-letter-1-out-delay: 250ms;
+  --gfo-vt-entry-letter-2-out-duration: 250ms;
+  --gfo-vt-entry-letter-2-out-delay: 150ms;
+  --gfo-vt-entry-back-out-duration: 250ms;
+  --gfo-vt-entry-back-out-delay: 50ms;
+  --gfo-vt-entry-next-out-duration: 250ms;
+  --gfo-vt-entry-next-out-delay: 0ms;
+
+  --gfo-vt-idle-prompt-in-duration: 500ms;
+  --gfo-vt-idle-prompt-in-delay: 500ms;
 }
 
 :root[data-gfo-vt-scope='flow'][data-gfo-vt-scenario='flow:game_over_travel>idle'] {
