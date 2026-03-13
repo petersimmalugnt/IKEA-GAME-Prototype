@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { useGameplayStore } from '@/gameplay/gameplayStore'
 import {
   getLatestCursorSweepSeq,
@@ -22,6 +22,10 @@ import {
 } from '@/ui/highScoreEntry/highScoreEntrySwipe'
 import { formatScore } from '@/ui/scoreFormat'
 import { runOverlayFlowTransition } from '@/ui/viewTransitions/overlayFlowViewTransition'
+import {
+  getHighScoreSubmissionPreviewPlacement,
+  subscribeHighScoreSubmissionSnapshot,
+} from '@/scoreboard/highScoreSubmissionRuntime'
 import './GameFlowOverlay.css'
 
 function resolveCountdownSeconds(endsAtMs: number, nowMs: number): number {
@@ -186,6 +190,7 @@ export function GameFlowOverlay() {
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [displayGameOverScore, setDisplayGameOverScore] = useState(0)
   const [activeLetterIndex, setActiveLetterIndex] = useState(0)
+  const [highScoreSnapshotVersion, setHighScoreSnapshotVersion] = useState(0)
 
   const scoreTickRafIdRef = useRef<number | null>(null)
   const scoreTickStartMsRef = useRef<number | null>(null)
@@ -285,6 +290,11 @@ export function GameFlowOverlay() {
     '--gfo-button-dwell-color': dwellProgressColor,
   } as CSSProperties
   const [letter0, letter1, letter2] = resolveInitialLetters(gameOverInitials)
+  const previewPlacement = useMemo(
+    () => getHighScoreSubmissionPreviewPlacement(resolvedScoreTarget),
+    [highScoreSnapshotVersion, resolvedScoreTarget],
+  )
+  const rankingValue = previewPlacement.rank === null ? '-' : String(previewPlacement.rank)
 
   useEffect(() => {
     activeLetterIndexRef.current = activeLetterIndex
@@ -303,6 +313,12 @@ export function GameFlowOverlay() {
     registerGameOverInputInteractionRef.current = registerGameOverInputInteraction
     submitGameOverInitialsRef.current = submitGameOverInitials
   }, [registerGameOverInputInteraction, setGameOverInitials, submitGameOverInitials])
+
+  useEffect(() => {
+    return subscribeHighScoreSubmissionSnapshot(() => {
+      setHighScoreSnapshotVersion((version) => version + 1)
+    })
+  }, [])
 
   function transitionActiveLetterIndex(nextIndex: number): void {
     const from = activeLetterIndexRef.current
@@ -805,9 +821,16 @@ export function GameFlowOverlay() {
 
     return (
       <div ref={overlayRootRef} className="gfo-center-wrap">
-        <div className="gfo-score-row gfo-stack-center gfo-gap-2">
-          <span className="popdot-text-base popdot-style-2 popdot-shadow-4 gfo-score-label gfo-vt-score-label">TOTAL SCORE:</span>
-          <span className="popdot-text-base popdot-style-1 popdot-shadow-12 gfo-score-value-entry gfo-vt-score-value">{formatScore(displayGameOverScore)}</span>
+        <div className="gfo-2-cols-grid gfo-gap-8">
+          <div className="gfo-score-row gfo-stack-center gfo-gap-2">
+            <span className="popdot-text-base popdot-style-2 popdot-shadow-4 gfo-score-label gfo-vt-score-label">TOTAL SCORE:</span>
+            <span className="popdot-text-base popdot-style-1 popdot-shadow-12 gfo-score-value-entry gfo-vt-score-value">{formatScore(displayGameOverScore)}</span>
+          </div>
+
+          <div className="gfo-ranking-row gfo-stack-center gfo-gap-2">
+            <span className="popdot-text-base popdot-style-2 popdot-shadow-4 gfo-score-label gfo-vt-ranking-label">YOUR PLACE:</span>
+            <span className="popdot-text-base popdot-style-1 popdot-shadow-12 gfo-score-value-entry gfo-vt-ranking-value">{rankingValue}</span>
+          </div>
         </div>
 
         <div className="gfo-high-score-entry-row gfo-stack-center gfo-gap-2">

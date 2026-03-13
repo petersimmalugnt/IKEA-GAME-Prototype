@@ -9,6 +9,8 @@ import * as THREE from "three";
 export {
   CAMERA_MODES,
   CURSOR_INPUT_SOURCES,
+  HIGH_SCORE_DATABASE_FALLBACK_MODES,
+  HIGH_SCORE_STORAGE_MODES,
   PALETTE_VARIANT_NAMES,
   RENDER_STYLES,
   SMAA_PRESET_NAMES,
@@ -229,6 +231,12 @@ export const SETTINGS: Settings = {
     lives: {
       initial: 5,
       lossPerMiss: 1,
+    },
+    highScore: {
+      storageMode: "local_storage",
+      maxEntries: 256,
+      localStorageKey: "ikea-game.highscores.v1",
+      databaseFallbackMode: "local_storage",
     },
     flow: {
       gameOverInputInactivityMs: 15000,

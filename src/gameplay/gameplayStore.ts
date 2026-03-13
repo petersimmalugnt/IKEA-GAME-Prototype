@@ -9,7 +9,7 @@ import { emitScorePop } from '@/input/scorePopEmitter'
 import { sendScoreboardEvent } from '@/scoreboard/scoreboardSender'
 import { getRunId, rotateRunId } from '@/scoreboard/runId'
 import {
-  submitHighScorePlaceholder,
+  submitHighScoreSubmission,
   type HighScoreSubmissionReason,
 } from '@/scoreboard/highScoreSubmissionRuntime'
 import { useSpawnerStore } from '@/gameplay/spawnerStore'
@@ -573,7 +573,6 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     let submittedInitials = getDefaultGameOverInitials()
     let submittedScore = 0
     const submittedAtMs = Date.now()
-    const submittedAtIso = new Date(submittedAtMs).toISOString()
 
     set((state) => {
       if (state.flowState !== 'game_over_input') return state
@@ -594,15 +593,13 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     setGameRunClockRunning(false)
     resetGameRunClock()
 
-    void submitHighScorePlaceholder({
+    const submission = submitHighScoreSubmission({
       runId: getRunId(),
       score: submittedScore,
       initials: submittedInitials,
       submittedAtMs,
-      submittedAtIso,
+      submittedAtIso: new Date(submittedAtMs).toISOString(),
       reason,
-    }).catch((error) => {
-      console.error('[gameplayStore] High score placeholder submission failed.', error)
     })
 
     playGameSound({ type: 'idle_started' })
@@ -614,6 +611,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       initials: submittedInitials,
       score: submittedScore,
       submittedAtMs,
+      rank: submission.rank,
+      totalEntries: submission.totalEntries,
+      storageMode: submission.storageMode,
     })
     sendScoreboardEvent({
       type: 'idle_started',

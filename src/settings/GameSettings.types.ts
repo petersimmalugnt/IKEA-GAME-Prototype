@@ -28,6 +28,8 @@ export const CAMERA_MODES = ['static', 'follow'] as const
 export const CAMERA_FOLLOW_Z_CLAMP_MODES = ['always', 'tilingOnly', 'never'] as const
 export const RENDER_STYLES = ['toon'] as const
 export const CURSOR_INPUT_SOURCES = ['mouse', 'external'] as const
+export const HIGH_SCORE_STORAGE_MODES = ['local_storage', 'memory', 'database'] as const
+export const HIGH_SCORE_DATABASE_FALLBACK_MODES = ['local_storage', 'memory'] as const
 
 export type PaletteVariantName = (typeof PALETTE_VARIANT_NAMES)[number]
 export type SMAAPresetName = (typeof SMAA_PRESET_NAMES)[number]
@@ -35,6 +37,8 @@ export type CameraMode = (typeof CAMERA_MODES)[number]
 export type CameraFollowZClampMode = (typeof CAMERA_FOLLOW_Z_CLAMP_MODES)[number]
 export type RenderStyle = (typeof RENDER_STYLES)[number]
 export type CursorInputSource = (typeof CURSOR_INPUT_SOURCES)[number]
+export type HighScoreStorageMode = (typeof HIGH_SCORE_STORAGE_MODES)[number]
+export type HighScoreDatabaseFallbackMode = (typeof HIGH_SCORE_DATABASE_FALLBACK_MODES)[number]
 
 export type AxisMask = {
   x: boolean
@@ -134,6 +138,12 @@ export type Settings = {
     lives: {
       initial: number
       lossPerMiss: number
+    }
+    highScore: {
+      storageMode: HighScoreStorageMode
+      maxEntries: number
+      localStorageKey: string
+      databaseFallbackMode: HighScoreDatabaseFallbackMode
     }
     flow: {
       gameOverInputInactivityMs: number

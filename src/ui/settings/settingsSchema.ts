@@ -7,6 +7,8 @@ import {
     CURSOR_INPUT_SOURCES,
     CAMERA_MODES,
     CAMERA_FOLLOW_Z_CLAMP_MODES,
+    HIGH_SCORE_DATABASE_FALLBACK_MODES,
+    HIGH_SCORE_STORAGE_MODES,
     SMAA_PRESET_NAMES,
     PALETTE_VARIANT_NAMES,
 } from '@/settings/GameSettings.types'
@@ -417,6 +419,31 @@ export const settingsSections: SectionDescriptor[] = [
             // lives
             { type: 'number', label: 'lives.initial', get: () => SETTINGS.gameplay.lives.initial, set: (v) => { SETTINGS.gameplay.lives.initial = v; bump() }, min: 1, max: 10, step: 1 },
             { type: 'number', label: 'lives.lossPerMiss', get: () => SETTINGS.gameplay.lives.lossPerMiss, set: (v) => { SETTINGS.gameplay.lives.lossPerMiss = v; bump() }, min: 0, max: 5, step: 1 },
+            // high score storage
+            {
+                type: 'select', label: 'highScore.storageMode',
+                get: () => SETTINGS.gameplay.highScore.storageMode,
+                set: (v) => { SETTINGS.gameplay.highScore.storageMode = v as typeof SETTINGS.gameplay.highScore.storageMode; bump() },
+                options: HIGH_SCORE_STORAGE_MODES,
+            },
+            {
+                type: 'number', label: 'highScore.maxEntries',
+                get: () => SETTINGS.gameplay.highScore.maxEntries,
+                set: (v) => { SETTINGS.gameplay.highScore.maxEntries = v; bump() },
+                min: 1, max: 5000, step: 1,
+            },
+            {
+                type: 'text', label: 'highScore.localStorageKey',
+                get: () => SETTINGS.gameplay.highScore.localStorageKey,
+                set: (v) => { SETTINGS.gameplay.highScore.localStorageKey = v; bump() },
+            },
+            {
+                type: 'select', label: 'highScore.databaseFallbackMode',
+                get: () => SETTINGS.gameplay.highScore.databaseFallbackMode,
+                set: (v) => { SETTINGS.gameplay.highScore.databaseFallbackMode = v as typeof SETTINGS.gameplay.highScore.databaseFallbackMode; bump() },
+                options: HIGH_SCORE_DATABASE_FALLBACK_MODES,
+                visible: () => SETTINGS.gameplay.highScore.storageMode === 'database',
+            },
             { type: 'number', label: 'flow.gameOverInputInactivityMs', get: () => SETTINGS.gameplay.flow.gameOverInputInactivityMs, set: (v) => { SETTINGS.gameplay.flow.gameOverInputInactivityMs = v; bump() }, min: 1000, max: 30000, step: 100 },
             { type: 'number', label: 'flow.gameOverInputCountdownMs', get: () => SETTINGS.gameplay.flow.gameOverInputCountdownMs, set: (v) => { SETTINGS.gameplay.flow.gameOverInputCountdownMs = v; bump() }, min: 1000, max: 30000, step: 100 },
             { type: 'number', label: 'flow.highScoreEntrySwipe.letterMinVelocityPx', get: () => SETTINGS.gameplay.flow.highScoreEntrySwipe.letterMinVelocityPx, set: (v) => { SETTINGS.gameplay.flow.highScoreEntrySwipe.letterMinVelocityPx = v; bump() }, min: 0, max: 3000, step: 10 },

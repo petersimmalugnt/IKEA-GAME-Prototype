@@ -1,3 +1,5 @@
+import type { HighScoreStorageMode } from '@/settings/GameSettings.types'
+
 export type ScoreboardEventSource = 'balloon_pop' | 'balloon_combo' | 'contagion' | 'unknown'
 
 export type ScoreboardLifeLossReason = 'balloon_missed' | 'unknown'
@@ -70,6 +72,9 @@ export type InitialsStepFinishedEvent = {
   initials: string
   score: number
   submittedAtMs: number
+  rank: number | null
+  totalEntries: number
+  storageMode: HighScoreStorageMode
 }
 
 export type ScoreboardEvent =

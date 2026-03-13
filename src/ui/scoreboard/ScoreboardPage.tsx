@@ -3,6 +3,10 @@ import type {
   ScoreboardSourceSettings,
 } from '@/scoreboard/scoreBoardSettings.types'
 import type { ScoreboardEvent } from '@/scoreboard/scoreboardEvents'
+import {
+  getHighScoreSubmissionSnapshot,
+  subscribeHighScoreSubmissionSnapshot,
+} from '@/scoreboard/highScoreSubmissionRuntime'
 import { SCOREBOARD_SETTINGS } from '@/scoreboard/scoreBoardSettings'
 import {
   subscribeScoreboardEvents,
@@ -33,6 +37,9 @@ type ScoreboardUiState = {
   sourceLuma: number
   sourceAlpha: number
   fps: number
+  highScoreEntries: number
+  lastSubmittedRank: number | null
+  highScoreStorageMode: string
   error: string | null
 }
 
@@ -48,6 +55,9 @@ const INITIAL_UI_STATE: ScoreboardUiState = {
   sourceLuma: 0,
   sourceAlpha: 0,
   fps: 0,
+  highScoreEntries: 0,
+  lastSubmittedRank: null,
+  highScoreStorageMode: 'unknown',
   error: null,
 }
 
@@ -186,6 +196,22 @@ export function ScoreboardPage() {
   }, [])
 
   useEffect(() => {
+    const applySnapshot = (snapshot: ReturnType<typeof getHighScoreSubmissionSnapshot>) => {
+      const entryCount = snapshot.length
+      setUiState((prev) => (
+        prev.highScoreEntries === entryCount
+          ? prev
+          : { ...prev, highScoreEntries: entryCount }
+      ))
+    }
+
+    applySnapshot(getHighScoreSubmissionSnapshot())
+    return subscribeHighScoreSubmissionSnapshot((snapshot) => {
+      applySnapshot(snapshot)
+    })
+  }, [])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -232,6 +258,23 @@ export function ScoreboardPage() {
 
     unsubscribeReceiver = subscribeScoreboardEvents(
       (event) => {
+        if (event.type === 'initials_step_finished') {
+          const rank = typeof event.rank === 'number' ? Math.max(1, Math.trunc(event.rank)) : null
+          const totalEntries = Number.isFinite(event.totalEntries)
+            ? Math.max(0, Math.trunc(event.totalEntries))
+            : null
+          const storageMode = typeof event.storageMode === 'string' ? event.storageMode : 'unknown'
+
+          setUiState((prev) => ({
+            ...prev,
+            lastEventType: event.type,
+            lastSubmittedRank: rank,
+            highScoreEntries: totalEntries ?? prev.highScoreEntries,
+            highScoreStorageMode: storageMode,
+          }))
+          return
+        }
+
         setUiState((prev) => ({ ...prev, lastEventType: event.type }))
       },
       (status) => {
@@ -366,6 +409,11 @@ export function ScoreboardPage() {
             <span style={styles.value}>range {SCOREBOARD_SETTINGS.dmd.edge.detectRange.toFixed(2)}</span>
             <span style={styles.muted}>strength {SCOREBOARD_SETTINGS.dmd.edge.compressStrength.toFixed(2)}</span>
           </div>
+          <div style={styles.statusLine}>
+            <span style={styles.label}>high score</span>
+            <span style={styles.value}>rank {uiState.lastSubmittedRank ?? '-'}</span>
+            <span style={styles.muted}>entries {uiState.highScoreEntries} | storage {uiState.highScoreStorageMode}</span>
+          </div>
         </div>
       )}
 
@@ -471,4 +519,3 @@ const styles = {
     lineHeight: 1.45,
   },
 } as const
-

@@ -15,6 +15,14 @@
   view-transition-name: gfo-score-value;
 }
 
+.gfo-vt-ranking-label {
+  view-transition-name: gfo-ranking-label;
+}
+
+.gfo-vt-ranking-value {
+  view-transition-name: gfo-ranking-value;
+}
+
 .gfo-vt-entry-label {
   view-transition-name: gfo-entry-label;
 }
@@ -86,6 +94,26 @@
   --gfo-vt-score-value-pair-duration: var(--gfo-vt-default-duration);
   --gfo-vt-score-value-pair-delay: var(--gfo-vt-default-delay);
   --gfo-vt-score-value-pair-ease: var(--gfo-vt-default-pair-ease);
+
+  --gfo-vt-ranking-label-in-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-label-in-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-label-in-ease: var(--gfo-vt-default-in-ease);
+  --gfo-vt-ranking-label-out-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-label-out-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-label-out-ease: var(--gfo-vt-default-out-ease);
+  --gfo-vt-ranking-label-pair-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-label-pair-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-label-pair-ease: var(--gfo-vt-default-pair-ease);
+
+  --gfo-vt-ranking-value-in-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-value-in-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-value-in-ease: var(--gfo-vt-default-in-ease);
+  --gfo-vt-ranking-value-out-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-value-out-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-value-out-ease: var(--gfo-vt-default-out-ease);
+  --gfo-vt-ranking-value-pair-duration: var(--gfo-vt-default-duration);
+  --gfo-vt-ranking-value-pair-delay: var(--gfo-vt-default-delay);
+  --gfo-vt-ranking-value-pair-ease: var(--gfo-vt-default-pair-ease);
 
   --gfo-vt-entry-label-in-duration: var(--gfo-vt-default-duration);
   --gfo-vt-entry-label-in-delay: var(--gfo-vt-default-delay);
@@ -167,6 +195,10 @@
   --gfo-vt-score-label-pair-delay: 100ms;
   --gfo-vt-score-value-pair-duration: 600ms;
   --gfo-vt-score-value-pair-delay: 150ms;
+  --gfo-vt-ranking-label-in-duration: 500ms;
+  --gfo-vt-ranking-label-in-delay: 250ms;
+  --gfo-vt-ranking-value-in-duration: 500ms;
+  --gfo-vt-ranking-value-in-delay: 300ms;
 
   --gfo-vt-entry-label-in-duration: 500ms;
   --gfo-vt-entry-label-in-delay: 450ms;
@@ -188,6 +220,10 @@
   --gfo-vt-score-label-pair-delay: 0ms;
   --gfo-vt-score-value-pair-duration: 500ms;
   --gfo-vt-score-value-pair-delay: 100ms;
+  --gfo-vt-ranking-label-out-duration: 500ms;
+  --gfo-vt-ranking-label-out-delay: 0ms;
+  --gfo-vt-ranking-value-out-duration: 500ms;
+  --gfo-vt-ranking-value-out-delay: 100ms;
 
   --gfo-vt-entry-label-out-duration: 500ms;
   --gfo-vt-entry-label-out-delay: 0ms;
@@ -208,6 +244,10 @@
   --gfo-vt-score-label-out-delay: 450ms;
   --gfo-vt-score-value-out-duration: 250ms;
   --gfo-vt-score-value-out-delay: 400ms;
+  --gfo-vt-ranking-label-out-duration: 250ms;
+  --gfo-vt-ranking-label-out-delay: 500ms;
+  --gfo-vt-ranking-value-out-duration: 250ms;
+  --gfo-vt-ranking-value-out-delay: 450ms;
 
   --gfo-vt-entry-label-out-duration: 250ms;
   --gfo-vt-entry-label-out-delay: 350ms;
@@ -255,6 +295,14 @@
   --gfo-vt-score-value-in-duration: 0ms;
   --gfo-vt-score-value-out-duration: 0ms;
   --gfo-vt-score-value-pair-duration: 0ms;
+
+  --gfo-vt-ranking-label-in-duration: 0ms;
+  --gfo-vt-ranking-label-out-duration: 0ms;
+  --gfo-vt-ranking-label-pair-duration: 0ms;
+
+  --gfo-vt-ranking-value-in-duration: 0ms;
+  --gfo-vt-ranking-value-out-duration: 0ms;
+  --gfo-vt-ranking-value-pair-duration: 0ms;
 
   --gfo-vt-entry-label-in-duration: 0ms;
   --gfo-vt-entry-label-out-duration: 0ms;
@@ -314,6 +362,8 @@
 :root[data-gfo-vt-scope='step'] .gfo-vt-game-over-title,
 :root[data-gfo-vt-scope='step'] .gfo-vt-score-label,
 :root[data-gfo-vt-scope='step'] .gfo-vt-score-value,
+:root[data-gfo-vt-scope='step'] .gfo-vt-ranking-label,
+:root[data-gfo-vt-scope='step'] .gfo-vt-ranking-value,
 :root[data-gfo-vt-scope='step'] .gfo-vt-entry-label,
 :root[data-gfo-vt-scope='step'] .gfo-vt-entry-letter-0,
 :root[data-gfo-vt-scope='step'] .gfo-vt-entry-letter-1,
@@ -326,6 +376,8 @@
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-game-over-title),
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-score-label),
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-score-value),
+:root[data-gfo-vt-scope='step']::view-transition-old(gfo-ranking-label),
+:root[data-gfo-vt-scope='step']::view-transition-old(gfo-ranking-value),
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-entry-label),
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-entry-letter-0),
 :root[data-gfo-vt-scope='step']::view-transition-old(gfo-entry-letter-1),
@@ -334,6 +386,8 @@
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-game-over-title),
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-score-label),
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-score-value),
+:root[data-gfo-vt-scope='step']::view-transition-new(gfo-ranking-label),
+:root[data-gfo-vt-scope='step']::view-transition-new(gfo-ranking-value),
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-entry-label),
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-entry-letter-0),
 :root[data-gfo-vt-scope='step']::view-transition-new(gfo-entry-letter-1),
@@ -342,6 +396,8 @@
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-game-over-title),
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-score-label),
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-score-value),
+:root[data-gfo-vt-scope='step']::view-transition-group(gfo-ranking-label),
+:root[data-gfo-vt-scope='step']::view-transition-group(gfo-ranking-value),
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-entry-label),
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-entry-letter-0),
 :root[data-gfo-vt-scope='step']::view-transition-group(gfo-entry-letter-1),
@@ -461,6 +517,60 @@
   animation-duration: var(--gfo-vt-score-value-pair-duration);
   animation-timing-function: var(--gfo-vt-score-value-pair-ease);
   animation-delay: var(--gfo-vt-score-value-pair-delay);
+  animation-fill-mode: both;
+}
+
+::view-transition-old(gfo-ranking-label) {
+  pointer-events: none;
+  transform-origin: center;
+  animation-name: gfo-vt-exit-transform, gfo-vt-hide-discrete;
+  animation-duration: var(--gfo-vt-ranking-label-out-duration), 0ms;
+  animation-timing-function: var(--gfo-vt-ranking-label-out-ease), steps(1, end);
+  animation-delay: var(--gfo-vt-ranking-label-out-delay), calc(var(--gfo-vt-ranking-label-out-delay) + var(--gfo-vt-ranking-label-out-duration));
+  animation-fill-mode: both, both;
+}
+
+::view-transition-new(gfo-ranking-label) {
+  pointer-events: none;
+  transform-origin: center;
+  animation-name: gfo-vt-show-discrete, gfo-vt-enter-transform;
+  animation-duration: 0ms, var(--gfo-vt-ranking-label-in-duration);
+  animation-timing-function: steps(1, end), var(--gfo-vt-ranking-label-in-ease);
+  animation-delay: var(--gfo-vt-ranking-label-in-delay), var(--gfo-vt-ranking-label-in-delay);
+  animation-fill-mode: both, both;
+}
+
+::view-transition-group(gfo-ranking-label) {
+  animation-duration: var(--gfo-vt-ranking-label-pair-duration);
+  animation-timing-function: var(--gfo-vt-ranking-label-pair-ease);
+  animation-delay: var(--gfo-vt-ranking-label-pair-delay);
+  animation-fill-mode: both;
+}
+
+::view-transition-old(gfo-ranking-value) {
+  pointer-events: none;
+  transform-origin: center;
+  animation-name: gfo-vt-exit-transform, gfo-vt-hide-discrete;
+  animation-duration: var(--gfo-vt-ranking-value-out-duration), 0ms;
+  animation-timing-function: var(--gfo-vt-ranking-value-out-ease), steps(1, end);
+  animation-delay: var(--gfo-vt-ranking-value-out-delay), calc(var(--gfo-vt-ranking-value-out-delay) + var(--gfo-vt-ranking-value-out-duration));
+  animation-fill-mode: both, both;
+}
+
+::view-transition-new(gfo-ranking-value) {
+  pointer-events: none;
+  transform-origin: center;
+  animation-name: gfo-vt-show-discrete, gfo-vt-enter-transform;
+  animation-duration: 0ms, var(--gfo-vt-ranking-value-in-duration);
+  animation-timing-function: steps(1, end), var(--gfo-vt-ranking-value-in-ease);
+  animation-delay: var(--gfo-vt-ranking-value-in-delay), var(--gfo-vt-ranking-value-in-delay);
+  animation-fill-mode: both, both;
+}
+
+::view-transition-group(gfo-ranking-value) {
+  animation-duration: var(--gfo-vt-ranking-value-pair-duration);
+  animation-timing-function: var(--gfo-vt-ranking-value-pair-ease);
+  animation-delay: var(--gfo-vt-ranking-value-pair-delay);
   animation-fill-mode: both;
 }
 

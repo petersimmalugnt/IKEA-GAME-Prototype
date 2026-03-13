@@ -18,12 +18,30 @@
   align-items: center;
 }
 
+.gfo-2-cols-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  justify-content: flex-start;
+}
+
 .gfo-gap-1_5 {
   gap: 1.5rem;
 }
 
 .gfo-gap-2 {
   gap: 2rem;
+}
+
+.gfo-gap-4 {
+  gap: 4rem;
+}
+
+.gfo-gap-6 {
+  gap: 6rem;
+}
+
+.gfo-gap-8 {
+  gap: 8rem;
 }
 
 .gfo-row-center {
@@ -83,11 +101,11 @@
 
 .gfo-high-score-entry {
   /* reserved for per-element override */
-  gap: 2rem;
+  gap: 4rem;
 }
 
 .gfo-high-score-entry-letter {
-  font-size: 24rem;
+  font-size: 32rem;
   width: 1.19ch;
   text-align: center;
   text-transform: uppercase;
@@ -138,7 +156,7 @@
   width: 4rem;
   height: 4rem;
   position: absolute;
-  bottom: 2rem;
+  top: 2rem;
   right: 2rem;
 }
 
