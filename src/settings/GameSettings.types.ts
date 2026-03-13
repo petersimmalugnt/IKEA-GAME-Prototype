@@ -28,6 +28,7 @@ export const CAMERA_MODES = ['static', 'follow'] as const
 export const CAMERA_FOLLOW_Z_CLAMP_MODES = ['always', 'tilingOnly', 'never'] as const
 export const RENDER_STYLES = ['toon'] as const
 export const CURSOR_INPUT_SOURCES = ['mouse', 'external'] as const
+export const RUN_MODES = ['lives', 'time'] as const
 export const HIGH_SCORE_STORAGE_MODES = ['local_storage', 'memory', 'database'] as const
 export const HIGH_SCORE_DATABASE_FALLBACK_MODES = ['local_storage', 'memory'] as const
 
@@ -37,6 +38,7 @@ export type CameraMode = (typeof CAMERA_MODES)[number]
 export type CameraFollowZClampMode = (typeof CAMERA_FOLLOW_Z_CLAMP_MODES)[number]
 export type RenderStyle = (typeof RENDER_STYLES)[number]
 export type CursorInputSource = (typeof CURSOR_INPUT_SOURCES)[number]
+export type GameRunMode = (typeof RUN_MODES)[number]
 export type HighScoreStorageMode = (typeof HIGH_SCORE_STORAGE_MODES)[number]
 export type HighScoreDatabaseFallbackMode = (typeof HIGH_SCORE_DATABASE_FALLBACK_MODES)[number]
 
@@ -138,6 +140,14 @@ export type Settings = {
     lives: {
       initial: number
       lossPerMiss: number
+    }
+    run: {
+      mode: GameRunMode
+      timeLimitMs: number
+      comboTimeBonusStepMs: number
+      timeBonusLerpMs: number
+      pulseSlowStartMs: number
+      pulseFastStartMs: number
     }
     highScore: {
       storageMode: HighScoreStorageMode

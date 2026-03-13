@@ -44,6 +44,13 @@
   color: var(--ui-shadow-color, #141414);
 }
 
+.score-hud-chip--time-value {
+  background-color: #ffffff;
+  color: var(--ui-shadow-color, #141414);
+  min-width: 5.25ch;
+  justify-content: center;
+}
+
 .score-hud-audio-hint {
   position: absolute;
   bottom: 1.5rem;
@@ -108,4 +115,22 @@
 
 .life-loss-blink {
   animation: life-loss-blink 820ms steps(1, end) 1 both;
+}
+
+@keyframes score-hud-time-pulse {
+  0%,
+  100% {
+    font-variation-settings: "wght" 50;
+  }
+  50% {
+    font-variation-settings: "wght" 200;
+  }
+}
+
+.score-hud-time--pulse-slow {
+  animation: score-hud-time-pulse 1s ease-in-out infinite;
+}
+
+.score-hud-time--pulse-fast {
+  animation: score-hud-time-pulse 0.5s ease-in-out infinite;
 }

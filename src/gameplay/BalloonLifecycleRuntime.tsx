@@ -134,6 +134,7 @@ export function useBalloonLifecycleRegistry(): BalloonLifecycleRegistry | null {
 export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
   const { camera, gl } = useThree()
   const flowState = useGameplayStore((state) => state.flowState)
+  const runMode = useGameplayStore((state) => state.runMode)
   const loseLives = useGameplayStore((state) => state.loseLives)
   const entriesRef = useRef<Set<BalloonLifecycleEntry>>(new Set())
   const missQueueRef = useRef<Array<() => void>>([])
@@ -235,7 +236,7 @@ export function BalloonLifecycleRuntime({ children }: { children: ReactNode }) {
 
       if (pastLife) {
         entry.missApplied = true
-        const allowLifeLoss = flowState === 'run' && entry.target.isLifeLossEnabled()
+        const allowLifeLoss = flowState === 'run' && runMode === 'lives' && entry.target.isLifeLossEnabled()
         if (allowLifeLoss && lifeLoss > 0) loseLives(lifeLoss, 'balloon_missed')
         missQueue.push(entry.target.onMissed)
       }

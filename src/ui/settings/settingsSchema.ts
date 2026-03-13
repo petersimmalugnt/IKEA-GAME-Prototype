@@ -9,6 +9,7 @@ import {
     CAMERA_FOLLOW_Z_CLAMP_MODES,
     HIGH_SCORE_DATABASE_FALLBACK_MODES,
     HIGH_SCORE_STORAGE_MODES,
+    RUN_MODES,
     SMAA_PRESET_NAMES,
     PALETTE_VARIANT_NAMES,
 } from '@/settings/GameSettings.types'
@@ -419,6 +420,18 @@ export const settingsSections: SectionDescriptor[] = [
             // lives
             { type: 'number', label: 'lives.initial', get: () => SETTINGS.gameplay.lives.initial, set: (v) => { SETTINGS.gameplay.lives.initial = v; bump() }, min: 1, max: 10, step: 1 },
             { type: 'number', label: 'lives.lossPerMiss', get: () => SETTINGS.gameplay.lives.lossPerMiss, set: (v) => { SETTINGS.gameplay.lives.lossPerMiss = v; bump() }, min: 0, max: 5, step: 1 },
+            // run mode / time mode
+            {
+                type: 'select', label: 'run.mode',
+                get: () => SETTINGS.gameplay.run.mode,
+                set: (v) => { SETTINGS.gameplay.run.mode = v as typeof SETTINGS.gameplay.run.mode; bump() },
+                options: RUN_MODES,
+            },
+            { type: 'number', label: 'run.timeLimitMs', get: () => SETTINGS.gameplay.run.timeLimitMs, set: (v) => { SETTINGS.gameplay.run.timeLimitMs = v; bump() }, min: 1000, max: 3600000, step: 1000 },
+            { type: 'number', label: 'run.comboTimeBonusStepMs', get: () => SETTINGS.gameplay.run.comboTimeBonusStepMs, set: (v) => { SETTINGS.gameplay.run.comboTimeBonusStepMs = v; bump() }, min: 0, max: 60000, step: 100 },
+            { type: 'number', label: 'run.timeBonusLerpMs', get: () => SETTINGS.gameplay.run.timeBonusLerpMs, set: (v) => { SETTINGS.gameplay.run.timeBonusLerpMs = v; bump() }, min: 0, max: 5000, step: 10 },
+            { type: 'number', label: 'run.pulseSlowStartMs', get: () => SETTINGS.gameplay.run.pulseSlowStartMs, set: (v) => { SETTINGS.gameplay.run.pulseSlowStartMs = v; bump() }, min: 0, max: 120000, step: 100 },
+            { type: 'number', label: 'run.pulseFastStartMs', get: () => SETTINGS.gameplay.run.pulseFastStartMs, set: (v) => { SETTINGS.gameplay.run.pulseFastStartMs = v; bump() }, min: 0, max: 120000, step: 100 },
             // high score storage
             {
                 type: 'select', label: 'highScore.storageMode',

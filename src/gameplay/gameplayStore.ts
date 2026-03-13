@@ -4,6 +4,7 @@ import { playGameSound } from '@/audio/GameAudioRouter'
 import { resetGameRunClock, setGameRunClockRunning } from '@/game/GameRunClock'
 import { useLevelTilingStore } from '@/levels/levelTilingStore'
 import { SETTINGS, resolveMaterialColorIndex } from '@/settings/GameSettings'
+import type { GameRunMode } from '@/settings/GameSettings.types'
 import { onEntityUnregister } from '@/entities/entityStore'
 import { emitScorePop } from '@/input/scorePopEmitter'
 import { sendScoreboardEvent } from '@/scoreboard/scoreboardSender'
@@ -13,7 +14,11 @@ import {
   type HighScoreSubmissionReason,
 } from '@/scoreboard/highScoreSubmissionRuntime'
 import { useSpawnerStore } from '@/gameplay/spawnerStore'
-import type { ScoreboardEventSource, ScoreboardLifeLossReason } from '@/scoreboard/scoreboardEvents'
+import type {
+  GameOverEndReason,
+  ScoreboardEventSource,
+  ScoreboardLifeLossReason,
+} from '@/scoreboard/scoreboardEvents'
 import { normalizeHighScoreInitials } from '@/ui/highScoreEntry/highScoreEntryAlphabet'
 
 export const GAME_FLOW_STATES = [
@@ -49,6 +54,8 @@ export type BalloonPopForComboEvent = {
   timeMs: number
 }
 
+export type RunTimeBonusReason = 'combo' | 'unknown'
+
 type NormalizedCollisionEntity = {
   entityId: string
   carrier: boolean
@@ -67,6 +74,13 @@ type GameplayState = {
   lastRunScore: number
   sessionHighScore: number
   lives: number
+  runMode: GameRunMode
+  runTimeEndsAtMs: number
+  runTimePausedRemainingMs: number
+  runTimePauseFromMs: number
+  runTimePauseToMs: number
+  runTimePauseStartedAtMs: number
+  runTimePauseEndsAtMs: number
   flowState: GameFlowState
   flowEpoch: number
   gameOverInitials: string
@@ -77,13 +91,13 @@ type GameplayState = {
   contagionColorsByEntityId: Record<string, number>
   bootstrapIdle: () => void
   startRunFromIdleTrigger: () => void
-  handleRunEndedByLives: () => void
   onGameOverTileCentered: () => void
   setGameOverInitials: (initials: string) => void
   registerGameOverInputInteraction: () => void
   submitGameOverInitials: (reason: HighScoreSubmissionReason) => void
   setGameOverTravelTargetZ: (targetZ: number | null) => void
   addScore: (delta: number, source?: ScoreboardEventSource) => void
+  addRunTimeMs: (deltaMs: number, reason?: RunTimeBonusReason) => void
   loseLife: (reason?: ScoreboardLifeLossReason) => void
   loseLives: (delta: number, reason?: ScoreboardLifeLossReason) => void
   removeEntities: (ids: string[]) => void
@@ -102,6 +116,43 @@ function normalizeNonNegativeInt(value: number, fallback = 0): number {
 
 function getInitialLives(): number {
   return normalizeNonNegativeInt(SETTINGS.gameplay.lives.initial, 0)
+}
+
+function resolveRunModeFromSettings(): GameRunMode {
+  return SETTINGS.gameplay.run.mode === 'lives' ? 'lives' : 'time'
+}
+
+function resolveRunTimeLimitMs(): number {
+  return Math.max(1000, normalizeNonNegativeInt(SETTINGS.gameplay.run.timeLimitMs, 120000))
+}
+
+function resolveComboTimeBonusStepMs(): number {
+  return normalizeNonNegativeInt(SETTINGS.gameplay.run.comboTimeBonusStepMs, 5000)
+}
+
+function resolveTimeBonusLerpMs(): number {
+  return normalizeNonNegativeInt(SETTINGS.gameplay.run.timeBonusLerpMs, 600)
+}
+
+type RunTimeStateFields = Pick<
+  GameplayState,
+  | 'runTimeEndsAtMs'
+  | 'runTimePausedRemainingMs'
+  | 'runTimePauseFromMs'
+  | 'runTimePauseToMs'
+  | 'runTimePauseStartedAtMs'
+  | 'runTimePauseEndsAtMs'
+>
+
+function createClearedRunTimeStateFields(): RunTimeStateFields {
+  return {
+    runTimeEndsAtMs: 0,
+    runTimePausedRemainingMs: 0,
+    runTimePauseFromMs: 0,
+    runTimePauseToMs: 0,
+    runTimePauseStartedAtMs: 0,
+    runTimePauseEndsAtMs: 0,
+  }
 }
 
 function getDefaultGameOverInitials(): string {
@@ -186,6 +237,8 @@ let maps = createContagionMaps()
 let comboRuntime = createComboRuntimeState()
 let gameOverInputInactivityTimer: ReturnType<typeof setTimeout> | null = null
 let gameOverInputCountdownTimer: ReturnType<typeof setTimeout> | null = null
+let runEndTimer: ReturnType<typeof setTimeout> | null = null
+let timeBonusPauseTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearComboFlushTimer(): void {
   if (comboRuntime.flushTimer === null) return
@@ -215,6 +268,23 @@ function clearGameOverInputCountdownTimer(): void {
 function clearGameOverInputTimers(): void {
   clearGameOverInputInactivityTimer()
   clearGameOverInputCountdownTimer()
+}
+
+function clearRunEndTimer(): void {
+  if (runEndTimer === null) return
+  clearTimeout(runEndTimer)
+  runEndTimer = null
+}
+
+function clearTimeBonusPauseTimer(): void {
+  if (timeBonusPauseTimer === null) return
+  clearTimeout(timeBonusPauseTimer)
+  timeBonusPauseTimer = null
+}
+
+function clearRunModeTimers(): void {
+  clearRunEndTimer()
+  clearTimeBonusPauseTimer()
 }
 
 function scheduleGameOverInputInactivityTimer(): void {
@@ -352,6 +422,12 @@ function flushPendingComboStrike(): void {
       totalScore: totalScoreAfterStrike,
     })
   }
+
+  const comboTimeBonusStepMs = resolveComboTimeBonusStepMs()
+  const comboTimeBonusMs = Math.max(0, finalMultiplier - 1) * comboTimeBonusStepMs
+  if (comboTimeBonusMs > 0) {
+    useGameplayStore.getState().addRunTimeMs(comboTimeBonusMs, 'combo')
+  }
 }
 
 function normalizeComboPopEvent(raw: BalloonPopForComboEvent): BalloonPopForComboEvent {
@@ -366,11 +442,152 @@ function normalizeComboPopEvent(raw: BalloonPopForComboEvent): BalloonPopForComb
   }
 }
 
-export const useGameplayStore = create<GameplayState>((set, get) => ({
+export const useGameplayStore = create<GameplayState>((set, get) => {
+  let runTimerScopeToken = 0
+
+  const advanceRunTimerScope = (): number => {
+    runTimerScopeToken += 1
+    clearRunModeTimers()
+    return runTimerScopeToken
+  }
+
+  const isRunTimerScopeActive = (scopeToken: number): boolean => {
+    return scopeToken === runTimerScopeToken
+  }
+
+  const scheduleRunEndTimer = (scopeToken: number, endsAtMs: number): void => {
+    clearRunEndTimer()
+    const delayMs = Math.max(0, endsAtMs - Date.now())
+    runEndTimer = setTimeout(() => {
+      runEndTimer = null
+      if (!isRunTimerScopeActive(scopeToken)) return
+      const state = get()
+      if (state.flowState !== 'run' || state.runMode !== 'time') return
+      if (state.runTimePauseEndsAtMs > Date.now()) return
+      if (state.runTimeEndsAtMs > Date.now()) {
+        scheduleRunEndTimer(scopeToken, state.runTimeEndsAtMs)
+        return
+      }
+      endRun('time_elapsed')
+    }, delayMs)
+  }
+
+  const resumeRunTimeAfterPause = (scopeToken: number): void => {
+    if (!isRunTimerScopeActive(scopeToken)) return
+    const nowMs = Date.now()
+    let nextEndsAtMs = 0
+    let shouldEndRun = false
+    set((state) => {
+      if (state.flowState !== 'run' || state.runMode !== 'time') return state
+      const nextRemainingMs = Math.max(0, Math.trunc(state.runTimePausedRemainingMs))
+      if (nextRemainingMs <= 0) {
+        shouldEndRun = true
+        return {
+          ...state,
+          ...createClearedRunTimeStateFields(),
+          runTimeEndsAtMs: nowMs,
+        }
+      }
+      nextEndsAtMs = nowMs + nextRemainingMs
+      return {
+        ...state,
+        ...createClearedRunTimeStateFields(),
+        runTimeEndsAtMs: nextEndsAtMs,
+      }
+    })
+
+    if (!isRunTimerScopeActive(scopeToken)) return
+    if (shouldEndRun) {
+      endRun('time_elapsed')
+      return
+    }
+    if (nextEndsAtMs > 0) {
+      scheduleRunEndTimer(scopeToken, nextEndsAtMs)
+    }
+  }
+
+  const scheduleRunTimePauseResume = (scopeToken: number, pauseEndsAtMs: number): void => {
+    clearRunEndTimer()
+    clearTimeBonusPauseTimer()
+    const delayMs = Math.max(0, pauseEndsAtMs - Date.now())
+    timeBonusPauseTimer = setTimeout(() => {
+      timeBonusPauseTimer = null
+      resumeRunTimeAfterPause(scopeToken)
+    }, delayMs)
+  }
+
+  const endRun = (endReason: GameOverEndReason): void => {
+    const levelTilingStore = useLevelTilingStore.getState()
+    const gameOverFiles = SETTINGS.level.tiling.gameOverFiles
+      .map((file) => file.trim())
+      .filter((file) => file.length > 0)
+    const previewTravelTargetZ = gameOverFiles.length > 0
+      ? levelTilingStore.previewForcedFinalCenterZ(gameOverFiles)
+      : null
+
+    let didTransition = false
+    let finalScore = 0
+    set((state) => {
+      if (state.flowState !== 'run') return state
+      didTransition = true
+      finalScore = state.score
+      return {
+        ...state,
+        lives: endReason === 'lives_depleted' ? 0 : state.lives,
+        lastRunScore: state.score,
+        sessionHighScore: Math.max(state.sessionHighScore, state.score),
+        flowState: 'game_over_travel',
+        flowEpoch: state.flowEpoch + 1,
+        gameOverInitials: getDefaultGameOverInitials(),
+        gameOverInputEndsAtMs: 0,
+        gameOverTravelTargetZ: previewTravelTargetZ,
+        ...createClearedRunTimeStateFields(),
+      }
+    })
+    if (!didTransition) return
+
+    resetComboRuntimeState()
+    clearGameOverInputTimers()
+    advanceRunTimerScope()
+
+    setGameRunClockRunning(false)
+    resetGameRunClock()
+
+    if (gameOverFiles.length > 0) {
+      levelTilingStore.setForcedTiles(gameOverFiles)
+      if (previewTravelTargetZ === null) {
+        console.error('[gameplayStore] Could not resolve game-over travel target from forced tile preview.')
+      }
+    } else {
+      console.error('[gameplayStore] Missing SETTINGS.level.tiling.gameOverFiles while entering game_over_travel.')
+    }
+
+    triggerEventSequence('game_over')
+    playGameSound({ type: 'run_end' })
+    sendScoreboardEvent({
+      type: 'game_over',
+      timestamp: Date.now(),
+      runId: getRunId(),
+      finalScore,
+      endReason,
+    })
+  }
+
+  const resolveCurrentRemainingTimeMs = (state: GameplayState, nowMs: number): number => {
+    if (state.runMode !== 'time') return 0
+    if (state.runTimePauseEndsAtMs > nowMs) {
+      return Math.max(0, Math.trunc(state.runTimePauseToMs))
+    }
+    return Math.max(0, Math.trunc(state.runTimeEndsAtMs - nowMs))
+  }
+
+  return ({
   score: 0,
   lastRunScore: 0,
   sessionHighScore: 0,
   lives: getInitialLives(),
+  runMode: resolveRunModeFromSettings(),
+  ...createClearedRunTimeStateFields(),
   flowState: 'idle',
   flowEpoch: 0,
   gameOverInitials: getDefaultGameOverInitials(),
@@ -384,6 +601,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     maps = createContagionMaps()
     resetComboRuntimeState()
     clearGameOverInputTimers()
+    advanceRunTimerScope()
 
     let didTransition = false
     set((state) => {
@@ -392,11 +610,13 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       return {
         ...state,
         lives: getInitialLives(),
+        runMode: resolveRunModeFromSettings(),
         flowState: 'idle',
         flowEpoch: state.flowEpoch + 1,
         gameOverInitials: getDefaultGameOverInitials(),
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: null,
+        ...createClearedRunTimeStateFields(),
         sequence: 0,
         contagionEpoch: 0,
         contagionColorsByEntityId: {},
@@ -424,9 +644,14 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     maps = createContagionMaps()
     resetComboRuntimeState()
     clearGameOverInputTimers()
+    const runScopeToken = advanceRunTimerScope()
 
     const newRunId = rotateRunId()
     const initialLives = getInitialLives()
+    const runMode = resolveRunModeFromSettings()
+    const runTimeLimitMs = resolveRunTimeLimitMs()
+    const runStartMs = Date.now()
+    const runTimeEndsAtMs = runMode === 'time' ? runStartMs + runTimeLimitMs : 0
 
     set((state) => {
       if (state.flowState !== 'idle') return state
@@ -434,6 +659,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         ...state,
         score: 0,
         lives: initialLives,
+        runMode,
+        ...createClearedRunTimeStateFields(),
+        runTimeEndsAtMs,
         flowState: 'run',
         flowEpoch: state.flowEpoch + 1,
         gameOverInitials: getDefaultGameOverInitials(),
@@ -447,6 +675,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
 
     resetGameRunClock()
     setGameRunClockRunning(true)
+    if (runMode === 'time') {
+      scheduleRunEndTimer(runScopeToken, runTimeEndsAtMs)
+    }
 
     playGameSound({ type: 'run_started' })
     sendScoreboardEvent({
@@ -455,60 +686,8 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       runId: newRunId,
       score: 0,
       lives: initialLives,
-    })
-  },
-
-  handleRunEndedByLives: () => {
-    const levelTilingStore = useLevelTilingStore.getState()
-    const gameOverFiles = SETTINGS.level.tiling.gameOverFiles
-      .map((file) => file.trim())
-      .filter((file) => file.length > 0)
-    const previewTravelTargetZ = gameOverFiles.length > 0
-      ? levelTilingStore.previewForcedFinalCenterZ(gameOverFiles)
-      : null
-
-    let didTransition = false
-    let finalScore = 0
-    set((state) => {
-      if (state.flowState !== 'run') return state
-      didTransition = true
-      finalScore = state.score
-      return {
-        ...state,
-        lives: 0,
-        lastRunScore: state.score,
-        sessionHighScore: Math.max(state.sessionHighScore, state.score),
-        flowState: 'game_over_travel',
-        flowEpoch: state.flowEpoch + 1,
-        gameOverInitials: getDefaultGameOverInitials(),
-        gameOverInputEndsAtMs: 0,
-        gameOverTravelTargetZ: previewTravelTargetZ,
-      }
-    })
-    if (!didTransition) return
-
-    resetComboRuntimeState()
-    clearGameOverInputTimers()
-
-    setGameRunClockRunning(false)
-    resetGameRunClock()
-
-    if (gameOverFiles.length > 0) {
-      levelTilingStore.setForcedTiles(gameOverFiles)
-      if (previewTravelTargetZ === null) {
-        console.error('[gameplayStore] Could not resolve game-over travel target from forced tile preview.')
-      }
-    } else {
-      console.error('[gameplayStore] Missing SETTINGS.level.tiling.gameOverFiles while entering game_over_travel.')
-    }
-
-    triggerEventSequence('game_over')
-    playGameSound({ type: 'run_end' })
-    sendScoreboardEvent({
-      type: 'game_over',
-      timestamp: Date.now(),
-      runId: getRunId(),
-      finalScore,
+      runMode,
+      timeLimitMs: runTimeLimitMs,
     })
   },
 
@@ -581,15 +760,18 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       submittedScore = Math.max(0, Math.trunc(state.lastRunScore))
       return {
         ...state,
+        runMode: resolveRunModeFromSettings(),
         flowState: 'idle',
         flowEpoch: state.flowEpoch + 1,
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: null,
+        ...createClearedRunTimeStateFields(),
       }
     })
     if (!didTransition) return
 
     clearGameOverInputTimers()
+    advanceRunTimerScope()
     setGameRunClockRunning(false)
     resetGameRunClock()
 
@@ -657,6 +839,56 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     })
   },
 
+  addRunTimeMs: (deltaMs, _reason = 'unknown') => {
+    void _reason
+    const normalizedDeltaMs = normalizeNonNegativeInt(deltaMs, 0)
+    if (normalizedDeltaMs <= 0) return
+    const stateBefore = get()
+    if (stateBefore.flowState !== 'run' || stateBefore.runMode !== 'time') return
+
+    const nowMs = Date.now()
+    const lerpMs = resolveTimeBonusLerpMs()
+    const scopeToken = runTimerScopeToken
+    let accepted = false
+    let nextEndsAtMs = 0
+    let nextPauseEndsAtMs = 0
+
+    set((state) => {
+      if (state.flowState !== 'run' || state.runMode !== 'time') return state
+      const currentRemainingMs = resolveCurrentRemainingTimeMs(state, nowMs)
+      const targetRemainingMs = currentRemainingMs + normalizedDeltaMs
+      accepted = true
+
+      if (lerpMs <= 0) {
+        nextEndsAtMs = nowMs + targetRemainingMs
+        return {
+          ...state,
+          ...createClearedRunTimeStateFields(),
+          runTimeEndsAtMs: nextEndsAtMs,
+        }
+      }
+
+      nextPauseEndsAtMs = nowMs + lerpMs
+      return {
+        ...state,
+        runTimeEndsAtMs: 0,
+        runTimePausedRemainingMs: targetRemainingMs,
+        runTimePauseFromMs: currentRemainingMs,
+        runTimePauseToMs: targetRemainingMs,
+        runTimePauseStartedAtMs: nowMs,
+        runTimePauseEndsAtMs: nextPauseEndsAtMs,
+      }
+    })
+
+    if (!accepted || !isRunTimerScopeActive(scopeToken)) return
+
+    if (lerpMs <= 0) {
+      scheduleRunEndTimer(scopeToken, nextEndsAtMs)
+      return
+    }
+    scheduleRunTimePauseResume(scopeToken, nextPauseEndsAtMs)
+  },
+
   loseLife: (reason = 'unknown') => {
     useGameplayStore.getState().loseLives(SETTINGS.gameplay.lives.lossPerMiss, reason)
   },
@@ -670,6 +902,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     let livesRemaining = 0
     set((state) => {
       if (state.flowState !== 'run') return state
+      if (state.runMode !== 'lives') return state
 
       const nextLives = Math.max(0, state.lives - normalizedDelta)
       livesLostActual = state.lives - nextLives
@@ -695,7 +928,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     })
 
     if (shouldEndRun) {
-      get().handleRunEndedByLives()
+      endRun('lives_depleted')
     }
   },
 
@@ -939,7 +1172,8 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
       })
     }
   },
-}))
+  })
+})
 
 export function useContagionColorOverride(entityId: string | undefined): number | undefined {
   return useGameplayStore((state) => {

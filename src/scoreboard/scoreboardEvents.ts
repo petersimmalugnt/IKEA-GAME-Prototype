@@ -1,10 +1,11 @@
-import type { HighScoreStorageMode } from '@/settings/GameSettings.types'
+import type { GameRunMode, HighScoreStorageMode } from '@/settings/GameSettings.types'
 
 export type ScoreboardEventSource = 'balloon_pop' | 'balloon_combo' | 'contagion' | 'unknown'
 
 export type ScoreboardLifeLossReason = 'balloon_missed' | 'unknown'
 
 export type InitialsStepFinishReason = 'timeout' | 'submitted'
+export type GameOverEndReason = 'lives_depleted' | 'time_elapsed'
 
 export type GameStartedEvent = {
   type: 'game_started'
@@ -12,6 +13,8 @@ export type GameStartedEvent = {
   runId: string
   score: number
   lives: number
+  runMode: GameRunMode
+  timeLimitMs: number
 }
 
 export type PointsReceivedEvent = {
@@ -37,6 +40,7 @@ export type GameOverEvent = {
   timestamp: number
   runId: string
   finalScore: number
+  endReason: GameOverEndReason
 }
 
 export type ComboTriggeredEvent = {

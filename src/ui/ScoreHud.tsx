@@ -11,6 +11,15 @@ const LIFE_LOSS_BLINK_DURATION_MS = 820
 const SCORE_LERP_RESPONSE = 16
 const SCORE_LERP_MAX_DT_SEC = 0.05
 const HEART_LIGATURE = '#heart'
+const CLOCK_LIGATURE = '#CLOCK'
+const TIME_TICK_INTERVAL_MS = 100
+
+function formatClockValue(remainingMs: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
 
 export function ScoreHud() {
   useSettingsVersion()
@@ -20,6 +29,12 @@ export function ScoreHud() {
   const [blinkingLifeSlots, setBlinkingLifeSlots] = useState<number[]>([])
   const [displayScore, setDisplayScore] = useState(() => score)
   const lives = useGameplayStore((state) => state.lives)
+  const runMode = useGameplayStore((state) => state.runMode)
+  const runTimeEndsAtMs = useGameplayStore((state) => state.runTimeEndsAtMs)
+  const runTimePauseFromMs = useGameplayStore((state) => state.runTimePauseFromMs)
+  const runTimePauseToMs = useGameplayStore((state) => state.runTimePauseToMs)
+  const runTimePauseStartedAtMs = useGameplayStore((state) => state.runTimePauseStartedAtMs)
+  const runTimePauseEndsAtMs = useGameplayStore((state) => state.runTimePauseEndsAtMs)
   const flowState = useGameplayStore((state) => state.flowState)
   const maxLives = Math.max(0, Math.trunc(SETTINGS.gameplay.lives.initial))
   const secondaryColor = SETTINGS.colors.outline
@@ -33,6 +48,9 @@ export function ScoreHud() {
   const targetScoreRef = useRef(score)
   const scoreRafIdRef = useRef<number | null>(null)
   const lastScoreFrameTimeRef = useRef<number | null>(null)
+  const timeTickTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timeTickRafIdRef = useRef<number | null>(null)
+  const [timeNowMs, setTimeNowMs] = useState(() => Date.now())
   const scorePanelStyle: CSSProperties = {
     transform: topHudTransform,
     ['--hud-outline' as any]: secondaryColor,
@@ -156,6 +174,45 @@ export function ScoreHud() {
   }, [lives, maxLives])
 
   useEffect(() => {
+    const clearTicker = () => {
+      if (timeTickTimeoutRef.current !== null) {
+        clearTimeout(timeTickTimeoutRef.current)
+        timeTickTimeoutRef.current = null
+      }
+      if (timeTickRafIdRef.current !== null) {
+        cancelAnimationFrame(timeTickRafIdRef.current)
+        timeTickRafIdRef.current = null
+      }
+    }
+
+    clearTicker()
+    if (flowState !== 'run' || runMode !== 'time') return clearTicker
+
+    let disposed = false
+    const tick = () => {
+      if (disposed) return
+      const latestState = useGameplayStore.getState()
+      if (latestState.flowState !== 'run' || latestState.runMode !== 'time') return
+
+      const nowMs = Date.now()
+      setTimeNowMs(nowMs)
+
+      if (latestState.runTimePauseEndsAtMs > nowMs) {
+        timeTickRafIdRef.current = requestAnimationFrame(tick)
+        return
+      }
+
+      timeTickTimeoutRef.current = setTimeout(tick, TIME_TICK_INTERVAL_MS)
+    }
+
+    tick()
+    return () => {
+      disposed = true
+      clearTicker()
+    }
+  }, [flowState, runMode])
+
+  useEffect(() => {
     return () => {
       blinkTimersRef.current.forEach((timer) => clearTimeout(timer))
       blinkTimersRef.current.clear()
@@ -163,11 +220,46 @@ export function ScoreHud() {
         cancelAnimationFrame(scoreRafIdRef.current)
         scoreRafIdRef.current = null
       }
+      if (timeTickTimeoutRef.current !== null) {
+        clearTimeout(timeTickTimeoutRef.current)
+        timeTickTimeoutRef.current = null
+      }
+      if (timeTickRafIdRef.current !== null) {
+        cancelAnimationFrame(timeTickRafIdRef.current)
+        timeTickRafIdRef.current = null
+      }
       lastScoreFrameTimeRef.current = null
     }
   }, [])
 
   const blinkingLifeSlotSet = new Set(blinkingLifeSlots)
+  let displayRemainingTimeMs = 0
+  if (runMode === 'time' && flowState === 'run') {
+    const isPauseActive = (
+      runTimePauseEndsAtMs > timeNowMs
+      && runTimePauseEndsAtMs > runTimePauseStartedAtMs
+    )
+    if (isPauseActive) {
+      const progress = (timeNowMs - runTimePauseStartedAtMs) / (runTimePauseEndsAtMs - runTimePauseStartedAtMs)
+      const clampedProgress = Math.max(0, Math.min(1, progress))
+      displayRemainingTimeMs = Math.max(
+        0,
+        Math.round(runTimePauseFromMs + (runTimePauseToMs - runTimePauseFromMs) * clampedProgress),
+      )
+    } else {
+      displayRemainingTimeMs = Math.max(0, runTimeEndsAtMs - timeNowMs)
+    }
+  }
+  const pulseSlowStartMs = Math.max(0, Math.trunc(SETTINGS.gameplay.run.pulseSlowStartMs))
+  const pulseFastStartMs = Math.max(0, Math.min(pulseSlowStartMs, Math.trunc(SETTINGS.gameplay.run.pulseFastStartMs)))
+  const timePulseFast = runMode === 'time' && flowState === 'run' && displayRemainingTimeMs > 0 && displayRemainingTimeMs <= pulseFastStartMs
+  const timePulseSlow = (
+    runMode === 'time'
+    && flowState === 'run'
+    && displayRemainingTimeMs > 0
+    && displayRemainingTimeMs <= pulseSlowStartMs
+    && !timePulseFast
+  )
 
   return (
     <>
@@ -192,37 +284,54 @@ export function ScoreHud() {
         className="score-hud-panel score-hud-panel--lives popdot-text-base popdot-style-3"
         style={livesPanelStyle}
       >
-        <span className="score-hud-chip popdot-text-base popdot-style-4 score-hud-chip--label">Lives</span>
-        <span className="score-hud-chip popdot-text-base popdot-style-3 score-hud-chip--lives-value">
-          {Array.from({ length: maxLives }, (_, slotIndex) => {
-            const isActiveLife = slotIndex < lives
-            if (isActiveLife) {
+        <span className="score-hud-chip popdot-text-base popdot-style-4 score-hud-chip--label">
+          {runMode === 'time' ? CLOCK_LIGATURE : 'Lives'}
+        </span>
+        {runMode === 'time' ? (
+          <span
+            className={[
+              'score-hud-chip',
+              'popdot-text-base',
+              'popdot-style-3',
+              'score-hud-chip--time-value',
+              timePulseFast ? 'score-hud-time--pulse-fast' : '',
+              timePulseSlow ? 'score-hud-time--pulse-slow' : '',
+            ].join(' ').trim()}
+          >
+            {formatClockValue(displayRemainingTimeMs)}
+          </span>
+        ) : (
+          <span className="score-hud-chip popdot-text-base popdot-style-3 score-hud-chip--lives-value">
+            {Array.from({ length: maxLives }, (_, slotIndex) => {
+              const isActiveLife = slotIndex < lives
+              if (isActiveLife) {
+                return (
+                  <span
+                    key={`life-slot-${slotIndex}`}
+                    className="score-hud-life popdot-text-base popdot-style-3"
+                  >
+                    {HEART_LIGATURE}
+                  </span>
+                )
+              }
+              const shouldBlink = blinkingLifeSlotSet.has(slotIndex)
               return (
                 <span
                   key={`life-slot-${slotIndex}`}
-                  className="score-hud-life popdot-text-base popdot-style-3"
+                  className={[
+                    'score-hud-life',
+                    'popdot-text-base',
+                    'popdot-style-3',
+                    'score-hud-life--lost',
+                    shouldBlink ? 'life-loss-blink' : '',
+                  ].join(' ').trim()}
                 >
                   {HEART_LIGATURE}
                 </span>
               )
-            }
-            const shouldBlink = blinkingLifeSlotSet.has(slotIndex)
-            return (
-              <span
-                key={`life-slot-${slotIndex}`}
-                className={[
-                  'score-hud-life',
-                  'popdot-text-base',
-                  'popdot-style-3',
-                  'score-hud-life--lost',
-                  shouldBlink ? 'life-loss-blink' : '',
-                ].join(' ').trim()}
-              >
-                {HEART_LIGATURE}
-              </span>
-            )
-          })}
-        </span>
+            })}
+          </span>
+        )}
       </div>
     </>
   )

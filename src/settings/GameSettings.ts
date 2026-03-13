@@ -13,6 +13,7 @@ export {
   HIGH_SCORE_STORAGE_MODES,
   PALETTE_VARIANT_NAMES,
   RENDER_STYLES,
+  RUN_MODES,
   SMAA_PRESET_NAMES,
 } from "@/settings/GameSettings.types";
 
@@ -20,6 +21,7 @@ export type {
   AxisMask,
   CameraMode,
   CursorInputSource,
+  GameRunMode,
   MaterialColorIndex,
   PaletteAutoMidSettings,
   PaletteEntry,
@@ -231,6 +233,14 @@ export const SETTINGS: Settings = {
     lives: {
       initial: 5,
       lossPerMiss: 1,
+    },
+    run: {
+      mode: "time",
+      timeLimitMs: 120000,
+      comboTimeBonusStepMs: 5000,
+      timeBonusLerpMs: 600,
+      pulseSlowStartMs: 15000,
+      pulseFastStartMs: 3000,
     },
     highScore: {
       storageMode: "local_storage",
