@@ -8,8 +8,13 @@ import { onEntityUnregister } from '@/entities/entityStore'
 import { emitScorePop } from '@/input/scorePopEmitter'
 import { sendScoreboardEvent } from '@/scoreboard/scoreboardSender'
 import { getRunId, rotateRunId } from '@/scoreboard/runId'
+import {
+  submitHighScorePlaceholder,
+  type HighScoreSubmissionReason,
+} from '@/scoreboard/highScoreSubmissionRuntime'
 import { useSpawnerStore } from '@/gameplay/spawnerStore'
 import type { ScoreboardEventSource, ScoreboardLifeLossReason } from '@/scoreboard/scoreboardEvents'
+import { normalizeHighScoreInitials } from '@/ui/highScoreEntry/highScoreEntryAlphabet'
 
 export const GAME_FLOW_STATES = [
   'idle',
@@ -64,6 +69,7 @@ type GameplayState = {
   lives: number
   flowState: GameFlowState
   flowEpoch: number
+  gameOverInitials: string
   gameOverInputEndsAtMs: number
   gameOverTravelTargetZ: number | null
   sequence: number
@@ -73,7 +79,9 @@ type GameplayState = {
   startRunFromIdleTrigger: () => void
   handleRunEndedByLives: () => void
   onGameOverTileCentered: () => void
-  finishGameOverInputTimeout: () => void
+  setGameOverInitials: (initials: string) => void
+  registerGameOverInputInteraction: () => void
+  submitGameOverInitials: (reason: HighScoreSubmissionReason) => void
   setGameOverTravelTargetZ: (targetZ: number | null) => void
   addScore: (delta: number, source?: ScoreboardEventSource) => void
   loseLife: (reason?: ScoreboardLifeLossReason) => void
@@ -96,8 +104,16 @@ function getInitialLives(): number {
   return normalizeNonNegativeInt(SETTINGS.gameplay.lives.initial, 0)
 }
 
-function resolveGameOverInputDurationMs(): number {
-  return normalizeNonNegativeInt(SETTINGS.gameplay.flow.gameOverInputDurationMs, 5000)
+function getDefaultGameOverInitials(): string {
+  return normalizeHighScoreInitials('AAA')
+}
+
+function resolveGameOverInputInactivityMs(): number {
+  return normalizeNonNegativeInt(SETTINGS.gameplay.flow.gameOverInputInactivityMs, 15000)
+}
+
+function resolveGameOverInputCountdownMs(): number {
+  return normalizeNonNegativeInt(SETTINGS.gameplay.flow.gameOverInputCountdownMs, 15000)
 }
 
 function normalizeCollisionEntity(raw: ContagionCollisionEntity | null | undefined): NormalizedCollisionEntity | null {
@@ -168,7 +184,8 @@ function createComboRuntimeState(): ComboRuntimeState {
 
 let maps = createContagionMaps()
 let comboRuntime = createComboRuntimeState()
-let gameOverInputTimer: ReturnType<typeof setTimeout> | null = null
+let gameOverInputInactivityTimer: ReturnType<typeof setTimeout> | null = null
+let gameOverInputCountdownTimer: ReturnType<typeof setTimeout> | null = null
 
 function clearComboFlushTimer(): void {
   if (comboRuntime.flushTimer === null) return
@@ -183,10 +200,47 @@ function resetComboRuntimeState(): void {
   comboRuntime.lastMultiStrikeTimeMs = Number.NEGATIVE_INFINITY
 }
 
-function clearGameOverInputTimer(): void {
-  if (gameOverInputTimer === null) return
-  clearTimeout(gameOverInputTimer)
-  gameOverInputTimer = null
+function clearGameOverInputInactivityTimer(): void {
+  if (gameOverInputInactivityTimer === null) return
+  clearTimeout(gameOverInputInactivityTimer)
+  gameOverInputInactivityTimer = null
+}
+
+function clearGameOverInputCountdownTimer(): void {
+  if (gameOverInputCountdownTimer === null) return
+  clearTimeout(gameOverInputCountdownTimer)
+  gameOverInputCountdownTimer = null
+}
+
+function clearGameOverInputTimers(): void {
+  clearGameOverInputInactivityTimer()
+  clearGameOverInputCountdownTimer()
+}
+
+function scheduleGameOverInputInactivityTimer(): void {
+  clearGameOverInputTimers()
+  const inactivityMs = resolveGameOverInputInactivityMs()
+  gameOverInputInactivityTimer = setTimeout(() => {
+    gameOverInputInactivityTimer = null
+    const state = useGameplayStore.getState()
+    if (state.flowState !== 'game_over_input') return
+
+    const countdownMs = resolveGameOverInputCountdownMs()
+    const endsAtMs = Date.now() + countdownMs
+    useGameplayStore.setState((previousState) => {
+      if (previousState.flowState !== 'game_over_input') return previousState
+      return {
+        ...previousState,
+        gameOverInputEndsAtMs: endsAtMs,
+      }
+    })
+
+    clearGameOverInputCountdownTimer()
+    gameOverInputCountdownTimer = setTimeout(() => {
+      gameOverInputCountdownTimer = null
+      useGameplayStore.getState().submitGameOverInitials('timeout')
+    }, countdownMs)
+  }, inactivityMs)
 }
 
 function resolveComboStrikeWindowMs(): number {
@@ -319,6 +373,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   lives: getInitialLives(),
   flowState: 'idle',
   flowEpoch: 0,
+  gameOverInitials: getDefaultGameOverInitials(),
   gameOverInputEndsAtMs: 0,
   gameOverTravelTargetZ: null,
   sequence: 0,
@@ -328,7 +383,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   bootstrapIdle: () => {
     maps = createContagionMaps()
     resetComboRuntimeState()
-    clearGameOverInputTimer()
+    clearGameOverInputTimers()
 
     let didTransition = false
     set((state) => {
@@ -339,6 +394,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         lives: getInitialLives(),
         flowState: 'idle',
         flowEpoch: state.flowEpoch + 1,
+        gameOverInitials: getDefaultGameOverInitials(),
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: null,
         sequence: 0,
@@ -367,7 +423,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
 
     maps = createContagionMaps()
     resetComboRuntimeState()
-    clearGameOverInputTimer()
+    clearGameOverInputTimers()
 
     const newRunId = rotateRunId()
     const initialLives = getInitialLives()
@@ -380,6 +436,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         lives: initialLives,
         flowState: 'run',
         flowEpoch: state.flowEpoch + 1,
+        gameOverInitials: getDefaultGameOverInitials(),
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: null,
         sequence: 0,
@@ -423,6 +480,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         sessionHighScore: Math.max(state.sessionHighScore, state.score),
         flowState: 'game_over_travel',
         flowEpoch: state.flowEpoch + 1,
+        gameOverInitials: getDefaultGameOverInitials(),
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: previewTravelTargetZ,
       }
@@ -430,7 +488,7 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
     if (!didTransition) return
 
     resetComboRuntimeState()
-    clearGameOverInputTimer()
+    clearGameOverInputTimers()
 
     setGameRunClockRunning(false)
     resetGameRunClock()
@@ -455,8 +513,9 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
   },
 
   onGameOverTileCentered: () => {
-    const durationMs = resolveGameOverInputDurationMs()
-    const endsAtMs = Date.now() + durationMs
+    const inactivityMs = resolveGameOverInputInactivityMs()
+    const countdownMs = resolveGameOverInputCountdownMs()
+    const stepDurationMs = inactivityMs + countdownMs
 
     let didTransition = false
     set((state) => {
@@ -466,50 +525,97 @@ export const useGameplayStore = create<GameplayState>((set, get) => ({
         ...state,
         flowState: 'game_over_input',
         flowEpoch: state.flowEpoch + 1,
-        gameOverInputEndsAtMs: endsAtMs,
+        gameOverInitials: getDefaultGameOverInitials(),
+        gameOverInputEndsAtMs: 0,
       }
     })
     if (!didTransition) return
 
-    clearGameOverInputTimer()
-    gameOverInputTimer = setTimeout(() => {
-      useGameplayStore.getState().finishGameOverInputTimeout()
-    }, durationMs)
+    scheduleGameOverInputInactivityTimer()
 
     sendScoreboardEvent({
       type: 'initials_step_started',
       timestamp: Date.now(),
       runId: getRunId(),
-      durationMs,
+      durationMs: stepDurationMs,
     })
   },
 
-  finishGameOverInputTimeout: () => {
+  setGameOverInitials: (initials) => {
+    const normalized = normalizeHighScoreInitials(initials)
+    set((state) => {
+      if (state.flowState !== 'game_over_input') return state
+      if (state.gameOverInitials === normalized) return state
+      return {
+        ...state,
+        gameOverInitials: normalized,
+      }
+    })
+  },
+
+  registerGameOverInputInteraction: () => {
+    let shouldSchedule = false
+    set((state) => {
+      if (state.flowState !== 'game_over_input') return state
+      shouldSchedule = true
+      if (!(state.gameOverInputEndsAtMs > 0)) return state
+      return {
+        ...state,
+        gameOverInputEndsAtMs: 0,
+      }
+    })
+
+    if (!shouldSchedule) return
+    scheduleGameOverInputInactivityTimer()
+  },
+
+  submitGameOverInitials: (reason) => {
     let didTransition = false
+    let submittedInitials = getDefaultGameOverInitials()
+    let submittedScore = 0
+    const submittedAtMs = Date.now()
+    const submittedAtIso = new Date(submittedAtMs).toISOString()
+
     set((state) => {
       if (state.flowState !== 'game_over_input') return state
       didTransition = true
+      submittedInitials = normalizeHighScoreInitials(state.gameOverInitials)
+      submittedScore = Math.max(0, Math.trunc(state.lastRunScore))
       return {
         ...state,
         flowState: 'idle',
         flowEpoch: state.flowEpoch + 1,
+        gameOverInitials: getDefaultGameOverInitials(),
         gameOverInputEndsAtMs: 0,
         gameOverTravelTargetZ: null,
       }
     })
     if (!didTransition) return
 
-    clearGameOverInputTimer()
+    clearGameOverInputTimers()
     setGameRunClockRunning(false)
     resetGameRunClock()
+
+    void submitHighScorePlaceholder({
+      runId: getRunId(),
+      score: submittedScore,
+      initials: submittedInitials,
+      submittedAtMs,
+      submittedAtIso,
+      reason,
+    }).catch((error) => {
+      console.error('[gameplayStore] High score placeholder submission failed.', error)
+    })
 
     playGameSound({ type: 'idle_started' })
     sendScoreboardEvent({
       type: 'initials_step_finished',
       timestamp: Date.now(),
       runId: getRunId(),
-      reason: 'timeout',
-      initials: 'AAA',
+      reason,
+      initials: submittedInitials,
+      score: submittedScore,
+      submittedAtMs,
     })
     sendScoreboardEvent({
       type: 'idle_started',

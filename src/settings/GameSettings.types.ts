@@ -136,7 +136,15 @@ export type Settings = {
       lossPerMiss: number
     }
     flow: {
-      gameOverInputDurationMs: number
+      gameOverInputInactivityMs: number
+      gameOverInputCountdownMs: number
+      highScoreEntrySwipe: {
+        letterMinVelocityPx: number
+        letterMinDistancePx: number
+        letterCooldownMs: number
+        buttonDwellMs: number
+        buttonDwellJitterGraceMs: number
+      }
       gameOverTravelSpeedMultiplier: number
       gameOverTravelSpeedEaseInMs: number
       gameOverTravelSpeedEaseInEasing: EasingName

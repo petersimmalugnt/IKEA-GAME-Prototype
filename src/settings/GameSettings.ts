@@ -231,7 +231,15 @@ export const SETTINGS: Settings = {
       lossPerMiss: 1,
     },
     flow: {
-      gameOverInputDurationMs: 5000,
+      gameOverInputInactivityMs: 15000,
+      gameOverInputCountdownMs: 15000,
+      highScoreEntrySwipe: {
+        letterMinVelocityPx: 550,
+        letterMinDistancePx: 18,
+        letterCooldownMs: 140,
+        buttonDwellMs: 1000,
+        buttonDwellJitterGraceMs: 80,
+      },
       gameOverTravelSpeedMultiplier: 20.0,
       gameOverTravelSpeedEaseInMs: 320,
       gameOverTravelSpeedEaseInEasing: "easeInSine",

@@ -2,7 +2,7 @@ export type ScoreboardEventSource = 'balloon_pop' | 'balloon_combo' | 'contagion
 
 export type ScoreboardLifeLossReason = 'balloon_missed' | 'unknown'
 
-export type InitialsStepFinishReason = 'timeout'
+export type InitialsStepFinishReason = 'timeout' | 'submitted'
 
 export type GameStartedEvent = {
   type: 'game_started'
@@ -68,6 +68,8 @@ export type InitialsStepFinishedEvent = {
   runId: string
   reason: InitialsStepFinishReason
   initials: string
+  score: number
+  submittedAtMs: number
 }
 
 export type ScoreboardEvent =

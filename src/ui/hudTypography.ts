@@ -61,6 +61,7 @@ export const POPDOT_STYLE_2: CSSProperties = createPopdotStyle(POPDOT_STYLE_AXES
 export const POPDOT_STYLE_3: CSSProperties = createPopdotStyle(POPDOT_STYLE_AXES.style3)
 export const POPDOT_STYLE_4: CSSProperties = createPopdotStyle(POPDOT_STYLE_AXES.style4)
 export const POPDOT_STYLE_5: CSSProperties = createPopdotStyle(POPDOT_STYLE_AXES.style5)
+export const POPDOT_STYLE_6: CSSProperties = createPopdotStyle(POPDOT_STYLE_AXES.style6)
 
 export const POPDOT_STYLE_BY_KEY: Record<PopdotStyleKey, CSSProperties> = {
   style1: POPDOT_STYLE_1,
@@ -68,4 +69,5 @@ export const POPDOT_STYLE_BY_KEY: Record<PopdotStyleKey, CSSProperties> = {
   style3: POPDOT_STYLE_3,
   style4: POPDOT_STYLE_4,
   style5: POPDOT_STYLE_5,
+  style6: POPDOT_STYLE_6,
 }

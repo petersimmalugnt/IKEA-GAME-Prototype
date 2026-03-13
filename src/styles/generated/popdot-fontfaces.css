@@ -45,3 +45,10 @@
   font-weight: 25 600;
   font-variation-settings: "slnt" 100, "wdth" 100, "SQRE" 0;
 }
+
+@font-face {
+  font-family: "popdot-canvas-style6";
+  src: url("/POPDOTVF.ttf") format("truetype");
+  font-display: swap;
+  font-variation-settings: "wght" 250, "slnt" 0, "wdth" 0, "SQRE" 0;
+}

@@ -1,4 +1,4 @@
-export type PopdotStyleKey = 'style1' | 'style2' | 'style3' | 'style4' | 'style5'
+export type PopdotStyleKey = 'style1' | 'style2' | 'style3' | 'style4' | 'style5' | 'style6'
 export type PopdotShadowSize = 2 | 4 | 8 | 12 | 16
 
 export type PopdotAxes = {
@@ -24,6 +24,7 @@ export const POPDOT_STYLE_AXES: Record<PopdotStyleKey, PopdotAxes> = {
   style3: { wght: 200, slnt: 0, wdth: 0, SQRE: 0 },
   style4: { wght: 150, slnt: 0, wdth: 0, SQRE: 0 },
   style5: { wght: 375, slnt: 100, wdth: 100, SQRE: 0 },
+  style6: { wght: 250, slnt: 0, wdth: 0, SQRE: 0 },
 }
 
 export const POPDOT_CANVAS_STYLE5_WEIGHT_RANGE = {

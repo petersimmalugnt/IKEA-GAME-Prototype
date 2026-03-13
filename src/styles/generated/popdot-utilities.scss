@@ -45,6 +45,10 @@
   @include popdot-style(5);
 }
 
+.popdot-style-6 {
+  @include popdot-style(6);
+}
+
 .popdot-shadow-2 {
   @include popdot-shadow(2);
 }

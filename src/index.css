@@ -1,6 +1,7 @@
 @import "./styles/generated/popdot-fontfaces.css";
 @import "./styles/generated/popdot-vars.css";
 @import "./styles/generated/popdot-utilities.css";
+@import "./styles/popdot-components.css";
 
 * {
   box-sizing: border-box;
